@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:cryptography/cryptography.dart';
-import 'package:cryptography/dart.dart';
+import 'package:pinenacl/api.dart';
+import 'package:pinenacl/tweetnacl.dart';
 
 /// The overarching assumption is that we use Ed25519 keys for the identity keys
 
@@ -31,15 +33,31 @@ Future<List<int>> dh(SimpleKeyPair kp, SimplePublicKey pk, int identityKey) asyn
   var ckp = kp;
   var cpk = pk;
 
-  /*
   if (identityKey == 1) {
-    final pkc = await DartEd25519.publicKeyToCurve25519(kp);
-    final skc = await DartEd25519.privateKeyToCurve25519(kp);
-    ckp = SimpleKeyPairData(skc, publicKey: pkc, type: KeyPairType.x25519);
+    final pubkeyBytes = (await kp.extractPublicKey()).bytes;
+    final pkc = Uint8List(32);
+    TweetNaClExt.crypto_sign_ed25519_pk_to_x25519_pk(pkc, Uint8List.fromList(pubkeyBytes));
+
+    final keyPairData = await kp.extract();
+    final privateKeyBytes = await keyPairData.extractPrivateKeyBytes();
+    final skc = Uint8List(32);
+    TweetNaClExt.crypto_sign_ed25519_sk_to_x25519_sk(skc, Uint8List.fromList(privateKeyBytes));
+
+    ckp = SimpleKeyPairData(
+      List<int>.from(skc),
+      publicKey: SimplePublicKey(List<int>.from(pkc), type: KeyPairType.x25519),
+      type: KeyPairType.x25519,
+    );
   } else if (identityKey == 2) {
-    cpk = await DartEd25519.publicKeyToCurve25519(fromPublicKey(pk));
+    final pubkeyBytes = pk.bytes;
+    final pkc = Uint8List(32);
+    TweetNaClExt.crypto_sign_ed25519_pk_to_x25519_pk(pkc, Uint8List.fromList(pubkeyBytes));
+
+    cpk = SimplePublicKey(
+      List<int>.from(pkc),
+      type: KeyPairType.x25519,
+    );
   }
-  */
 
   final shared = await Cryptography.instance.x25519().sharedSecretKey(
     keyPair: ckp,

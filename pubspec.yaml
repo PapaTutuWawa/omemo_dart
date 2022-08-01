@@ -8,7 +8,6 @@ environment:
 
 dependencies:
   cryptography:
-    path: ../cryptography/cryptography
   pinenacl:
 
 dev_dependencies:

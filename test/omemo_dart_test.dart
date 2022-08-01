@@ -1,5 +1,4 @@
 import 'package:cryptography/cryptography.dart';
-import 'package:cryptography/dart.dart';
 import 'package:test/test.dart';
 import 'package:omemo_dart/src/x3dh/x3dh.dart';
 
@@ -8,26 +7,14 @@ Future<List<int>> publicKeyBytes(SimpleKeyPair kp) async {
   return pk.bytes;
 }
 
-Future<SimplePublicKey> publicKey(SimpleKeyPair kp) async {
-  //return await DartEd25519.publicKeyToCurve25519(kp);
-  return kp.extractPublicKey();
-}
-
-Future<SimpleKeyPair> toCurve(SimpleKeyPair kp) async {
-  //final pk = await DartEd25519.publicKeyToCurve25519(kp);
-  //final sk = await DartEd25519.privateKeyToCurve25519(kp);
-  //return SimpleKeyPairData(sk, publicKey: pk, type: KeyPairType.x25519);
-  return kp;
-}
-
 void main() {
   test("X3DH", () async {
     final ed = Ed25519();
     final x = Cryptography.instance.x25519();
 
     // Generate IKs for Alice and Bob
-    final ikAlice = await x.newKeyPair();
-    final ikBob = await x.newKeyPair();
+    final ikAlice = await ed.newKeyPair();
+    final ikBob = await ed.newKeyPair();
     
     // Generate SPKs for Alice and Bob
     final spkAlice = await x.newKeyPair();
