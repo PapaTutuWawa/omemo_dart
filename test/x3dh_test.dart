@@ -1,9 +1,10 @@
+import 'dart:convert';
 import 'package:cryptography/cryptography.dart';
 import 'package:omemo_dart/omemo_dart.dart';
 import 'package:test/test.dart';
 
 void main() {
-  test('X3DH', () async {
+  test('X3DH with correct signature', () async {
     // Generate keys
     final ikAlice = await OmemoKeyPair.generateNewPair(KeyPairType.ed25519);
     final ikBob = await OmemoKeyPair.generateNewPair(KeyPairType.ed25519);
@@ -13,14 +14,16 @@ void main() {
       '1',
       await spkBob.pk.asBase64(),
       '3',
-      // TODO(PapaTutuWawa): Do
-      'n/a',
+      base64Encode(
+        await sig(ikBob, await spkBob.pk.getBytes()),
+      ),
+      //'Q5in+/L4kJixEX692h6mJkPMyp4I3SlQ84L0E7ipPzqfPHOMiraUlqG2vG/O8wvFjLsKYZpPBraga9IvwhqVDA==',
       await ikBob.pk.asBase64(),
       {
         '2': await opkBob.pk.asBase64(),
       },
     );
-
+    
     // Alice does X3DH
     final resultAlice = await x3dhFromBundle(bundleBob, ikAlice);
 
@@ -41,5 +44,36 @@ void main() {
     
     expect(resultAlice.sk, resultBob.sk);
     expect(resultAlice.ad, resultBob.ad);
+  });
+
+  test('X3DH with incorrect signature', () async {
+    // Generate keys
+    final ikAlice = await OmemoKeyPair.generateNewPair(KeyPairType.ed25519);
+    final ikBob = await OmemoKeyPair.generateNewPair(KeyPairType.ed25519);
+    final spkBob = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
+    final opkBob = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
+    final bundleBob = OmemoBundle(
+      '1',
+      await spkBob.pk.asBase64(),
+      '3',
+      // NOTE: A bit flakey, but it is highly unlikely that the same keypair as this one
+      //       gets generated.
+      'Q5in+/L4kJixEX692h6mJkPMyp4I3SlQ84L0E7ipPzqfPHOMiraUlqG2vG/O8wvFjLsKYZpPBraga9IvwhqVDA==',
+      await ikBob.pk.asBase64(),
+      {
+        '2': await opkBob.pk.asBase64(),
+      },
+    );
+    
+    // Alice does X3DH
+    var exception = false;
+    try {
+      await x3dhFromBundle(bundleBob, ikAlice);
+    } catch(e) {
+      exception = true;
+      expect(e is InvalidSignatureException, true, reason: 'Expected InvalidSignatureException, but got $e');
+    }
+
+    expect(exception, true, reason: 'Expected test failure');
   });
 }

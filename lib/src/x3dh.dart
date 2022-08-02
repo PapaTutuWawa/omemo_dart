@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:cryptography/cryptography.dart';
 import 'package:omemo_dart/src/bundle.dart';
+import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/key.dart';
 
 /// The overarching assumption is that we use Ed25519 keys for the identity keys
@@ -99,6 +100,19 @@ List<int> concat(List<List<int>> inputs) {
 /// Alice builds a session with Bob using his bundle [bundle] and Alice's identity key
 /// pair [ik].
 Future<X3DHAliceResult> x3dhFromBundle(OmemoBundle bundle, OmemoKeyPair ik) async {
+  // Check the signature first
+  final signatureValue = await Ed25519().verify(
+    await bundle.spk.getBytes(),
+    signature: Signature(
+      bundle.spkSignature,
+      publicKey: bundle.ik.asPublicKey(),
+    ),
+  );
+
+  if (!signatureValue) {
+    throw InvalidSignatureException();
+  }
+
   // Generate EK
   final ek = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
 
