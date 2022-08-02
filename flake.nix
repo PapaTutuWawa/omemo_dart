@@ -1,13 +1,16 @@
 {
   description = "omemo_dart";
   inputs = {
-    nixpkgs.url = "github:PapaTutuWawa/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NANASHI0X74/nixpkgs/flutter-3-0-0";
     flake-utils.url = "github:numtide/flake-utils";
   };
   outputs = { self, nixpkgs, flake-utils }: flake-utils.lib.eachDefaultSystem (system: let
     pkgs = import nixpkgs {
       inherit system;
-      config.android_sdk.accept_license = true;
+      config = {
+        android_sdk.accept_license = true;
+        allowUnfree = true;
+      };
     };
     android = pkgs.androidenv.composeAndroidPackages {
       # TODO: Find a way to pin these

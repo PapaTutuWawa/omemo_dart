@@ -1,48 +1,44 @@
 import 'package:cryptography/cryptography.dart';
 import 'package:test/test.dart';
-import 'package:omemo_dart/src/x3dh/x3dh.dart';
-
-Future<List<int>> publicKeyBytes(SimpleKeyPair kp) async {
-  final pk = await kp.extractPublicKey();
-  return pk.bytes;
-}
+import 'package:omemo_dart/omemo_dart.dart';
 
 void main() {
   test("X3DH", () async {
-    final ed = Ed25519();
-    final x = Cryptography.instance.x25519();
-
-    // Generate IKs for Alice and Bob
-    final ikAlice = await ed.newKeyPair();
-    final ikBob = await ed.newKeyPair();
-    
-    // Generate SPKs for Alice and Bob
-    final spkAlice = await x.newKeyPair();
-    final spkSigAlice = await sig(ikAlice, await publicKeyBytes(spkAlice));
-    final spkBob = await x.newKeyPair();
-    final spkSigBob = await sig(ikBob, await publicKeyBytes(spkBob));
-
-    // Generate an OPK for Alice and Bob
-    final opkAlice = await x.newKeyPair();
-    final opkBob = await x.newKeyPair();
-
-    
-    // Perform X3DH
-    final aliceMessage = await x3dhFromPrekeyBundle(
-      await ikBob.extractPublicKey(),
-      await spkBob.extractPublicKey(),
-      await opkBob.extractPublicKey(),
-      ikAlice,
+    // Generate keys
+    final ikAlice = await OmemoKeyPair.generateNewPair(KeyPairType.ed25519);
+    final ikBob = await OmemoKeyPair.generateNewPair(KeyPairType.ed25519);
+    final spkBob = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
+    final opkBob = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
+    final bundleBob = OmemoBundle(
+      '1',
+      await spkBob.pk.asBase64(),
+      '3',
+      // TODO(PapaTutuWawa):
+      'n/a',
+      await ikBob.pk.asBase64(),
+      {
+        '2': await opkBob.pk.asBase64(),
+      },
     );
 
-    final bobDh = await x3dhFromInitialMessage(
-      await ikAlice.extractPublicKey(),
-      await aliceMessage.epk.extractPublicKey(),
-      opkBob,
+    // Alice does X3DH
+    final resultAlice = await x3dhFromBundle(bundleBob, ikAlice);
+
+    // Alice sends the inital message to Bob
+    // ...
+    
+    // Bob does X3DH
+    final skBob = await x3dhFromInitialMessage(
+      X3DHMessage(
+        ikAlice.pk,
+        resultAlice.ek.pk,
+        '2',
+      ),
       spkBob,
+      opkBob,
       ikBob,
     );
-
-    expect(aliceMessage.sharedSecret, bobDh);
+    
+    expect(resultAlice.sk, skBob);
   });
 }
