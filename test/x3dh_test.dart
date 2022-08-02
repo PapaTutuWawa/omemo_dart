@@ -28,7 +28,7 @@ void main() {
     // ...
     
     // Bob does X3DH
-    final skBob = await x3dhFromInitialMessage(
+    final resultBob = await x3dhFromInitialMessage(
       X3DHMessage(
         ikAlice.pk,
         resultAlice.ek.pk,
@@ -39,6 +39,7 @@ void main() {
       ikBob,
     );
     
-    expect(resultAlice.sk, skBob);
+    expect(resultAlice.sk, resultBob.sk);
+    expect(resultAlice.ad, resultBob.ad);
   });
 }

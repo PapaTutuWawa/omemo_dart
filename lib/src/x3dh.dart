@@ -7,12 +7,13 @@ import 'package:omemo_dart/src/key.dart';
 /// The overarching assumption is that we use Ed25519 keys for the identity keys
 
 /// Performed by Alice
-class X3DHResult {
+class X3DHAliceResult {
 
-  const X3DHResult(this.ek, this.sk, this.opkId);
+  const X3DHAliceResult(this.ek, this.sk, this.opkId, this.ad);
   final OmemoKeyPair ek;
   final List<int> sk;
   final String opkId;
+  final List<int> ad;
 }
 
 /// Received by Bob
@@ -22,6 +23,13 @@ class X3DHMessage {
   final OmemoPublicKey ik;
   final OmemoPublicKey ek;
   final String opkId;
+}
+
+class X3DHBobResult {
+
+  const X3DHBobResult(this.sk, this.ad);
+  final List<int> sk;
+  final List<int> ad;
 }
 
 /// Sign [message] using the keypair [keyPair]. Note that [keyPair] must be
@@ -90,7 +98,7 @@ List<int> concat(List<List<int>> inputs) {
 
 /// Alice builds a session with Bob using his bundle [bundle] and Alice's identity key
 /// pair [ik].
-Future<X3DHResult> x3dhFromBundle(OmemoBundle bundle, OmemoKeyPair ik) async {
+Future<X3DHAliceResult> x3dhFromBundle(OmemoBundle bundle, OmemoKeyPair ik) async {
   // Generate EK
   final ek = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
 
@@ -105,17 +113,27 @@ Future<X3DHResult> x3dhFromBundle(OmemoBundle bundle, OmemoKeyPair ik) async {
   final dh4 = await dh(ek, opk, 0);
 
   final sk = await kdf(concat([dh1, dh2, dh3, dh4]));
+  final ad = concat([
+    await ik.pk.getBytes(),
+    await bundle.ik.getBytes(),
+  ]);
 
-  return X3DHResult(ek, sk, opkId);
+  return X3DHAliceResult(ek, sk, opkId, ad);
 }
 
 /// Bob builds the X3DH shared secret from the inital message [msg], the SPK [spk], the
 /// OPK [opk] that was selected by Alice and our IK [ik]. Returns the shared secret.
-Future<List<int>> x3dhFromInitialMessage(X3DHMessage msg, OmemoKeyPair spk, OmemoKeyPair opk, OmemoKeyPair ik) async {
+Future<X3DHBobResult> x3dhFromInitialMessage(X3DHMessage msg, OmemoKeyPair spk, OmemoKeyPair opk, OmemoKeyPair ik) async {
   final dh1 = await dh(spk, msg.ik, 2);
   final dh2 = await dh(ik,  msg.ek, 1);
   final dh3 = await dh(spk, msg.ek, 0);
   final dh4 = await dh(opk, msg.ek, 0);
 
-  return kdf(concat([dh1, dh2, dh3, dh4]));
+  final sk = await kdf(concat([dh1, dh2, dh3, dh4]));
+  final ad = concat([
+    await msg.ik.getBytes(),
+    await ik.pk.getBytes(),
+  ]);
+
+  return X3DHBobResult(sk, ad);
 }
