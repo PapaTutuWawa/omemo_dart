@@ -6,6 +6,7 @@ import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/key.dart';
 
 /// The overarching assumption is that we use Ed25519 keys for the identity keys
+const omemoX3DHInfoString = 'OMEMO X3DH';
 
 /// Performed by Alice
 class X3DHAliceResult {
@@ -81,7 +82,7 @@ Future<List<int>> kdf(List<int> km) async {
   final output = await algorithm.deriveKey(
     secretKey: SecretKey(input),
     nonce: List<int>.filled(32, 0x00),
-    info: utf8.encode('OMEMO X3DH'),
+    info: utf8.encode(omemoX3DHInfoString),
   );
 
   return output.extractBytes();
