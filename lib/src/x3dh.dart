@@ -71,7 +71,6 @@ Future<List<int>> kdf(List<int> km) async {
   );
   final output = await algorithm.deriveKey(
     secretKey: SecretKey(input),
-    // TODO(PapaTutuWawa): Fix
     nonce: List<int>.filled(32, 0x00),
     info: utf8.encode('OMEMO X3DH'),
   );
