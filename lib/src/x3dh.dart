@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:cryptography/cryptography.dart';
 import 'package:omemo_dart/src/bundle.dart';
 import 'package:omemo_dart/src/errors.dart';
+import 'package:omemo_dart/src/helpers.dart';
 import 'package:omemo_dart/src/key.dart';
 
 /// The overarching assumption is that we use Ed25519 keys for the identity keys
@@ -86,16 +87,6 @@ Future<List<int>> kdf(List<int> km) async {
   );
 
   return output.extractBytes();
-}
-
-/// Flattens [inputs] and concatenates the elements.
-List<int> concat(List<List<int>> inputs) {
-  final tmp = List<int>.empty(growable: true);
-  for (final input in inputs) {
-    tmp.addAll(input);
-  }
-
-  return tmp;
 }
 
 /// Alice builds a session with Bob using his bundle [bundle] and Alice's identity key
