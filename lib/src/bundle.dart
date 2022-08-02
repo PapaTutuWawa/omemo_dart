@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:cryptography/cryptography.dart';
-import 'key.dart';
+import 'package:omemo_dart/src/key.dart';
 
 class OmemoBundle {
 

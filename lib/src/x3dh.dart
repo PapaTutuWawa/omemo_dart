@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:cryptography/cryptography.dart';
-import 'bundle.dart';
-import 'key.dart';
+import 'package:omemo_dart/src/bundle.dart';
+import 'package:omemo_dart/src/key.dart';
 
 /// The overarching assumption is that we use Ed25519 keys for the identity keys
 
@@ -27,7 +27,7 @@ class X3DHMessage {
 /// Sign [message] using the keypair [keyPair]. Note that [keyPair] must be
 /// a Ed25519 keypair.
 Future<List<int>> sig(OmemoKeyPair keyPair, List<int> message) async {
-  assert(keyPair.type == KeyPairType.ed25519);
+  assert(keyPair.type == KeyPairType.ed25519, 'Signature keypair must be Ed25519');
   final signature = await Ed25519().sign(
     message,
     keyPair: await keyPair.asKeyPair(),
@@ -36,9 +36,10 @@ Future<List<int>> sig(OmemoKeyPair keyPair, List<int> message) async {
   return signature.bytes;
 }
 
-/// Performs X25519 with [pk1] and [pk2]. If [identityKey] is set, then
-/// it indicates which of [pk1] ([identityKey] == 1) or [pk2] ([identityKey] == 2)
-/// is the identity key.
+/// Performs X25519 with [kp] and [pk]. If [identityKey] is set, then
+/// it indicates which of [kp] ([identityKey] == 1) or [pk] ([identityKey] == 2)
+/// is the identity key. This is needed since the identity key pair/public key is
+/// an Ed25519 key, but we need them as X25519 keys for DH.
 Future<List<int>> dh(OmemoKeyPair kp, OmemoPublicKey pk, int identityKey) async {
   var ckp = kp;
   var cpk = pk;
@@ -60,8 +61,7 @@ Future<List<int>> dh(OmemoKeyPair kp, OmemoPublicKey pk, int identityKey) async 
 /// Derive a secret from the key material [km].
 Future<List<int>> kdf(List<int> km) async {
   final f = List<int>.filled(32, 0xFF);
-  final input = List<int>.empty(growable: true);
-  input
+  final input = List<int>.empty(growable: true)
     ..addAll(f)
     ..addAll(km);
 
@@ -71,7 +71,7 @@ Future<List<int>> kdf(List<int> km) async {
   );
   final output = await algorithm.deriveKey(
     secretKey: SecretKey(input),
-    // TODO: Fix
+    // TODO(PapaTutuWawa): Fix
     nonce: List<int>.filled(32, 0x00),
     info: utf8.encode('OMEMO X3DH'),
   );
@@ -90,7 +90,7 @@ List<int> concat(List<List<int>> inputs) {
 }
 
 /// Alice builds a session with Bob using his bundle [bundle] and Alice's identity key
-/// pair [ika].
+/// pair [ik].
 Future<X3DHResult> x3dhFromBundle(OmemoBundle bundle, OmemoKeyPair ik) async {
   // Generate EK
   final ek = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);

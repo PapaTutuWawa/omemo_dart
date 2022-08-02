@@ -9,7 +9,6 @@ const publicKeyLength = 32;
 class OmemoPublicKey {
 
   const OmemoPublicKey(this._pubkey);
-  final SimplePublicKey _pubkey;
 
   factory OmemoPublicKey.fromBytes(List<int> bytes, KeyPairType type) {
     return OmemoPublicKey(
@@ -19,6 +18,8 @@ class OmemoPublicKey {
       ),
     );
   }
+
+  final SimplePublicKey _pubkey;
   
   KeyPairType get type => _pubkey.type;
 
@@ -79,7 +80,7 @@ class OmemoKeyPair {
   final OmemoPrivateKey sk;
 
   static Future<OmemoKeyPair> generateNewPair(KeyPairType type) async {
-    assert(type == KeyPairType.ed25519 || type == KeyPairType.x25519);
+    assert(type == KeyPairType.ed25519 || type == KeyPairType.x25519, 'Keypair must be either Ed25519 or X25519');
 
     SimpleKeyPair kp;
     if (type == KeyPairType.ed25519) {

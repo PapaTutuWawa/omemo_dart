@@ -1,9 +1,9 @@
 import 'package:cryptography/cryptography.dart';
-import 'package:test/test.dart';
 import 'package:omemo_dart/omemo_dart.dart';
+import 'package:test/test.dart';
 
 void main() {
-  test("X3DH", () async {
+  test('X3DH', () async {
     // Generate keys
     final ikAlice = await OmemoKeyPair.generateNewPair(KeyPairType.ed25519);
     final ikBob = await OmemoKeyPair.generateNewPair(KeyPairType.ed25519);
@@ -13,7 +13,7 @@ void main() {
       '1',
       await spkBob.pk.asBase64(),
       '3',
-      // TODO(PapaTutuWawa):
+      // TODO(PapaTutuWawa): Do
       'n/a',
       await ikBob.pk.asBase64(),
       {
