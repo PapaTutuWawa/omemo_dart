@@ -1,281 +1,196 @@
-import 'dart:convert';
 import 'package:cryptography/cryptography.dart';
+import 'package:meta/meta.dart';
 import 'package:omemo_dart/protobuf/schema.pb.dart';
-import 'package:omemo_dart/src/bundle.dart';
+import 'package:omemo_dart/src/double_ratchet/crypto.dart';
+import 'package:omemo_dart/src/double_ratchet/kdf.dart';
 import 'package:omemo_dart/src/helpers.dart';
 import 'package:omemo_dart/src/key.dart';
 import 'package:omemo_dart/src/x3dh.dart';
 
-class OmemoRatchetStepResult {
+/// Amount of messages we may skip per session
+const maxSkip = 1000;
 
-  const OmemoRatchetStepResult(this.header, this.cipherText);
-  final List<int> header;
-  final List<int> cipherText;
+class RatchetStep {
+
+  const RatchetStep(this.header, this.ciphertext);
+  final OMEMOMessage header;
+  final List<int> ciphertext;
 }
 
-class OmemoEncryptionResult {
+@immutable
+class SkippedKey {
 
-  const OmemoEncryptionResult(this.cipherText, this.keys);
-  /// The encrypted plaintext
-  final List<int> cipherText;
-  /// Mapping between Device id and the key to decrypt cipherText;
-  final Map<String, List<int>> keys;
+  const SkippedKey(this.dh, this.n);
+  final OmemoPublicKey dh;
+  final int n;
+
+  @override
+  bool operator ==(Object other) {
+    return other is SkippedKey && other.dh == dh && other.n == n;
+  }
+
+  @override
+  int get hashCode => dh.hashCode ^ n.hashCode;
 }
 
-/// The session state of one party
-class AliceOmemoSession {
+class OmemoDoubleRatchet {
 
-  AliceOmemoSession(
-    this.dhs,
-    this.dhr,
-    this.ek,
-    this.rk,
-    this.cks,
-    this.ckr,
-    this.ns,
-    this.nr,
-    this.pn,
-    // this.skippedMessages,
-    this.ad,
+  OmemoDoubleRatchet(
+    this.dhs, // DHs
+    this.dhr, // DHr
+    this.rk,  // RK
+    this.cks, // CKs
+    this.ckr, // CKr
+    this.ns,  // Ns
+    this.nr,  // Nr
+    this.pn,  // Pn
+    this.sessionAd,
   );
-  
-  /// The Diffie-Hellman sending key pair
-  final OmemoKeyPair dhs;
+     
+  /// Sending DH keypair
+  OmemoKeyPair dhs;
 
-  /// The Diffie-Hellman receiving key pair
-  final OmemoPublicKey dhr;
+  /// Receiving Public key
+  OmemoPublicKey? dhr;
 
-  /// The EK used by X3DH
-  final OmemoKeyPair ek;
-  
-  /// The Root Key
+  /// 32 byte Root Key
   List<int> rk;
 
-  /// Sending Chain Key
-  List<int> cks;
-
-  /// Receiving Chain Key
+  /// Sending and receiving Chain Keys
+  List<int>? cks;
   List<int>? ckr;
 
-  /// Message number for sending
+  /// Sending and receiving message numbers
   int ns;
-
-  /// Message number for receiving
   int nr;
 
-  /// Number of messages in the previous sending chain
+  /// Previous sending chain number
   int pn;
-  
-  /// The associated data from the X3DH
-  final List<int> ad;
 
-  // TODO(PapaTutuWawa): Track skipped over message keys
+  final List<int> sessionAd;
 
-  static Future<AliceOmemoSession> newSession(OmemoBundle bundle, OmemoKeyPair ik) async {
-    // TODO(PapaTutuWawa): Error handling
-    final x3dhResult = await x3dhFromBundle(bundle, ik);
+  final Map<SkippedKey, List<int>> mkSkipped = {};
+
+  /// This is performed by the initiating entity
+  static Future<OmemoDoubleRatchet> initiateNewSession(OmemoPublicKey spk, List<int> sk, List<int> ad) async {
     final dhs = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
-    final dhr = bundle.ik;
-    final ek = x3dhResult.ek;
-    final sk = x3dhResult.sk;
-    final kdfRkResult = await kdfRk(sk, await dh(dhs, dhr, 2));
-    
-    return AliceOmemoSession(
+    final dhr = spk;
+    final rk  = await kdfRk(sk, await dh(dhs, dhr, 0));
+    final cks = rk;
+
+    return OmemoDoubleRatchet(
       dhs,
       dhr,
-      ek,
-      kdfRkResult.rk,
-      kdfRkResult.ck,
+      rk,
+      cks,
       null,
       0,
       0,
       0,
-      x3dhResult.ad,
+      ad,
     );
   }
 
-  /// The associated_data parameter is implicit as it belongs to the session
-  Future<List<int>> _encrypt(List<int> mk, List<int> plaintext, List<int> associatedData) async {
-    final algorithm = Hkdf(
-      hmac: Hmac(Sha256()),
-      outputLength: 80,
+  /// This is performed by the accepting entity
+  static Future<OmemoDoubleRatchet> acceptNewSession(OmemoKeyPair spk, List<int> sk, List<int> ad) async {
+    final dhs = spk;
+    return OmemoDoubleRatchet(
+      dhs,
+      null,
+      sk,
+      null,
+      null,
+      0,
+      0,
+      0,
+      ad,
     );
-    final hkdfResult = await algorithm.deriveKey(
-      secretKey: SecretKey(mk),
-      nonce: List<int>.filled(32, 0x00),
-      info: utf8.encode(encryptHkdfInfoString),
-    );
-    final bytes = await hkdfResult.extractBytes();
-
-    final encKey = bytes.sublist(0, 32);
-    final authKey = bytes.sublist(32, 64);
-    final iv = bytes.sublist(64, 82);
-
-    // TODO(PapaTutuWawa): Remove once done
-    assert(encKey.length == 32);
-    assert(authKey.length == 32);
-    assert(iv.length == 16);
-
-    // 32 = 256 / 8
-    final encodedPlaintext = pkcs7padding(plaintext, 32);
-
-    final aesAlgorithm = AesCbc.with256bits(
-      macAlgorithm: Hmac.sha256(),
-    );
-    final secretBox = await aesAlgorithm.encrypt(
-      encodedPlaintext,
-      secretKey: SecretKey(encKey),
-      nonce: iv,
-    );
-
-    final ad_ = associatedData.sublist(0, ad.length);
-    final message = OMEMOMessage.fromBuffer(associatedData.sublist(ad.length))
-      ..ciphertext = secretBox.cipherText;
-    final messageBytes = message.writeToBuffer();
-
-    final input = concat([ad_, messageBytes]);
-    final authBytes = (await Hmac.sha256().calculateMac(
-      input,
-      secretKey: SecretKey(authKey),
-    )).bytes.sublist(0, 16);
-
-    final authenticatedMessage = OMEMOAuthenticatedMessage()
-      ..mac = authBytes
-      ..message = messageBytes;
-
-    return authenticatedMessage.writeToBuffer();
-  }
-
-  Future<List<int>> ratchetStep(List<int> plaintext) async {
-    final kdfResult = await kdfCk(cks);
-    final message = OMEMOMessage()
-      ..dhPub = await dhs.pk.getBytes()
-      ..pn = pn
-      ..n = ns;
-    final header = message.writeToBuffer();
-    
-    cks = kdfResult.ck;
-    ns++;
-
-    return _encrypt(
-      kdfResult.mk,
-      plaintext,
-      concat([ad, header]),
-    );
-  }
-}
-
-Future<OmemoEncryptionResult> encryptForSessions(List<AliceOmemoSession> sessions, String plaintext) async {
-  // TODO(PapaTutuWawa): Generate random data
-  final key = List<int>.filled(32, 0x0);
-  final algorithm = Hkdf(
-    hmac: Hmac(Sha256()),
-    outputLength: 80,
-  );
-  final result = await algorithm.deriveKey(
-    secretKey: SecretKey(key),
-    nonce: List<int>.filled(32, 0x0),
-    info: utf8.encode(encryptionHkdfInfoString),
-  );
-  final bytes = await result.extractBytes();
-
-  final encKey = bytes.sublist(0, 32);
-  final authKey = bytes.sublist(32, 64);
-  final iv = bytes.sublist(64, 80);
-
-  final encodedPlaintext = pkcs7padding(utf8.encode(plaintext), 32);
-  final aesAlgorithm = AesCbc.with256bits(
-    macAlgorithm: Hmac.sha256(),
-  );
-  final secretBox = await aesAlgorithm.encrypt(
-    encodedPlaintext,
-    secretKey: SecretKey(encKey),
-    nonce: iv,
-  );
-  final hmac = (await Hmac.sha256().calculateMac(
-    secretBox.cipherText,
-    secretKey: SecretKey(authKey),
-  )).bytes.sublist(0, 16);
-
-  final keyData = concat([encKey, hmac]);
-
-  final keyMap = <String, List<int>>{};
-  for (final session in sessions) {
-    final ratchetKey = await session.ratchetStep(keyData);
   }
   
-  return OmemoEncryptionResult(
-    secretBox.cipherText,
-    keyMap,
-  );
-}
+  Future<RatchetStep> ratchetEncrypt(List<int> plaintext) async {
+    final newCks = await kdfCk(cks!, kdfCkNextChainKey);
+    final mk = await kdfCk(cks!, kdfCkNextMessageKey);
 
-/// Result of the KDF_RK function from the Double Ratchet spec.
-class KdfRkResult {
+    cks = newCks;
+    final header = OMEMOMessage()
+      ..n = ns
+      ..pn = pn
+      ..dhPub = await dhs.pk.getBytes();
 
-  const KdfRkResult(this.rk, this.ck);
-  /// 32 byte Root Key
-  final List<int> rk;
+    ns++;
 
-  /// 32 byte Chain Key
-  final List<int> ck;
-}
+    return RatchetStep(
+      header,
+      await encrypt(mk, plaintext, concat([sessionAd, header.writeToBuffer()]), sessionAd),
+    );
+  }
 
-/// Result of the KDF_CK function from the Double Ratchet spec.
-class KdfCkResult {
+  Future<List<int>?> trySkippedMessageKeys(OMEMOMessage header, List<int> ciphertext) async {
+    final key = SkippedKey(
+      // TODO(PapaTutuWawa): Is this correct
+      OmemoPublicKey.fromBytes(header.dhPub, KeyPairType.ed25519),
+      header.n,
+    );
+    if (mkSkipped.containsKey(key)) {
+      final mk = mkSkipped[key]!;
+      mkSkipped.remove(key);
 
-  const KdfCkResult(this.ck, this.mk);
-  /// 32 byte Chain Key
-  final List<int> ck;
+      return decrypt(mk, ciphertext, concat([sessionAd, header.writeToBuffer()]), sessionAd);
+    }
 
-  /// 32 byte Message Key
-  final List<int> mk;
-}
+    return null;
+  }
 
-/// Amount of messages we may skip per session
-const maxSkip = 1000;
+  Future<void> skipMessageKeys(int until) async {
+    if (nr + maxSkip < until) {
+      // TODO(PapaTutuWawa): Custom exception
+      throw Exception();
+    }
 
-/// Info string for KDF_RK
-const kdfRkInfoString = 'OMEMO Root Chain';
+    if (ckr != null) {
+      while (nr < until) {
+        final newCkr = await kdfCk(ckr!, kdfCkNextChainKey);
+        final mk = await kdfCk(ckr!, kdfCkNextMessageKey);
+        ckr = newCkr;
+        mkSkipped[SkippedKey(dhr!, nr)] = mk;
+        nr++;
+      }
+    }
+  }
 
-/// Info string for ENCRYPT
-const encryptHkdfInfoString = 'OMEMO Message Key Material';
+  Future<void> dhRatchet(OMEMOMessage header) async {
+    pn = header.n;
+    ns = 0;
+    nr = 0;
+    dhr = OmemoPublicKey.fromBytes(header.dhPub, KeyPairType.ed25519);
 
-/// Info string for encrypting a message
-const encryptionHkdfInfoString = 'OMEMO Payload';
+    final newRk = await kdfRk(rk, await dh(dhs, dhr!, 2));
+    rk = newRk;
+    ckr = newRk;
+    dhs = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
+    final newNewRk = await kdfRk(rk, await dh(dhs, dhr!, 2));
+    rk = newNewRk;
+    cks = newNewRk;
+  }
+  
+  Future<List<int>> ratchetDecrypt(OMEMOMessage header, List<int> ciphertext) async {
+    // Check if we skipped too many messages
+    final plaintext = await trySkippedMessageKeys(header, ciphertext);
+    if (plaintext != null) {
+      return plaintext;
+    }
 
-/// Flags for KDF_CK
-const kdfCkNextMessageKey = 0x01;
-const kdfCkNextChainKey = 0x02;
+    if (header.dhPub != await dhr?.getBytes()) {
+      await skipMessageKeys(header.pn);
+      await dhRatchet(header);
+    }
 
-Future<KdfRkResult> kdfRk(List<int> rk, List<int> dhOut) async {
-  final algorithm = Hkdf(
-    hmac: Hmac(Sha256()),
-    outputLength: 32,
-  );
-  final result = await algorithm.deriveKey(
-    secretKey: SecretKey(dhOut),
-    nonce: rk,
-    info: utf8.encode(kdfRkInfoString),
-  );
+    await skipMessageKeys(header.n);
+    final newCkr = await kdfCk(ckr!, kdfCkNextChainKey);
+    final mk = await kdfCk(ckr!, kdfCkNextMessageKey);
+    ckr = newCkr;
+    nr++;
 
-  // TODO(PapaTutuWawa): Does the rk in the tuple (rk, ck) refer to the input rk?
-  return KdfRkResult(rk, await result.extractBytes());
-}
-
-Future<KdfCkResult> kdfCk(List<int> ck) async {
-  final hkdf = Hkdf(hmac: Hmac(Sha256()), outputLength: 32);
-  final newCk = await hkdf.deriveKey(
-    secretKey: SecretKey(ck),
-    nonce: [kdfCkNextChainKey],
-  );
-  final mk = await hkdf.deriveKey(
-    secretKey: SecretKey(ck),
-    nonce: [kdfCkNextMessageKey],
-  );
-
-  return KdfCkResult(
-    await newCk.extractBytes(),
-    await mk.extractBytes(),
-  );
+    return decrypt(mk, ciphertext, concat([sessionAd, header.writeToBuffer()]), sessionAd);
+  }
 }

@@ -59,6 +59,9 @@ Future<List<int>> dh(OmemoKeyPair kp, OmemoPublicKey pk, int identityKey) async 
     ckp = await kp.toCurve25519();
   } else if (identityKey == 2) {
     cpk = await pk.toCurve25519();
+  } else if (identityKey == 3) {
+    ckp = await kp.toCurve25519();
+    cpk = await pk.toCurve25519();
   }
 
   final shared = await Cryptography.instance.x25519().sharedSecretKey(
