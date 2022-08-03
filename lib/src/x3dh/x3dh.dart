@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:cryptography/cryptography.dart';
 import 'package:omemo_dart/src/bundle.dart';
+import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/helpers.dart';
 import 'package:omemo_dart/src/key.dart';
@@ -45,28 +46,6 @@ Future<List<int>> sig(OmemoKeyPair keyPair, List<int> message) async {
   );
 
   return signature.bytes;
-}
-
-/// Performs X25519 with [kp] and [pk]. If [identityKey] is set, then
-/// it indicates which of [kp] ([identityKey] == 1) or [pk] ([identityKey] == 2)
-/// is the identity key. This is needed since the identity key pair/public key is
-/// an Ed25519 key, but we need them as X25519 keys for DH.
-Future<List<int>> dh(OmemoKeyPair kp, OmemoPublicKey pk, int identityKey) async {
-  var ckp = kp;
-  var cpk = pk;
-
-  if (identityKey == 1) {
-    ckp = await kp.toCurve25519();
-  } else if (identityKey == 2) {
-    cpk = await pk.toCurve25519();
-  }
-
-  final shared = await Cryptography.instance.x25519().sharedSecretKey(
-    keyPair: await ckp.asKeyPair(),
-    remotePublicKey: cpk.asPublicKey(),
-  );
-
-  return shared.extractBytes();
 }
 
 /// Derive a secret from the key material [km].
@@ -113,10 +92,10 @@ Future<X3DHAliceResult> x3dhFromBundle(OmemoBundle bundle, OmemoKeyPair ik) asyn
   final opkId = bundle.opksEncoded.keys.elementAt(opkIndex);
   final opk = bundle.getOpk(opkId);
   
-  final dh1 = await dh(ik, bundle.spk, 1);
-  final dh2 = await dh(ek, bundle.ik,  2);
-  final dh3 = await dh(ek, bundle.spk, 0);
-  final dh4 = await dh(ek, opk, 0);
+  final dh1 = await omemoDH(ik, bundle.spk, 1);
+  final dh2 = await omemoDH(ek, bundle.ik,  2);
+  final dh3 = await omemoDH(ek, bundle.spk, 0);
+  final dh4 = await omemoDH(ek, opk, 0);
 
   final sk = await kdf(concat([dh1, dh2, dh3, dh4]));
   final ad = concat([
@@ -130,10 +109,10 @@ Future<X3DHAliceResult> x3dhFromBundle(OmemoBundle bundle, OmemoKeyPair ik) asyn
 /// Bob builds the X3DH shared secret from the inital message [msg], the SPK [spk], the
 /// OPK [opk] that was selected by Alice and our IK [ik]. Returns the shared secret.
 Future<X3DHBobResult> x3dhFromInitialMessage(X3DHMessage msg, OmemoKeyPair spk, OmemoKeyPair opk, OmemoKeyPair ik) async {
-  final dh1 = await dh(spk, msg.ik, 2);
-  final dh2 = await dh(ik,  msg.ek, 1);
-  final dh3 = await dh(spk, msg.ek, 0);
-  final dh4 = await dh(opk, msg.ek, 0);
+  final dh1 = await omemoDH(spk, msg.ik, 2);
+  final dh2 = await omemoDH(ik,  msg.ek, 1);
+  final dh3 = await omemoDH(spk, msg.ek, 0);
+  final dh4 = await omemoDH(opk, msg.ek, 0);
 
   final sk = await kdf(concat([dh1, dh2, dh3, dh4]));
   final ad = concat([
