@@ -113,9 +113,9 @@ class OmemoDoubleRatchet {
 
     cks = newCks;
     final header = OMEMOMessage()
-      ..n = ns
+      ..dhPub = await dhs.pk.getBytes()
       ..pn = pn
-      ..dhPub = await dhs.pk.getBytes();
+      ..n = ns;
 
     ns++;
 
@@ -127,8 +127,7 @@ class OmemoDoubleRatchet {
 
   Future<List<int>?> trySkippedMessageKeys(OMEMOMessage header, List<int> ciphertext) async {
     final key = SkippedKey(
-      // TODO(PapaTutuWawa): Is this correct
-      OmemoPublicKey.fromBytes(header.dhPub, KeyPairType.ed25519),
+      OmemoPublicKey.fromBytes(header.dhPub, KeyPairType.x25519),
       header.n,
     );
     if (mkSkipped.containsKey(key)) {
@@ -162,13 +161,13 @@ class OmemoDoubleRatchet {
     pn = header.n;
     ns = 0;
     nr = 0;
-    dhr = OmemoPublicKey.fromBytes(header.dhPub, KeyPairType.ed25519);
+    dhr = OmemoPublicKey.fromBytes(header.dhPub, KeyPairType.x25519);
 
-    final newRk = await kdfRk(rk, await dh(dhs, dhr!, 2));
+    final newRk = await kdfRk(rk, await dh(dhs, dhr!, 0));
     rk = newRk;
     ckr = newRk;
     dhs = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
-    final newNewRk = await kdfRk(rk, await dh(dhs, dhr!, 2));
+    final newNewRk = await kdfRk(rk, await dh(dhs, dhr!, 0));
     rk = newNewRk;
     cks = newNewRk;
   }

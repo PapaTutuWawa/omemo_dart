@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_print
 import 'dart:convert';
 import 'package:cryptography/cryptography.dart';
 import 'package:omemo_dart/omemo_dart.dart';
@@ -33,7 +34,6 @@ void main() {
     expect(decrypted, plaintext);
   });
 
-  /*
   test('Test the Double Ratchet', () async {
     // Generate keys
     final ikAlice = await OmemoKeyPair.generateNewPair(KeyPairType.ed25519);
@@ -90,20 +90,35 @@ void main() {
     //expect(await alicesRatchet.dhr.getBytes(), await ikBob.pk.getBytes());
     
     // Alice encrypts a message
-    final aliceRatchetResult = await alicesRatchet.ratchetEncrypt(utf8.encode('Hello Bob'));
+    final aliceRatchetResult1 = await alicesRatchet.ratchetEncrypt(utf8.encode('Hello Bob'));
     print('Alice sent the message');
 
     // Alice sends it to Bob
     // ...
 
     // Bob tries to decrypt it
-    final bobRatchetResult = await bobsRatchet.ratchetDecrypt(
-      aliceRatchetResult.header,
-      aliceRatchetResult.ciphertext,
+    final bobRatchetResult1 = await bobsRatchet.ratchetDecrypt(
+      aliceRatchetResult1.header,
+      aliceRatchetResult1.ciphertext,
     );
     print('Bob decrypted the message');
 
-    expect(utf8.encode('Hello Bob'), bobRatchetResult);
+    expect(utf8.encode('Hello Bob'), bobRatchetResult1);
+
+    // Bob sends a message to Alice
+    final bobRatchetResult2 = await bobsRatchet.ratchetEncrypt(utf8.encode('Hello Alice'));
+    print('Bob sent the message');
+
+    // Bobs sends it to Alice
+    // ...
+
+    // Alice tries to decrypt it
+    final aliceRatchetResult2 = await alicesRatchet.ratchetDecrypt(
+      bobRatchetResult2.header,
+      bobRatchetResult2.ciphertext,
+    );
+    print('Alice decrypted the message');
+
+    expect(utf8.encode('Hello Alice'), aliceRatchetResult2);
   });
-  */
 }
