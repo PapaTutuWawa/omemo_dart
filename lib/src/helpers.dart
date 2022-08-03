@@ -7,9 +7,3 @@ List<int> concat(List<List<int>> inputs) {
 
   return tmp;
 }
-
-List<int> pkcs7padding(List<int> input, int size) {
-  final paddingLength = size - input.length % size;
-  final padding = List<int>.filled(paddingLength, 0x0);
-  return concat([input, padding]);
-}
