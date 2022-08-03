@@ -7,3 +7,9 @@ class InvalidSignatureException implements Exception {
 class InvalidMessageHMACException implements Exception {
   String errMsg() => 'The computed HMAC does not match the provided HMAC';
 }
+
+/// Triggered by the Double Ratchet if skipping messages would cause skipping more than
+/// MAXSKIP messages
+class SkippingTooManyMessagesException implements Exception {
+  String errMsg() => 'Skipping messages would cause a skip bigger than MAXSKIP';
+}

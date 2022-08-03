@@ -3,6 +3,7 @@ import 'package:meta/meta.dart';
 import 'package:omemo_dart/protobuf/schema.pb.dart';
 import 'package:omemo_dart/src/double_ratchet/crypto.dart';
 import 'package:omemo_dart/src/double_ratchet/kdf.dart';
+import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/helpers.dart';
 import 'package:omemo_dart/src/key.dart';
 import 'package:omemo_dart/src/x3dh.dart';
@@ -142,8 +143,7 @@ class OmemoDoubleRatchet {
 
   Future<void> skipMessageKeys(int until) async {
     if (nr + maxSkip < until) {
-      // TODO(PapaTutuWawa): Custom exception
-      throw Exception();
+      throw SkippingTooManyMessagesException();
     }
 
     if (ckr != null) {
