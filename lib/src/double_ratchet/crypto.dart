@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:cryptography/cryptography.dart';
 import 'package:omemo_dart/protobuf/schema.pb.dart';
+import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/helpers.dart';
 
 /// Info string for ENCRYPT
@@ -93,7 +94,9 @@ Future<List<int>> decrypt(List<int> mk, List<int> ciphertext, List<int> associat
     secretKey: SecretKey(authenticationKey),
   )).bytes.sublist(0, 16);
 
-  // TODO(PapaTutuWawa): Check the HMAC result
+  if (!listsEqual(hmacResult, message.mac)) {
+    throw InvalidMessageHMACException();
+  }
   
   final plaintext = await AesCbc.with256bits(
     macAlgorithm: MacAlgorithm.empty,
