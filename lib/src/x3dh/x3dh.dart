@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:cryptography/cryptography.dart';
-import 'package:omemo_dart/src/bundle.dart';
 import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/helpers.dart';
 import 'package:omemo_dart/src/key.dart';
+import 'package:omemo_dart/src/omemo/bundle.dart';
 
 /// The overarching assumption is that we use Ed25519 keys for the identity keys
 const omemoX3DHInfoString = 'OMEMO X3DH';
