@@ -19,7 +19,7 @@ class NoMacSecretBox extends SecretBox {
   }) async {}
 }
 
-/// Signals ENCRYPT function as specified by OMEMO 0.8.0.
+/// Signals ENCRYPT function as specified by OMEMO 0.8.3.
 /// Encrypt [plaintext] using the message key [mk], given associated_data [associatedData]
 /// and the AD output from the X3DH [sessionAd].
 Future<List<int>> encrypt(List<int> mk, List<int> plaintext, List<int> associatedData, List<int> sessionAd) async {
@@ -62,7 +62,7 @@ Future<List<int>> encrypt(List<int> mk, List<int> plaintext, List<int> associate
   return message.writeToBuffer();
 }
 
-/// Signals DECRYPT function as specified by OMEMO 0.8.0.
+/// Signals DECRYPT function as specified by OMEMO 0.8.3.
 /// Decrypt [ciphertext] with the message key [mk], given the associated_data [associatedData]
 /// and the AD output from the X3DH.
 Future<List<int>> decrypt(List<int> mk, List<int> ciphertext, List<int> associatedData, List<int> sessionAd) async {
