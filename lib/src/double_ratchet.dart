@@ -1,12 +1,12 @@
 import 'package:cryptography/cryptography.dart';
 import 'package:meta/meta.dart';
 import 'package:omemo_dart/protobuf/schema.pb.dart';
+import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/double_ratchet/crypto.dart';
 import 'package:omemo_dart/src/double_ratchet/kdf.dart';
 import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/helpers.dart';
 import 'package:omemo_dart/src/key.dart';
-import 'package:omemo_dart/src/x3dh.dart';
 
 /// Amount of messages we may skip per session
 const maxSkip = 1000;
@@ -78,7 +78,7 @@ class OmemoDoubleRatchet {
   static Future<OmemoDoubleRatchet> initiateNewSession(OmemoPublicKey spk, List<int> sk, List<int> ad) async {
     final dhs = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     final dhr = spk;
-    final rk  = await kdfRk(sk, await dh(dhs, dhr, 0));
+    final rk  = await kdfRk(sk, await omemoDH(dhs, dhr, 0));
     final cks = rk;
 
     return OmemoDoubleRatchet(
@@ -148,11 +148,11 @@ class OmemoDoubleRatchet {
     nr = 0;
     dhr = OmemoPublicKey.fromBytes(header.dhPub, KeyPairType.x25519);
 
-    final newRk = await kdfRk(rk, await dh(dhs, dhr!, 0));
+    final newRk = await kdfRk(rk, await omemoDH(dhs, dhr!, 0));
     rk = newRk;
     ckr = newRk;
     dhs = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
-    final newNewRk = await kdfRk(rk, await dh(dhs, dhr!, 0));
+    final newNewRk = await kdfRk(rk, await omemoDH(dhs, dhr!, 0));
     rk = newNewRk;
     cks = newNewRk;
   }
