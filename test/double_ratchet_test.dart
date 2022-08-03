@@ -74,7 +74,9 @@ void main() {
 
     print('X3DH key exchange done');
 
+
     // Alice and Bob now share sk as a common secret and ad
+    // Build a session
     final alicesRatchet = await OmemoDoubleRatchet.initiateNewSession(
       spkBob.pk,
       resultAlice.sk,
@@ -87,38 +89,43 @@ void main() {
     );
 
     expect(alicesRatchet.sessionAd, bobsRatchet.sessionAd);
-    //expect(await alicesRatchet.dhr.getBytes(), await ikBob.pk.getBytes());
-    
-    // Alice encrypts a message
-    final aliceRatchetResult1 = await alicesRatchet.ratchetEncrypt(utf8.encode('Hello Bob'));
-    print('Alice sent the message');
 
-    // Alice sends it to Bob
-    // ...
+    for (var i = 0; i < 100; i++) {
+      final messageText = 'Hello, dear $i';
+      
+      if (i % 2 == 0) {
+        // Alice encrypts a message
+        final aliceRatchetResult = await alicesRatchet.ratchetEncrypt(utf8.encode(messageText));
+        print('Alice sent the message');
 
-    // Bob tries to decrypt it
-    final bobRatchetResult1 = await bobsRatchet.ratchetDecrypt(
-      aliceRatchetResult1.header,
-      aliceRatchetResult1.ciphertext,
-    );
-    print('Bob decrypted the message');
+        // Alice sends it to Bob
+        // ...
 
-    expect(utf8.encode('Hello Bob'), bobRatchetResult1);
+        // Bob tries to decrypt it
+        final bobRatchetResult = await bobsRatchet.ratchetDecrypt(
+          aliceRatchetResult.header,
+          aliceRatchetResult.ciphertext,
+        );
+        print('Bob decrypted the message');
 
-    // Bob sends a message to Alice
-    final bobRatchetResult2 = await bobsRatchet.ratchetEncrypt(utf8.encode('Hello Alice'));
-    print('Bob sent the message');
+        expect(utf8.encode(messageText), bobRatchetResult);
+      } else {
+        // Bob sends a message to Alice
+        final bobRatchetResult = await bobsRatchet.ratchetEncrypt(utf8.encode(messageText));
+        print('Bob sent the message');
 
-    // Bobs sends it to Alice
-    // ...
+        // Bobs sends it to Alice
+        // ...
 
-    // Alice tries to decrypt it
-    final aliceRatchetResult2 = await alicesRatchet.ratchetDecrypt(
-      bobRatchetResult2.header,
-      bobRatchetResult2.ciphertext,
-    );
-    print('Alice decrypted the message');
+        // Alice tries to decrypt it
+        final aliceRatchetResult = await alicesRatchet.ratchetDecrypt(
+          bobRatchetResult.header,
+          bobRatchetResult.ciphertext,
+        );
+        print('Alice decrypted the message');
 
-    expect(utf8.encode('Hello Alice'), aliceRatchetResult2);
+        expect(utf8.encode(messageText), aliceRatchetResult);
+      }
+    }
   });
 }
