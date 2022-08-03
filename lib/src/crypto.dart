@@ -1,5 +1,5 @@
 import 'package:cryptography/cryptography.dart';
-import 'package:omemo_dart/src/key.dart';
+import 'package:omemo_dart/src/keys.dart';
 
 /// Performs X25519 with [kp] and [pk]. If [identityKey] is set, then
 /// it indicates which of [kp] ([identityKey] == 1) or [pk] ([identityKey] == 2)
