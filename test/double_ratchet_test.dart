@@ -93,7 +93,7 @@ void main() {
     for (var i = 0; i < 100; i++) {
       final messageText = 'Hello, dear $i';
       
-      if (i % 2 == 0) {
+      if (i.isEven) {
         // Alice encrypts a message
         final aliceRatchetResult = await alicesRatchet.ratchetEncrypt(utf8.encode(messageText));
         print('Alice sent the message');
