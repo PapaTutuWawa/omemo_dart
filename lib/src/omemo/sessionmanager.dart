@@ -5,6 +5,7 @@ import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/double_ratchet/double_ratchet.dart';
 import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/helpers.dart';
+import 'package:omemo_dart/src/omemo/bundle.dart';
 import 'package:omemo_dart/src/omemo/device.dart';
 import 'package:synchronized/synchronized.dart';
 
@@ -36,6 +37,7 @@ class OmemoSessionManager {
 
   /// Generate a new cryptographic identity.
   static Future<OmemoSessionManager> generateNewIdentity({ int opkAmount = 100 }) async {
+    assert(opkAmount > 0, 'opkAmount must be bigger than 0.');
     final device = await Device.generateNewDevice(opkAmount: opkAmount);
 
     return OmemoSessionManager(device);
@@ -72,6 +74,10 @@ class OmemoSessionManager {
       }
     });
   }
+
+  Future<void> addSessionFromBundle(String jid, String deviceId, OmemoBundle bundle) async {
+    // TODO(PapaTutuWawa): Do
+  }
   
   /// Encrypt the key [plaintext] for all known bundles of [jid]. Returns a map that
   /// maps the Bundle Id to the ciphertext of [plaintext].
@@ -87,8 +93,8 @@ class OmemoSessionManager {
       keys.iv,
     );
     final hmac = await truncatedHmac(ciphertext, keys.authenticationKey);
-    final concatKey = concat([keys.encryptionKey, hmac]);
-    
+    final concatKey = concat([key, hmac]);
+
     await _lock.synchronized(() async {
       // We assume that the user already checked if the session exists
       for (final deviceId in _deviceMap[jid]!) {
@@ -121,13 +127,13 @@ class OmemoSessionManager {
     if (!devices.contains(senderDeviceId)) {
       throw NoDecryptionKeyException();
     }
-
+    
     final decodedRawKey = base64.decode(rawKey.value);
     final authMessage = OMEMOAuthenticatedMessage.fromBuffer(decodedRawKey);
     final message = OMEMOMessage.fromBuffer(authMessage.message);
     
     final ratchet = _ratchetMap[senderDeviceId]!;
-    final keyAndHmac = await ratchet.ratchetDecrypt(message, message.ciphertext);
+    final keyAndHmac = await ratchet.ratchetDecrypt(message, decodedRawKey);
     final key = keyAndHmac.sublist(0, 32);
     final hmac = keyAndHmac.sublist(32, 48);
     final derivedKeys = await deriveEncryptionKeys(key, omemoPayloadInfoString);

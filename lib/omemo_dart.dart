@@ -5,4 +5,5 @@ export 'src/errors.dart';
 export 'src/helpers.dart';
 export 'src/keys.dart';
 export 'src/omemo/bundle.dart';
+export 'src/omemo/sessionmanager.dart';
 export 'src/x3dh/x3dh.dart';
