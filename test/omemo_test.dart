@@ -12,36 +12,20 @@ void main() {
     final bobSession = await OmemoSessionManager.generateNewIdentity(opkAmount: 1);
 
     // Perform the X3DH
-    final x3dhAliceResult = await x3dhFromBundle(
+    final x3dhAliceResult = await aliceSession.addSessionFromBundle(
+      bobJid,
+      bobSession.device.id,
       await bobSession.device.toBundle(),
-      aliceSession.device.ik,
     );
-    final x3dhBobResult = await x3dhFromInitialMessage(
+    await bobSession.addSessionFromKeyExchange(
+      aliceJid,
+      aliceSession.device.id,
       X3DHMessage(
         aliceSession.device.ik.pk,
         x3dhAliceResult.ek.pk,
         '2',
       ),
-      bobSession.device.spk,
-      bobSession.device.opks.values.elementAt(0),
-      bobSession.device.ik,
     );
-
-    // Build the ratchets
-    final aliceRatchet = await OmemoDoubleRatchet.initiateNewSession(
-      bobSession.device.spk.pk,
-      x3dhAliceResult.sk,
-      x3dhAliceResult.ad,
-    );
-    final bobRatchet = await OmemoDoubleRatchet.acceptNewSession(
-      bobSession.device.spk,
-      x3dhBobResult.sk,
-      x3dhBobResult.ad,
-    );
-
-    // Add the ratchets to the session managers
-    await aliceSession.addSession(bobJid, bobSession.device.id, aliceRatchet);
-    await bobSession.addSession(aliceJid, aliceSession.device.id, bobRatchet);
 
     // Alice encrypts a message for Bob
     const messagePlaintext = 'Hello Bob!';

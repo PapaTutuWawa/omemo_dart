@@ -7,6 +7,7 @@ import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/helpers.dart';
 import 'package:omemo_dart/src/omemo/bundle.dart';
 import 'package:omemo_dart/src/omemo/device.dart';
+import 'package:omemo_dart/src/x3dh/x3dh.dart';
 import 'package:synchronized/synchronized.dart';
 
 /// The info used for when encrypting the AES key for the actual payload.
@@ -75,8 +76,43 @@ class OmemoSessionManager {
     });
   }
 
-  Future<void> addSessionFromBundle(String jid, String deviceId, OmemoBundle bundle) async {
-    // TODO(PapaTutuWawa): Do
+  /// Create a ratchet session initiated by Alice to the user with Jid [jid] and the device
+  /// [deviceId] from the bundle [bundle].
+  Future<X3DHAliceResult> addSessionFromBundle(String jid, String deviceId, OmemoBundle bundle) async {
+    final kexResult = await x3dhFromBundle(
+      bundle,
+      device.ik,
+    );
+    final ratchet = await OmemoDoubleRatchet.initiateNewSession(
+      bundle.spk,
+      kexResult.sk,
+      kexResult.ad,
+    );
+
+    await addSession(jid, deviceId, ratchet);
+
+    return kexResult;
+  }
+
+  /// Build a new session with the user at [jid] with the device [deviceId] using data
+  /// from the key exchange [kex].
+  // TODO(PapaTutuWawa): Use OMEMOKeyExchange
+  // TODO(PapaTutuWawa): Replace the OPK
+  Future<void> addSessionFromKeyExchange(String jid, String deviceId, X3DHMessage kex) async {
+    final kexResult = await x3dhFromInitialMessage(
+      kex,
+      device.spk,
+      // TODO(PapaTutuWawa): Fix
+      device.opks.values.elementAt(0),
+      device.ik,
+    );
+    final ratchet = await OmemoDoubleRatchet.acceptNewSession(
+      device.spk,
+      kexResult.sk,
+      kexResult.ad,
+    );
+
+    await addSession(jid, deviceId, ratchet);
   }
   
   /// Encrypt the key [plaintext] for all known bundles of [jid]. Returns a map that
