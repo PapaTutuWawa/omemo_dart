@@ -1,6 +1,9 @@
 import 'dart:convert';
+import 'package:collection/collection.dart';
+import 'package:omemo_dart/protobuf/schema.pb.dart';
 import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/double_ratchet/double_ratchet.dart';
+import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/helpers.dart';
 import 'package:omemo_dart/src/omemo/device.dart';
 import 'package:synchronized/synchronized.dart';
@@ -18,6 +21,13 @@ class EncryptionResult {
   /// Mapping of the device Id to the key for decrypting ciphertext, encrypted
   /// for the ratchet with said device Id
   final Map<String, List<int>> encryptedKeys;
+}
+
+class EncryptedKey {
+
+  const EncryptedKey(this.rid, this.value);
+  final String rid;
+  final String value;
 }
 
 class OmemoSessionManager {
@@ -91,5 +101,43 @@ class OmemoSessionManager {
       ciphertext,
       encryptedKeys,
     );
+  }
+
+  /// Attempt to decrypt [ciphertext]. [keys] refers to the <key /> elements inside the
+  /// <keys /> element with a "jid" attribute matching our own. [senderJid] refers to the
+  /// bare Jid of the sender. [senderDeviceId] refers to the "sid" attribute of the
+  /// <encrypted /> element.
+  Future<String> decryptMessage(List<int> ciphertext, String senderJid, String senderDeviceId, List<EncryptedKey> keys) async {
+    // Try to find a session we can decrypt with.
+    final rawKey = keys.firstWhereOrNull((key) => key.rid == device.id);
+    if (rawKey == null) {
+      throw NotEncryptedForDeviceException();
+    }
+
+    final devices = _deviceMap[senderJid];
+    if (devices == null) {
+      throw NoDecryptionKeyException();
+    }
+    if (!devices.contains(senderDeviceId)) {
+      throw NoDecryptionKeyException();
+    }
+
+    final decodedRawKey = base64.decode(rawKey.value);
+    final authMessage = OMEMOAuthenticatedMessage.fromBuffer(decodedRawKey);
+    final message = OMEMOMessage.fromBuffer(authMessage.message);
+    
+    final ratchet = _ratchetMap[senderDeviceId]!;
+    final keyAndHmac = await ratchet.ratchetDecrypt(message, message.ciphertext);
+    final key = keyAndHmac.sublist(0, 32);
+    final hmac = keyAndHmac.sublist(32, 48);
+    final derivedKeys = await deriveEncryptionKeys(key, omemoPayloadInfoString);
+
+    final computedHmac = await truncatedHmac(ciphertext, derivedKeys.authenticationKey);
+    if (!listsEqual(hmac, computedHmac)) {
+      throw InvalidMessageHMACException();
+    }
+
+    final plaintext = await aes256CbcDecrypt(ciphertext, derivedKeys.encryptionKey, derivedKeys.iv);
+    return utf8.decode(plaintext);
   }
 }

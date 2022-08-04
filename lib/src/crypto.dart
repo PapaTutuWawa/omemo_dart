@@ -32,6 +32,19 @@ class HkdfKeyResult {
   final List<int> iv;
 }
 
+/// cryptography _really_ wants to check the MAC output from AES-256-CBC. Since
+/// we don't have it, we need the MAC check to always "pass".
+class NoMacSecretBox extends SecretBox {
+  NoMacSecretBox(super.cipherText, { required super.nonce }) : super(mac: Mac.empty);
+
+  @override
+  Future<void> checkMac({
+    required MacAlgorithm macAlgorithm,
+    required SecretKey secretKey,
+    required List<int> aad,
+  }) async {}
+}
+
 /// OMEMO 0.8.3 often derives the three keys for encryption, authentication and the IV from
 /// some input using HKDF-SHA-256. As such, this is a helper function that already provides
 /// those three keys from [input] and the info string [info].
@@ -63,6 +76,21 @@ Future<List<int>> aes256CbcEncrypt(List<int> plaintext, List<int> key, List<int>
   );
 
   return result.cipherText;
+}
+
+/// A small helper function to make AES-256-CBC easier. Decrypt [ciphertext] using [key] as
+/// the encryption key and [iv] as the IV. Returns the ciphertext.
+Future<List<int>> aes256CbcDecrypt(List<int> ciphertext, List<int> key, List<int> iv) async {
+  final algorithm = AesCbc.with256bits(
+    macAlgorithm: MacAlgorithm.empty,
+  );
+  return algorithm.decrypt(
+    NoMacSecretBox(
+      ciphertext,
+      nonce: iv,
+    ),
+    secretKey: SecretKey(key),
+  );
 }
 
 /// OMEMO often uses the output of a HMAC-SHA-256 truncated to its first 16 bytes.
