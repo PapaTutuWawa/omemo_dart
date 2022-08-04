@@ -34,3 +34,8 @@ List<int> generateRandomBytes(int length) {
 
   return bytes;
 }
+
+/// Generate a random number between 0 inclusive and 2**32 exclusive (2**32 - 1 inclusive).
+int generateRandom32BitNumber() {
+  return Random.secure().nextInt(4294967295 /*pow(2, 32) - 1*/);
+}

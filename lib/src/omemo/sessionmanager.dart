@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/double_ratchet/double_ratchet.dart';
 import 'package:omemo_dart/src/helpers.dart';
+import 'package:omemo_dart/src/omemo/device.dart';
 import 'package:synchronized/synchronized.dart';
 
 /// The info used for when encrypting the AES key for the actual payload.
@@ -21,8 +22,15 @@ class EncryptionResult {
 
 class OmemoSessionManager {
 
-  OmemoSessionManager() : _ratchetMap = {}, _deviceMap = {}, _lock = Lock();
+  OmemoSessionManager(this.device) : _ratchetMap = {}, _deviceMap = {}, _lock = Lock();
 
+  /// Generate a new cryptographic identity.
+  static Future<OmemoSessionManager> generateNewIdentity({ int opkAmount = 100 }) async {
+    final device = await Device.generateNewDevice(opkAmount: opkAmount);
+
+    return OmemoSessionManager(device);
+  }
+  
   /// Lock for _ratchetMap and _bundleMap
   final Lock _lock;
   
@@ -31,6 +39,9 @@ class OmemoSessionManager {
 
   /// Mapping of a bare Jid to its Device Ids
   final Map<String, List<String>> _deviceMap;
+
+  /// Our own keys
+  Device device;
 
   /// Add a session [ratchet] with the [deviceId] to the internal tracking state.
   Future<void> addSession(String jid, String deviceId, OmemoDoubleRatchet ratchet) async {
