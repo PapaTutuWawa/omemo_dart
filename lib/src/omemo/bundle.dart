@@ -12,16 +12,16 @@ class OmemoBundle {
     this.ikEncoded,
     this.opksEncoded,
   );
-  final String id;
+  final int id;
   /// The SPK but base64 encoded
   final String spkEncoded;
-  final String spkId;
+  final int spkId;
   /// The SPK signature but base64 encoded
   final String spkSignatureEncoded;
   /// The IK but base64 encoded
   final String ikEncoded;
   /// The mapping of a OPK's id to the base64 encoded data
-  final Map<String, String> opksEncoded;
+  final Map<int, String> opksEncoded;
 
   OmemoPublicKey get spk {
     final data = base64Decode(spkEncoded);
@@ -33,7 +33,7 @@ class OmemoBundle {
     return OmemoPublicKey.fromBytes(data, KeyPairType.ed25519);
   }
 
-  OmemoPublicKey getOpk(String id) {
+  OmemoPublicKey getOpk(int id) {
     final data = base64Decode(opksEncoded[id]!);
     return OmemoPublicKey.fromBytes(data, KeyPairType.x25519);
   }

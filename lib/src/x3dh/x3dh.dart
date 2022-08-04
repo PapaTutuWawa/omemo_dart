@@ -16,7 +16,7 @@ class X3DHAliceResult {
   const X3DHAliceResult(this.ek, this.sk, this.opkId, this.ad);
   final OmemoKeyPair ek;
   final List<int> sk;
-  final String opkId;
+  final int opkId;
   final List<int> ad;
 }
 
@@ -26,7 +26,7 @@ class X3DHMessage {
   const X3DHMessage(this.ik, this.ek, this.opkId);
   final OmemoPublicKey ik;
   final OmemoPublicKey ek;
-  final String opkId;
+  final int opkId;
 }
 
 class X3DHBobResult {

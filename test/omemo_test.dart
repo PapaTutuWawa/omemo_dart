@@ -12,7 +12,7 @@ void main() {
     final bobSession = await OmemoSessionManager.generateNewIdentity(opkAmount: 1);
 
     // Perform the X3DH
-    final x3dhAliceResult = await aliceSession.addSessionFromBundle(
+    final kex = await aliceSession.addSessionFromBundle(
       bobJid,
       bobSession.device.id,
       await bobSession.device.toBundle(),
@@ -20,11 +20,7 @@ void main() {
     await bobSession.addSessionFromKeyExchange(
       aliceJid,
       aliceSession.device.id,
-      X3DHMessage(
-        aliceSession.device.ik.pk,
-        x3dhAliceResult.ek.pk,
-        '2',
-      ),
+      kex,
     );
 
     // Alice encrypts a message for Bob

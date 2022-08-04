@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'package:collection/collection.dart';
+import 'package:cryptography/cryptography.dart';
 import 'package:omemo_dart/protobuf/schema.pb.dart';
 import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/double_ratchet/double_ratchet.dart';
 import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/helpers.dart';
+import 'package:omemo_dart/src/keys.dart';
 import 'package:omemo_dart/src/omemo/bundle.dart';
 import 'package:omemo_dart/src/omemo/device.dart';
 import 'package:omemo_dart/src/x3dh/x3dh.dart';
@@ -22,13 +24,13 @@ class EncryptionResult {
 
   /// Mapping of the device Id to the key for decrypting ciphertext, encrypted
   /// for the ratchet with said device Id
-  final Map<String, List<int>> encryptedKeys;
+  final Map<int, List<int>> encryptedKeys;
 }
 
 class EncryptedKey {
 
   const EncryptedKey(this.rid, this.value);
-  final String rid;
+  final int rid;
   final String value;
 }
 
@@ -48,16 +50,16 @@ class OmemoSessionManager {
   final Lock _lock;
   
   /// Mapping of the Device Id to its OMEMO session
-  final Map<String, OmemoDoubleRatchet> _ratchetMap;
+  final Map<int, OmemoDoubleRatchet> _ratchetMap;
 
   /// Mapping of a bare Jid to its Device Ids
-  final Map<String, List<String>> _deviceMap;
+  final Map<String, List<int>> _deviceMap;
 
   /// Our own keys
   Device device;
 
   /// Add a session [ratchet] with the [deviceId] to the internal tracking state.
-  Future<void> addSession(String jid, String deviceId, OmemoDoubleRatchet ratchet) async {
+  Future<void> addSession(String jid, int deviceId, OmemoDoubleRatchet ratchet) async {
     await _lock.synchronized(() async {
       // Add the bundle Id
       if (!_deviceMap.containsKey(jid)) {
@@ -78,7 +80,7 @@ class OmemoSessionManager {
 
   /// Create a ratchet session initiated by Alice to the user with Jid [jid] and the device
   /// [deviceId] from the bundle [bundle].
-  Future<X3DHAliceResult> addSessionFromBundle(String jid, String deviceId, OmemoBundle bundle) async {
+  Future<OMEMOKeyExchange> addSessionFromBundle(String jid, int deviceId, OmemoBundle bundle) async {
     final kexResult = await x3dhFromBundle(
       bundle,
       device.ik,
@@ -91,19 +93,26 @@ class OmemoSessionManager {
 
     await addSession(jid, deviceId, ratchet);
 
-    return kexResult;
+    return OMEMOKeyExchange()
+      ..pkId = kexResult.opkId
+      // TODO(PapaTutuWawa): Fix
+      ..spkId = 0
+      ..ik = await device.ik.pk.getBytes()
+      ..ek = await kexResult.ek.pk.getBytes();
   }
 
   /// Build a new session with the user at [jid] with the device [deviceId] using data
   /// from the key exchange [kex].
-  // TODO(PapaTutuWawa): Use OMEMOKeyExchange
   // TODO(PapaTutuWawa): Replace the OPK
-  Future<void> addSessionFromKeyExchange(String jid, String deviceId, X3DHMessage kex) async {
+  Future<void> addSessionFromKeyExchange(String jid, int deviceId, OMEMOKeyExchange kex) async {
     final kexResult = await x3dhFromInitialMessage(
-      kex,
+      X3DHMessage(
+        OmemoPublicKey.fromBytes(kex.ik, KeyPairType.ed25519),
+        OmemoPublicKey.fromBytes(kex.ek, KeyPairType.x25519),
+        kex.pkId,
+      ),
       device.spk,
-      // TODO(PapaTutuWawa): Fix
-      device.opks.values.elementAt(0),
+      device.opks.values.elementAt(kex.pkId),
       device.ik,
     );
     final ratchet = await OmemoDoubleRatchet.acceptNewSession(
@@ -118,7 +127,7 @@ class OmemoSessionManager {
   /// Encrypt the key [plaintext] for all known bundles of [jid]. Returns a map that
   /// maps the Bundle Id to the ciphertext of [plaintext].
   Future<EncryptionResult> encryptToJid(String jid, String plaintext) async {
-    final encryptedKeys = <String, List<int>>{};
+    final encryptedKeys = <int, List<int>>{};
 
     // Generate the key and encrypt the plaintext
     final key = generateRandomBytes(32);
@@ -149,7 +158,7 @@ class OmemoSessionManager {
   /// <keys /> element with a "jid" attribute matching our own. [senderJid] refers to the
   /// bare Jid of the sender. [senderDeviceId] refers to the "sid" attribute of the
   /// <encrypted /> element.
-  Future<String> decryptMessage(List<int> ciphertext, String senderJid, String senderDeviceId, List<EncryptedKey> keys) async {
+  Future<String> decryptMessage(List<int> ciphertext, String senderJid, int senderDeviceId, List<EncryptedKey> keys) async {
     // Try to find a session we can decrypt with.
     final rawKey = keys.firstWhereOrNull((key) => key.rid == device.id);
     if (rawKey == null) {

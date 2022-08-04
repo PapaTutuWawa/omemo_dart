@@ -41,16 +41,16 @@ void main() {
     final spkBob = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     final opkBob = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     final bundleBob = OmemoBundle(
-      '1',
+      1,
       await spkBob.pk.asBase64(),
-      '3',
+      3,
       base64Encode(
         await sig(ikBob, await spkBob.pk.getBytes()),
       ),
       //'Q5in+/L4kJixEX692h6mJkPMyp4I3SlQ84L0E7ipPzqfPHOMiraUlqG2vG/O8wvFjLsKYZpPBraga9IvwhqVDA==',
       await ikBob.pk.asBase64(),
       {
-        '2': await opkBob.pk.asBase64(),
+        2: await opkBob.pk.asBase64(),
       },
     );
     
@@ -65,7 +65,7 @@ void main() {
       X3DHMessage(
         ikAlice.pk,
         resultAlice.ek.pk,
-        '2',
+        2,
       ),
       spkBob,
       opkBob,

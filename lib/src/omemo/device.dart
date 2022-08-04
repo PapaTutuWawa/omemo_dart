@@ -20,16 +20,16 @@ class Device {
     final spkId = generateRandom32BitNumber();
     final signature = await sig(ik, await spk.pk.getBytes());
 
-    final opks = <String, OmemoKeyPair>{};
+    final opks = <int, OmemoKeyPair>{};
     for (var i = 0; i < opkAmount; i++) {
-      opks[i.toString()] = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
+      opks[i] = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     }
 
-    return Device(id.toString(), ik, spk, spkId.toString(), signature, opks);
+    return Device(id, ik, spk, spkId, signature, opks);
   }
   
   /// The device Id
-  final String id;
+  final int id;
 
   /// The identity key
   final OmemoKeyPair ik;
@@ -37,16 +37,16 @@ class Device {
   /// The signed prekey...
   final OmemoKeyPair spk;
   /// ...its Id, ...
-  final String spkId;
+  final int spkId;
   /// ...and its signature
   final List<int> spkSignature;
 
   /// Map of an id to the associated Onetime-Prekey
-  final Map<String, OmemoKeyPair> opks;
+  final Map<int, OmemoKeyPair> opks;
 
   /// This replaces the Onetime-Prekey with id [id] with a completely new one. Returns
   /// a new Device object that copies over everything but replaces said key.
-  Future<Device> replaceOnetimePrekey(String id) async {
+  Future<Device> replaceOnetimePrekey(int id) async {
     final newOpk = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
 
     return Device(
@@ -76,14 +76,14 @@ class Device {
       id,
       ik,
       newSpk,
-      newSpkId.toString(),
+      newSpkId,
       newSignature,
       opks,
     );
   }
 
   Future<OmemoBundle> toBundle() async {
-    final encodedOpks = <String, String>{};
+    final encodedOpks = <int, String>{};
 
     for (final opkKey in opks.keys) {
       encodedOpks[opkKey] = base64.encode(await opks[opkKey]!.pk.getBytes());
