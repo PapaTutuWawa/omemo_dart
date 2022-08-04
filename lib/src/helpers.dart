@@ -1,3 +1,5 @@
+import 'dart:math';
+
 /// Flattens [inputs] and concatenates the elements.
 List<int> concat(List<List<int>> inputs) {
   final tmp = List<int>.empty(growable: true);
@@ -19,4 +21,16 @@ bool listsEqual(List<int> a, List<int> b) {
   }
 
   return true;
+}
+
+/// Use Dart's cryptographically secure random number generator at Random.secure()
+/// to generate [length] random numbers between 0 and 256 exclusive.
+List<int> generateRandomBytes(int length) {
+  final bytes = List<int>.empty(growable: true);
+  final r = Random.secure();
+  for (var i = 0; i < length; i++) {
+    bytes.add(r.nextInt(256));
+  }
+
+  return bytes;
 }

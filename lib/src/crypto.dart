@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:cryptography/cryptography.dart';
 import 'package:omemo_dart/src/keys.dart';
 
@@ -21,4 +22,58 @@ Future<List<int>> omemoDH(OmemoKeyPair kp, OmemoPublicKey pk, int identityKey) a
   );
 
   return shared.extractBytes();
+}
+
+class HkdfKeyResult {
+
+  const HkdfKeyResult(this.encryptionKey, this.authenticationKey, this.iv);
+  final List<int> encryptionKey;
+  final List<int> authenticationKey;
+  final List<int> iv;
+}
+
+/// OMEMO 0.8.3 often derives the three keys for encryption, authentication and the IV from
+/// some input using HKDF-SHA-256. As such, this is a helper function that already provides
+/// those three keys from [input] and the info string [info].
+Future<HkdfKeyResult> deriveEncryptionKeys(List<int> input, String info) async {
+  final algorithm = Hkdf(
+    hmac: Hmac(Sha256()),
+    outputLength: 80,
+  );
+  final result = await algorithm.deriveKey(
+    secretKey: SecretKey(input),
+    nonce: List<int>.filled(32, 0x0),
+    info: utf8.encode(info),
+  );
+  final bytes = await result.extractBytes();
+  
+  return HkdfKeyResult(bytes.sublist(0, 32), bytes.sublist(32, 64), bytes.sublist(64, 80));
+}
+
+/// A small helper function to make AES-256-CBC easier. Encrypt [plaintext] using [key] as
+/// the encryption key and [iv] as the IV. Returns the ciphertext.
+Future<List<int>> aes256CbcEncrypt(List<int> plaintext, List<int> key, List<int> iv) async {
+  final algorithm = AesCbc.with256bits(
+    macAlgorithm: MacAlgorithm.empty,
+  );
+  final result = await algorithm.encrypt(
+    plaintext,
+    secretKey: SecretKey(key),
+    nonce: iv,
+  );
+
+  return result.cipherText;
+}
+
+/// OMEMO often uses the output of a HMAC-SHA-256 truncated to its first 16 bytes.
+/// Calculate the HMAC-SHA-256 of [input] using the authentication key [key] and
+/// truncate the output to 16 bytes.
+Future<List<int>> truncatedHmac(List<int> input, List<int> key) async {
+  final algorithm = Hmac.sha256();
+  final result = await algorithm.calculateMac(
+    input,
+    secretKey: SecretKey(key),
+  );
+
+  return result.bytes.sublist(0, 16);
 }
