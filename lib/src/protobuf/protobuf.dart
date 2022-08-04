@@ -4,6 +4,14 @@ const lsb7Mask = 0x7F;
 /// Constant for setting the MSB
 const msb = 1 << 7;
 
+/// Field types
+const fieldTypeUint32 = 0;
+const fieldTypeByteArray = 2;
+
+int fieldId(int number, int type) {
+  return (number << 3) | type;
+}
+
 class VarintDecode {
 
   const VarintDecode(this.n, this.length);
