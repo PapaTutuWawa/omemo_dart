@@ -128,7 +128,7 @@ class OmemoSessionManager {
   
   /// Encrypt the key [plaintext] for all known bundles of [jid]. Returns a map that
   /// maps the Bundle Id to the ciphertext of [plaintext].
-  Future<EncryptionResult> encryptToJid(String jid, String plaintext, { OmemoBundle? newSession }) async {
+  Future<EncryptionResult> encryptToJid(String jid, String plaintext, { List<OmemoBundle>? newSessions }) async {
     final encryptedKeys = List<EncryptedKey>.empty(growable: true);
 
     // Generate the key and encrypt the plaintext
@@ -142,9 +142,11 @@ class OmemoSessionManager {
     final hmac = await truncatedHmac(ciphertext, keys.authenticationKey);
     final concatKey = concat([key, hmac]);
 
-    OmemoKeyExchange? kex;
-    if (newSession != null) {
-      kex = await addSessionFromBundle(jid, newSession.id, newSession);
+    final kex = <int, OmemoKeyExchange>{};
+    if (newSessions != null) {
+      for (final newSession in newSessions) {
+        kex[newSession.id] = await addSessionFromBundle(jid, newSession.id, newSession);
+      }
     }
     
     await _lock.synchronized(() async {
@@ -153,12 +155,13 @@ class OmemoSessionManager {
         final ratchet = _ratchetMap[deviceId]!;
         final ciphertext = (await ratchet.ratchetEncrypt(concatKey)).ciphertext;
 
-        if (kex != null && deviceId == newSession?.id) {
-          kex.message = OmemoAuthenticatedMessage.fromBuffer(ciphertext);
+        if (kex.isNotEmpty && kex.containsKey(deviceId)) {
+          final k = kex[deviceId]!
+            ..message = OmemoAuthenticatedMessage.fromBuffer(ciphertext);
           encryptedKeys.add(
             EncryptedKey(
               deviceId,
-              base64.encode(kex.writeToBuffer()),
+              base64.encode(k.writeToBuffer()),
               true,
             ),
           );
