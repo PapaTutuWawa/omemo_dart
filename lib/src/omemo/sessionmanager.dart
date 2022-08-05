@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:cryptography/cryptography.dart';
-import 'package:omemo_dart/protobuf/schema.pb.dart';
 import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/double_ratchet/double_ratchet.dart';
 import 'package:omemo_dart/src/errors.dart';
@@ -9,6 +8,9 @@ import 'package:omemo_dart/src/helpers.dart';
 import 'package:omemo_dart/src/keys.dart';
 import 'package:omemo_dart/src/omemo/bundle.dart';
 import 'package:omemo_dart/src/omemo/device.dart';
+import 'package:omemo_dart/src/protobuf/omemo_authenticated_message.dart';
+import 'package:omemo_dart/src/protobuf/omemo_key_exchange.dart';
+import 'package:omemo_dart/src/protobuf/omemo_message.dart';
 import 'package:omemo_dart/src/x3dh/x3dh.dart';
 import 'package:synchronized/synchronized.dart';
 
@@ -80,7 +82,7 @@ class OmemoSessionManager {
 
   /// Create a ratchet session initiated by Alice to the user with Jid [jid] and the device
   /// [deviceId] from the bundle [bundle].
-  Future<OMEMOKeyExchange> addSessionFromBundle(String jid, int deviceId, OmemoBundle bundle) async {
+  Future<OmemoKeyExchange> addSessionFromBundle(String jid, int deviceId, OmemoBundle bundle) async {
     final kexResult = await x3dhFromBundle(
       bundle,
       device.ik,
@@ -93,9 +95,8 @@ class OmemoSessionManager {
 
     await addSession(jid, deviceId, ratchet);
 
-    return OMEMOKeyExchange()
+    return OmemoKeyExchange()
       ..pkId = kexResult.opkId
-      // TODO(PapaTutuWawa): Fix
       ..spkId = 0
       ..ik = await device.ik.pk.getBytes()
       ..ek = await kexResult.ek.pk.getBytes();
@@ -104,15 +105,15 @@ class OmemoSessionManager {
   /// Build a new session with the user at [jid] with the device [deviceId] using data
   /// from the key exchange [kex].
   // TODO(PapaTutuWawa): Replace the OPK
-  Future<void> addSessionFromKeyExchange(String jid, int deviceId, OMEMOKeyExchange kex) async {
+  Future<void> addSessionFromKeyExchange(String jid, int deviceId, OmemoKeyExchange kex) async {
     final kexResult = await x3dhFromInitialMessage(
       X3DHMessage(
-        OmemoPublicKey.fromBytes(kex.ik, KeyPairType.ed25519),
-        OmemoPublicKey.fromBytes(kex.ek, KeyPairType.x25519),
-        kex.pkId,
+        OmemoPublicKey.fromBytes(kex.ik!, KeyPairType.ed25519),
+        OmemoPublicKey.fromBytes(kex.ek!, KeyPairType.x25519),
+        kex.pkId!,
       ),
       device.spk,
-      device.opks.values.elementAt(kex.pkId),
+      device.opks.values.elementAt(kex.pkId!),
       device.ik,
     );
     final ratchet = await OmemoDoubleRatchet.acceptNewSession(
@@ -174,8 +175,8 @@ class OmemoSessionManager {
     }
     
     final decodedRawKey = base64.decode(rawKey.value);
-    final authMessage = OMEMOAuthenticatedMessage.fromBuffer(decodedRawKey);
-    final message = OMEMOMessage.fromBuffer(authMessage.message);
+    final authMessage = OmemoAuthenticatedMessage.fromBuffer(decodedRawKey);
+    final message = OmemoMessage.fromBuffer(authMessage.message!);
     
     final ratchet = _ratchetMap[senderDeviceId]!;
     final keyAndHmac = await ratchet.ratchetDecrypt(message, decodedRawKey);

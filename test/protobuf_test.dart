@@ -79,12 +79,11 @@ void main() {
       expect(msg.ciphertext, null);
     });
     test('Encode a OMEMOMessage', () {
-      const m = OmemoMessage(
-        1,
-        5,
-        <int>[1, 2, 3],
-        <int>[4, 5, 6],
-      );
+      final m = OmemoMessage()
+        ..n = 1
+        ..pn = 5
+        ..dhPub = <int>[1, 2, 3]
+        ..ciphertext = <int>[4, 5, 6];
       final serial = m.writeToBuffer();
       final msg = OMEMOMessage.fromBuffer(serial);
       
@@ -94,12 +93,10 @@ void main() {
       expect(msg.ciphertext, <int>[4, 5, 6]);
     });
     test('Encode a OMEMOMessage without ciphertext', () {
-      const m = OmemoMessage(
-        1,
-        5,
-        <int>[1, 2, 3],
-        null,
-      );
+      final m = OmemoMessage()
+        ..n = 1
+        ..pn = 5
+        ..dhPub = <int>[1, 2, 3];
       final serial = m.writeToBuffer();
       final msg = OMEMOMessage.fromBuffer(serial);
 
@@ -112,7 +109,9 @@ void main() {
 
   group('OMEMOAuthenticatedMessage', () {
     test('Test encoding a message', () {
-      const msg = OmemoAuthenticatedMessage(<int>[1, 2, 3], <int>[4, 5, 6]);
+      final msg = OmemoAuthenticatedMessage()
+        ..mac = <int>[1, 2, 3]
+        ..message = <int>[4, 5, 6];
       final decoded = OMEMOAuthenticatedMessage.fromBuffer(msg.writeToBuffer());
 
       expect(decoded.mac, <int>[1, 2, 3]);
@@ -132,16 +131,15 @@ void main() {
 
   group('OMEMOKeyExchange', () {
     test('Test encoding a message', () {
-      const message = OmemoKeyExchange(
-        698,
-        245,
-        <int>[1, 4, 6],
-        <int>[4, 6, 7, 80],
-        OmemoAuthenticatedMessage(
-          <int>[5, 6, 8, 0],
-          <int>[4, 5, 7, 3, 2],
-        ),
-      );
+      final authMessage = OmemoAuthenticatedMessage()
+        ..mac = <int>[5, 6, 8, 0]
+        ..message = <int>[4, 5, 7, 3, 2];
+      final message = OmemoKeyExchange()
+        ..pkId = 698
+        ..spkId = 245
+        ..ik = <int>[1, 4, 6]
+        ..ek = <int>[4, 6, 7, 80]
+        ..message = authMessage;
       final kex = OMEMOKeyExchange.fromBuffer(message.writeToBuffer());
 
       expect(kex.pkId, 698);
@@ -169,8 +167,8 @@ void main() {
       expect(decoded.ik, <int>[1, 4, 6]);
       expect(decoded.ek, <int>[4 ,6 ,7 , 80]);
 
-      expect(decoded.message.mac, <int>[5, 6, 8, 0]);
-      expect(decoded.message.message, <int>[4, 5, 7, 3, 2]);
+      expect(decoded.message!.mac, <int>[5, 6, 8, 0]);
+      expect(decoded.message!.message, <int>[4, 5, 7, 3, 2]);
     });
   });
 }

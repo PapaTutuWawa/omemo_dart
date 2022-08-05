@@ -1,12 +1,12 @@
 import 'package:cryptography/cryptography.dart';
 import 'package:meta/meta.dart';
-import 'package:omemo_dart/protobuf/schema.pb.dart';
 import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/double_ratchet/crypto.dart';
 import 'package:omemo_dart/src/double_ratchet/kdf.dart';
 import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/helpers.dart';
 import 'package:omemo_dart/src/keys.dart';
+import 'package:omemo_dart/src/protobuf/omemo_message.dart';
 
 /// Amount of messages we may skip per session
 const maxSkip = 1000;
@@ -14,7 +14,7 @@ const maxSkip = 1000;
 class RatchetStep {
 
   const RatchetStep(this.header, this.ciphertext);
-  final OMEMOMessage header;
+  final OmemoMessage header;
   final List<int> ciphertext;
 }
 
@@ -111,10 +111,10 @@ class OmemoDoubleRatchet {
     );
   }
   
-  Future<List<int>?> _trySkippedMessageKeys(OMEMOMessage header, List<int> ciphertext) async {
+  Future<List<int>?> _trySkippedMessageKeys(OmemoMessage header, List<int> ciphertext) async {
     final key = SkippedKey(
-      OmemoPublicKey.fromBytes(header.dhPub, KeyPairType.x25519),
-      header.n,
+      OmemoPublicKey.fromBytes(header.dhPub!, KeyPairType.x25519),
+      header.n!,
     );
     if (mkSkipped.containsKey(key)) {
       final mk = mkSkipped[key]!;
@@ -142,11 +142,11 @@ class OmemoDoubleRatchet {
     }
   }
 
-  Future<void> _dhRatchet(OMEMOMessage header) async {
-    pn = header.n;
+  Future<void> _dhRatchet(OmemoMessage header) async {
+    pn = header.n!;
     ns = 0;
     nr = 0;
-    dhr = OmemoPublicKey.fromBytes(header.dhPub, KeyPairType.x25519);
+    dhr = OmemoPublicKey.fromBytes(header.dhPub!, KeyPairType.x25519);
 
     final newRk = await kdfRk(rk, await omemoDH(dhs, dhr!, 0));
     rk = newRk;
@@ -163,7 +163,7 @@ class OmemoDoubleRatchet {
     final mk = await kdfCk(cks!, kdfCkNextMessageKey);
 
     cks = newCks;
-    final header = OMEMOMessage()
+    final header = OmemoMessage()
       ..dhPub = await dhs.pk.getBytes()
       ..pn = pn
       ..n = ns;
@@ -180,7 +180,7 @@ class OmemoDoubleRatchet {
   /// Ratchet. Returns the decrypted (raw) plaintext.
   ///
   /// Throws an SkippingTooManyMessagesException if too many messages were to be skipped.
-  Future<List<int>> ratchetDecrypt(OMEMOMessage header, List<int> ciphertext) async {
+  Future<List<int>> ratchetDecrypt(OmemoMessage header, List<int> ciphertext) async {
     // Check if we skipped too many messages
     final plaintext = await _trySkippedMessageKeys(header, ciphertext);
     if (plaintext != null) {
@@ -188,11 +188,11 @@ class OmemoDoubleRatchet {
     }
 
     if (header.dhPub != await dhr?.getBytes()) {
-      await _skipMessageKeys(header.pn);
+      await _skipMessageKeys(header.pn!);
       await _dhRatchet(header);
     }
 
-    await _skipMessageKeys(header.n);
+    await _skipMessageKeys(header.n!);
     final newCkr = await kdfCk(ckr!, kdfCkNextChainKey);
     final mk = await kdfCk(ckr!, kdfCkNextMessageKey);
     ckr = newCkr;

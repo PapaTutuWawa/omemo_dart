@@ -4,7 +4,7 @@ import 'package:omemo_dart/src/protobuf/protobuf.dart';
 
 class OmemoKeyExchange {
 
-  const OmemoKeyExchange(this.pkId, this.spkId, this.ik, this.ek, this.message);
+  OmemoKeyExchange();
 
   factory OmemoKeyExchange.fromBuffer(List<int> data) {
     var i = 0;
@@ -40,26 +40,31 @@ class OmemoKeyExchange {
     }
     final message = OmemoAuthenticatedMessage.fromBuffer(data.sublist(i + 2));
 
-    return OmemoKeyExchange(pkId, spkId, ik, ek, message);
+    return OmemoKeyExchange()
+      ..pkId = pkId
+      ..spkId = spkId
+      ..ik = ik
+      ..ek = ek
+      ..message = message;
   }
   
-  final int pkId;
-  final int spkId;
-  final List<int> ik;
-  final List<int> ek;
-  final OmemoAuthenticatedMessage message;
+  int? pkId;
+  int? spkId;
+  List<int>? ik;
+  List<int>? ek;
+  OmemoAuthenticatedMessage? message;
 
   List<int> writeToBuffer() {
-    final msg = message.writeToBuffer();
+    final msg = message!.writeToBuffer();
     return concat([
       [fieldId(1, fieldTypeUint32)],
-      encodeVarint(pkId),
+      encodeVarint(pkId!),
       [fieldId(2, fieldTypeUint32)],
-      encodeVarint(spkId),
-      [fieldId(3, fieldTypeByteArray), ik.length],
-      ik,
-      [fieldId(4, fieldTypeByteArray), ek.length],
-      ek,
+      encodeVarint(spkId!),
+      [fieldId(3, fieldTypeByteArray), ik!.length],
+      ik!,
+      [fieldId(4, fieldTypeByteArray), ek!.length],
+      ek!,
       [fieldId(5, fieldTypeByteArray), msg.length],
       msg,
     ]);

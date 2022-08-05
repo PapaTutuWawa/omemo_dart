@@ -3,7 +3,7 @@ import 'package:omemo_dart/src/protobuf/protobuf.dart';
 
 class OmemoMessage {
 
-  const OmemoMessage(this.n, this.pn, this.dhPub, this.ciphertext);
+  OmemoMessage();
 
   factory OmemoMessage.fromBuffer(List<int> data) {
     var i = 0;
@@ -41,28 +41,32 @@ class OmemoMessage {
       ciphertext = data.sublist(i + 2, i + 2 + data[i + 1]);
     }
 
-    return OmemoMessage(n, pn, dhPub, ciphertext);
+    return OmemoMessage()
+      ..n = n
+      ..pn = pn
+      ..dhPub = dhPub
+      ..ciphertext = ciphertext;
   }
 
-  final int n;
-  final int pn;
-  final List<int> dhPub;
-  final List<int>? ciphertext;
+  int? n;
+  int? pn;
+  List<int>? dhPub;
+  List<int>? ciphertext;
 
   List<int> writeToBuffer() {
     final data = concat([
-      [8],
-      encodeVarint(n),
-      [16],
-      encodeVarint(pn),
-      [((3 << 3) | 2), dhPub.length],
-      dhPub,
+      [fieldId(1, fieldTypeUint32)],
+      encodeVarint(n!),
+      [fieldId(2, fieldTypeUint32)],
+      encodeVarint(pn!),
+      [fieldId(3, fieldTypeByteArray), dhPub!.length],
+      dhPub!,
     ]);
 
     if (ciphertext != null) {
       return concat([
         data,
-        [((4 << 3) | 2), ciphertext!.length],
+        [fieldId(4, fieldTypeByteArray), ciphertext!.length],
         ciphertext!,
       ]);
     }

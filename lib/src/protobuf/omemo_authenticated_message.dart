@@ -3,7 +3,7 @@ import 'package:omemo_dart/src/protobuf/protobuf.dart';
 
 class OmemoAuthenticatedMessage {
 
-  const OmemoAuthenticatedMessage(this.mac, this.message);
+  OmemoAuthenticatedMessage();
 
   factory OmemoAuthenticatedMessage.fromBuffer(List<int> data) {
     var i = 0;
@@ -20,18 +20,20 @@ class OmemoAuthenticatedMessage {
     }
     final message = data.sublist(i + 2, i + 2 + data[i + 1]);
 
-    return OmemoAuthenticatedMessage(mac, message);
+    return OmemoAuthenticatedMessage()
+      ..mac = mac
+      ..message = message;
   }
   
-  final List<int> mac;
-  final List<int> message;
+  List<int>? mac;
+  List<int>? message;
 
   List<int> writeToBuffer() {
     return concat([
-      [fieldId(1, fieldTypeByteArray), mac.length],
-      mac,
-      [fieldId(2, fieldTypeByteArray), message.length],
-      message,
+      [fieldId(1, fieldTypeByteArray), mac!.length],
+      mac!,
+      [fieldId(2, fieldTypeByteArray), message!.length],
+      message!,
     ]);
   }
 }
