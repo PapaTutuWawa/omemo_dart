@@ -29,7 +29,25 @@ void main() {
       aliceSession.device.id,
       aliceMessage.encryptedKeys,
     );
-
     expect(messagePlaintext, bobMessage);
+
+    // Bob responds to Alice
+    final bobResponseText = 'Oh, hello Alice!';
+    final bobResponseMessage = await bobSession.encryptToJid(
+      aliceJid,
+      bobResponseText,
+    );
+
+    // Bob sends the message to Alice
+    // ...
+
+    // Alice decrypts it
+    final aliceReceivedMessage = await aliceSession.decryptMessage(
+      bobResponseMessage.ciphertext,
+      bobJid,
+      bobSession.device.id,
+      bobResponseMessage.encryptedKeys,
+    );
+    expect(bobResponseText, aliceReceivedMessage);
   });
 }
