@@ -26,14 +26,15 @@ class EncryptionResult {
 
   /// Mapping of the device Id to the key for decrypting ciphertext, encrypted
   /// for the ratchet with said device Id
-  final Map<int, List<int>> encryptedKeys;
+  final List<EncryptedKey> encryptedKeys;
 }
 
 class EncryptedKey {
 
-  const EncryptedKey(this.rid, this.value);
+  const EncryptedKey(this.rid, this.value, this.kex);
   final int rid;
   final String value;
+  final bool kex;
 }
 
 class OmemoSessionManager {
@@ -127,8 +128,8 @@ class OmemoSessionManager {
   
   /// Encrypt the key [plaintext] for all known bundles of [jid]. Returns a map that
   /// maps the Bundle Id to the ciphertext of [plaintext].
-  Future<EncryptionResult> encryptToJid(String jid, String plaintext) async {
-    final encryptedKeys = <int, List<int>>{};
+  Future<EncryptionResult> encryptToJid(String jid, String plaintext, { OmemoBundle? newSession }) async {
+    final encryptedKeys = List<EncryptedKey>.empty(growable: true);
 
     // Generate the key and encrypt the plaintext
     final key = generateRandomBytes(32);
@@ -141,11 +142,35 @@ class OmemoSessionManager {
     final hmac = await truncatedHmac(ciphertext, keys.authenticationKey);
     final concatKey = concat([key, hmac]);
 
+    OmemoKeyExchange? kex;
+    if (newSession != null) {
+      kex = await addSessionFromBundle(jid, newSession.id, newSession);
+    }
+    
     await _lock.synchronized(() async {
       // We assume that the user already checked if the session exists
       for (final deviceId in _deviceMap[jid]!) {
         final ratchet = _ratchetMap[deviceId]!;
-        encryptedKeys[deviceId] = (await ratchet.ratchetEncrypt(concatKey)).ciphertext;
+        final ciphertext = (await ratchet.ratchetEncrypt(concatKey)).ciphertext;
+
+        if (kex != null && deviceId == newSession?.id) {
+          kex.message = OmemoAuthenticatedMessage.fromBuffer(ciphertext);
+          encryptedKeys.add(
+            EncryptedKey(
+              deviceId,
+              base64.encode(kex.writeToBuffer()),
+              true,
+            ),
+          );
+        } else {
+          encryptedKeys.add(
+            EncryptedKey(
+              deviceId,
+              base64.encode(ciphertext),
+              false,
+            ),
+          );
+        }
       }
     });
 
@@ -166,6 +191,22 @@ class OmemoSessionManager {
       throw NotEncryptedForDeviceException();
     }
 
+    final decodedRawKey = base64.decode(rawKey.value);
+    OmemoAuthenticatedMessage authMessage;
+    if (rawKey.kex) {
+      // TODO(PapaTutuWawa): Only do this when we should
+      final kex = OmemoKeyExchange.fromBuffer(decodedRawKey);
+      await addSessionFromKeyExchange(
+        senderJid,
+        senderDeviceId,
+        kex,
+      );
+
+      authMessage = kex.message!;
+    } else {
+      authMessage = OmemoAuthenticatedMessage.fromBuffer(decodedRawKey);
+    }
+    
     final devices = _deviceMap[senderJid];
     if (devices == null) {
       throw NoDecryptionKeyException();
@@ -173,13 +214,16 @@ class OmemoSessionManager {
     if (!devices.contains(senderDeviceId)) {
       throw NoDecryptionKeyException();
     }
-    
-    final decodedRawKey = base64.decode(rawKey.value);
-    final authMessage = OmemoAuthenticatedMessage.fromBuffer(decodedRawKey);
+
     final message = OmemoMessage.fromBuffer(authMessage.message!);
     
     final ratchet = _ratchetMap[senderDeviceId]!;
-    final keyAndHmac = await ratchet.ratchetDecrypt(message, decodedRawKey);
+    List<int> keyAndHmac;
+    if (rawKey.kex) {
+      keyAndHmac = await ratchet.ratchetDecrypt(message, authMessage.writeToBuffer());
+    } else {
+      keyAndHmac = await ratchet.ratchetDecrypt(message, decodedRawKey);
+    }
     final key = keyAndHmac.sublist(0, 32);
     final hmac = keyAndHmac.sublist(32, 48);
     final derivedKeys = await deriveEncryptionKeys(key, omemoPayloadInfoString);

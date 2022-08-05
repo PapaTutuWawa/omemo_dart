@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:omemo_dart/omemo_dart.dart';
 import 'package:test/test.dart';
 
@@ -11,21 +10,13 @@ void main() {
     final aliceSession = await OmemoSessionManager.generateNewIdentity(opkAmount: 1);
     final bobSession = await OmemoSessionManager.generateNewIdentity(opkAmount: 1);
 
-    // Perform the X3DH
-    final kex = await aliceSession.addSessionFromBundle(
-      bobJid,
-      bobSession.device.id,
-      await bobSession.device.toBundle(),
-    );
-    await bobSession.addSessionFromKeyExchange(
-      aliceJid,
-      aliceSession.device.id,
-      kex,
-    );
-
     // Alice encrypts a message for Bob
     const messagePlaintext = 'Hello Bob!';
-    final aliceMessage = await aliceSession.encryptToJid(bobJid, messagePlaintext);
+    final aliceMessage = await aliceSession.encryptToJid(
+      bobJid,
+      messagePlaintext,
+      newSession: await bobSession.device.toBundle(),
+    );
     expect(aliceMessage.encryptedKeys.length, 1);
 
     // Alice sends the message to Bob
@@ -36,12 +27,7 @@ void main() {
       aliceMessage.ciphertext,
       aliceJid,
       aliceSession.device.id,
-      [
-        EncryptedKey(
-          bobSession.device.id,
-          base64.encode(aliceMessage.encryptedKeys[bobSession.device.id]!),
-        ),
-      ],
+      aliceMessage.encryptedKeys,
     );
 
     expect(messagePlaintext, bobMessage);
