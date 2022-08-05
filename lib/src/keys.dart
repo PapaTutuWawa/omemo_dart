@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:cryptography/cryptography.dart';
+import 'package:meta/meta.dart';
+import 'package:omemo_dart/src/helpers.dart';
 import 'package:pinenacl/api.dart';
 import 'package:pinenacl/tweetnacl.dart';
 
@@ -42,12 +44,14 @@ class OmemoPublicKey {
   }
 
   SimplePublicKey asPublicKey() => _pubkey;
-  
-  /// Convert the public key into a [SimpleKeyPairData] with a stub private key. Useful
-  /// for when cryptography calls for a KeyPair, but only uses the public key.
-  //SimpleKeyPairData asPseudoKeypair() {
-  //
-  //}
+
+  @visibleForTesting
+  Future<bool> equals(OmemoPublicKey key) async {
+    return type == key.type && listsEqual(
+      await getBytes(),
+      await key.getBytes(),
+    );
+  }
 }
 
 class OmemoPrivateKey {
@@ -69,16 +73,39 @@ class OmemoPrivateKey {
 
     return OmemoPrivateKey(List<int>.from(skc), KeyPairType.x25519);
   }
+
+  @visibleForTesting
+  Future<bool> equals(OmemoPrivateKey key) async {
+    return type == key.type && listsEqual(
+      await getBytes(),
+      await key.getBytes(),
+    );
+  }
 }
 
 /// A generic wrapper class for both Ed25519 and X25519 keypairs
 class OmemoKeyPair {
 
   const OmemoKeyPair(this.pk, this.sk, this.type);
-  final KeyPairType type;
-  final OmemoPublicKey pk;
-  final OmemoPrivateKey sk;
 
+  /// Create an OmemoKeyPair just from a [type] and the bytes of the private and public
+  /// key.
+  factory OmemoKeyPair.fromBytes(List<int> publicKey, List<int> privateKey, KeyPairType type) {
+    return OmemoKeyPair(
+      OmemoPublicKey.fromBytes(
+        publicKey,
+        type,
+      ),
+      OmemoPrivateKey(
+        privateKey,
+        type,
+      ),
+      type,
+    );
+  }
+
+  /// Generate a completely new random OmemoKeyPair of type [type]. [type] must be either
+  /// KeyPairType.ed25519 or KeyPairType.x25519.
   static Future<OmemoKeyPair> generateNewPair(KeyPairType type) async {
     assert(type == KeyPairType.ed25519 || type == KeyPairType.x25519, 'Keypair must be either Ed25519 or X25519');
 
@@ -102,6 +129,10 @@ class OmemoKeyPair {
       type,
     );
   }
+
+  final KeyPairType type;
+  final OmemoPublicKey pk;
+  final OmemoPrivateKey sk;
   
   /// Return the bytes that comprise the public key.
   Future<OmemoKeyPair> toCurve25519() async {
@@ -120,5 +151,12 @@ class OmemoKeyPair {
       publicKey: pk.asPublicKey(),
       type: type,
     );
+  }
+
+  @visibleForTesting
+  Future<bool> equals(OmemoKeyPair pair) async {
+    return type == pair.type &&
+      await pk.equals(pair.pk) &&
+      await sk.equals(pair.sk);
   }
 }
