@@ -1,7 +1,8 @@
-import 'package:omemo_dart/protobuf/schema.pb.dart';
 import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/helpers.dart';
+import 'package:omemo_dart/src/protobuf/omemo_authenticated_message.dart';
+import 'package:omemo_dart/src/protobuf/omemo_message.dart';
 
 /// Info string for ENCRYPT
 const encryptHkdfInfoString = 'OMEMO Message Key Material';
@@ -14,12 +15,12 @@ Future<List<int>> encrypt(List<int> mk, List<int> plaintext, List<int> associate
   final keys = await deriveEncryptionKeys(mk, encryptHkdfInfoString);
   final ciphertext = await aes256CbcEncrypt(plaintext, keys.encryptionKey, keys.iv);
   
-  final header = OMEMOMessage.fromBuffer(associatedData.sublist(sessionAd.length))
+  final header = OmemoMessage.fromBuffer(associatedData.sublist(sessionAd.length))
     ..ciphertext = ciphertext;
   final headerBytes = header.writeToBuffer();
   final hmacInput = concat([sessionAd, headerBytes]);
   final hmacResult = await truncatedHmac(hmacInput, keys.authenticationKey);
-  final message = OMEMOAuthenticatedMessage()
+  final message = OmemoAuthenticatedMessage()
     ..mac = hmacResult
     ..message = headerBytes;
   return message.writeToBuffer();
@@ -33,15 +34,15 @@ Future<List<int>> decrypt(List<int> mk, List<int> ciphertext, List<int> associat
   final keys = await deriveEncryptionKeys(mk, encryptHkdfInfoString);
   
   // Assumption ciphertext is a OMEMOAuthenticatedMessage
-  final message = OMEMOAuthenticatedMessage.fromBuffer(ciphertext);
-  final header = OMEMOMessage.fromBuffer(message.message);
+  final message = OmemoAuthenticatedMessage.fromBuffer(ciphertext);
+  final header = OmemoMessage.fromBuffer(message.message!);
 
   final hmacInput = concat([sessionAd, header.writeToBuffer()]);
   final hmacResult = await truncatedHmac(hmacInput, keys.authenticationKey);
 
-  if (!listsEqual(hmacResult, message.mac)) {
+  if (!listsEqual(hmacResult, message.mac!)) {
     throw InvalidMessageHMACException();
   }
 
-  return aes256CbcDecrypt(header.ciphertext, keys.encryptionKey, keys.iv);
+  return aes256CbcDecrypt(header.ciphertext!, keys.encryptionKey, keys.iv);
 }
