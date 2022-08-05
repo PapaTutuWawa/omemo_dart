@@ -87,7 +87,7 @@ class OmemoSessionManager {
   }
   
   /// Add a session [ratchet] with the [deviceId] to the internal tracking state.
-  Future<void> addSession(String jid, int deviceId, OmemoDoubleRatchet ratchet) async {
+  Future<void> _addSession(String jid, int deviceId, OmemoDoubleRatchet ratchet) async {
     await _lock.synchronized(() async {
       // Add the bundle Id
       if (!_deviceMap.containsKey(jid)) {
@@ -108,7 +108,7 @@ class OmemoSessionManager {
 
   /// Create a ratchet session initiated by Alice to the user with Jid [jid] and the device
   /// [deviceId] from the bundle [bundle].
-  Future<OmemoKeyExchange> addSessionFromBundle(String jid, int deviceId, OmemoBundle bundle) async {
+  Future<OmemoKeyExchange> _addSessionFromBundle(String jid, int deviceId, OmemoBundle bundle) async {
     final device = await getDevice();
     final kexResult = await x3dhFromBundle(
       bundle,
@@ -120,7 +120,7 @@ class OmemoSessionManager {
       kexResult.ad,
     );
 
-    await addSession(jid, deviceId, ratchet);
+    await _addSession(jid, deviceId, ratchet);
 
     return OmemoKeyExchange()
       ..pkId = kexResult.opkId
@@ -131,7 +131,7 @@ class OmemoSessionManager {
 
   /// Build a new session with the user at [jid] with the device [deviceId] using data
   /// from the key exchange [kex].
-  Future<void> addSessionFromKeyExchange(String jid, int deviceId, OmemoKeyExchange kex) async {
+  Future<void> _addSessionFromKeyExchange(String jid, int deviceId, OmemoKeyExchange kex) async {
     final device = await getDevice();
     final kexResult = await x3dhFromInitialMessage(
       X3DHMessage(
@@ -149,7 +149,7 @@ class OmemoSessionManager {
       kexResult.ad,
     );
 
-    await addSession(jid, deviceId, ratchet);
+    await _addSession(jid, deviceId, ratchet);
   }
   
   /// Encrypt the key [plaintext] for all known bundles of [jid]. Returns a map that
@@ -171,7 +171,7 @@ class OmemoSessionManager {
     final kex = <int, OmemoKeyExchange>{};
     if (newSessions != null) {
       for (final newSession in newSessions) {
-        kex[newSession.id] = await addSessionFromBundle(jid, newSession.id, newSession);
+        kex[newSession.id] = await _addSessionFromBundle(jid, newSession.id, newSession);
       }
     }
     
@@ -226,7 +226,7 @@ class OmemoSessionManager {
     if (rawKey.kex) {
       // TODO(PapaTutuWawa): Only do this when we should
       final kex = OmemoKeyExchange.fromBuffer(decodedRawKey);
-      await addSessionFromKeyExchange(
+      await _addSessionFromKeyExchange(
         senderJid,
         senderDeviceId,
         kex,
