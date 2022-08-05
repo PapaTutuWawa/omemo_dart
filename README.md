@@ -10,9 +10,8 @@ the OMEMO 0.8.3 specific `ENCRYPT`, `DECRYPT` and `KDF_*` functions and a very h
 interface for encrypting a message for all known Ratchet sessions we have with a user.
 
 This library also has no dependency on any XMPP library. `omemo_dart` instead defines an
-intermediary format for the required data, that you, the user, will need to transform between
-the stanza format of your preferred XMPP library and `omemo_dart`'s intermediary format
-yourself.
+intermediary format for the required data that you, the user, will need to transform to and from
+the stanza format of your preferred XMPP library yourself.
 
 ## Important Notes
 
