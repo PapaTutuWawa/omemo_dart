@@ -1,4 +1,6 @@
 import 'package:omemo_dart/protobuf/schema.pb.dart';
+import 'package:omemo_dart/src/protobuf/omemo_authenticated_message.dart';
+import 'package:omemo_dart/src/protobuf/omemo_key_exchange.dart';
 import 'package:omemo_dart/src/protobuf/omemo_message.dart';
 import 'package:omemo_dart/src/protobuf/protobuf.dart';
 import 'package:test/test.dart';
@@ -105,6 +107,70 @@ void main() {
       expect(msg.pn, 5);
       expect(msg.dhPub, <int>[1, 2, 3]);
       expect(msg.ciphertext, <int>[]);
+    });
+  });
+
+  group('OMEMOAuthenticatedMessage', () {
+    test('Test encoding a message', () {
+      const msg = OmemoAuthenticatedMessage(<int>[1, 2, 3], <int>[4, 5, 6]);
+      final decoded = OMEMOAuthenticatedMessage.fromBuffer(msg.writeToBuffer());
+
+      expect(decoded.mac, <int>[1, 2, 3]);
+      expect(decoded.message, <int>[4, 5, 6]);
+    });
+    test('Test decoding a message', () {
+      final msg = OMEMOAuthenticatedMessage()
+        ..mac = <int>[1, 2, 3]
+        ..message = <int>[4, 5, 6];
+      final bytes = msg.writeToBuffer();
+      final decoded = OmemoAuthenticatedMessage.fromBuffer(bytes);
+
+      expect(decoded.mac, <int>[1, 2, 3]);
+      expect(decoded.message, <int>[4, 5, 6]);
+    });
+  });
+
+  group('OMEMOKeyExchange', () {
+    test('Test encoding a message', () {
+      const message = OmemoKeyExchange(
+        698,
+        245,
+        <int>[1, 4, 6],
+        <int>[4, 6, 7, 80],
+        OmemoAuthenticatedMessage(
+          <int>[5, 6, 8, 0],
+          <int>[4, 5, 7, 3, 2],
+        ),
+      );
+      final kex = OMEMOKeyExchange.fromBuffer(message.writeToBuffer());
+
+      expect(kex.pkId, 698);
+      expect(kex.spkId, 245);
+      expect(kex.ik, <int>[1, 4, 6]);
+      expect(kex.ek, <int>[4, 6, 7, 80]);
+
+      expect(kex.message.mac, <int>[5, 6, 8, 0]);
+      expect(kex.message.message, <int>[4, 5, 7, 3, 2]);
+    });
+    test('Test decoding a message', () {
+      final message = OMEMOAuthenticatedMessage()
+        ..mac = <int>[5, 6, 8, 0]
+        ..message = <int>[4, 5, 7, 3, 2];
+      final kex = OMEMOKeyExchange()
+        ..pkId = 698
+        ..spkId = 245
+        ..ik = <int>[1, 4, 6]
+        ..ek = <int>[4, 6, 7, 80]
+        ..message = message;
+      final decoded = OmemoKeyExchange.fromBuffer(kex.writeToBuffer());
+
+      expect(decoded.pkId, 698);
+      expect(decoded.spkId, 245);
+      expect(decoded.ik, <int>[1, 4, 6]);
+      expect(decoded.ek, <int>[4 ,6 ,7 , 80]);
+
+      expect(decoded.message.mac, <int>[5, 6, 8, 0]);
+      expect(decoded.message.message, <int>[4, 5, 7, 3, 2]);
     });
   });
 }
