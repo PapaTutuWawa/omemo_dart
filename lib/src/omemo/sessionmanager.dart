@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/double_ratchet/double_ratchet.dart';
 import 'package:omemo_dart/src/errors.dart';
+import 'package:omemo_dart/src/events.dart';
 import 'package:omemo_dart/src/helpers.dart';
 import 'package:omemo_dart/src/keys.dart';
 import 'package:omemo_dart/src/omemo/bundle.dart';
@@ -39,7 +41,12 @@ class EncryptedKey {
 
 class OmemoSessionManager {
 
-  OmemoSessionManager(this.device) : _ratchetMap = {}, _deviceMap = {}, _lock = Lock();
+  OmemoSessionManager(this._device)
+    : _ratchetMap = {},
+      _deviceMap = {},
+      _lock = Lock(),
+      _deviceLock = Lock(),
+      _eventStreamController = StreamController<OmemoEvent>.broadcast();
 
   /// Generate a new cryptographic identity.
   static Future<OmemoSessionManager> generateNewIdentity({ int opkAmount = 100 }) async {
@@ -58,9 +65,27 @@ class OmemoSessionManager {
   /// Mapping of a bare Jid to its Device Ids
   final Map<String, List<int>> _deviceMap;
 
-  /// Our own keys
-  Device device;
+  /// The event bus of the session manager
+  final StreamController<OmemoEvent> _eventStreamController;
+  
+  /// Our own keys...
+  // ignore: prefer_final_fields
+  Device _device;
+  /// and its lock
+  final Lock _deviceLock;
 
+  /// A stream that receives events regarding the session
+  Stream<OmemoEvent> get eventStream => _eventStreamController.stream;
+
+  Future<Device> getDevice() async {
+    Device? dev;
+    await _deviceLock.synchronized(() async {
+      dev = _device;
+    });
+
+    return dev!;
+  }
+  
   /// Add a session [ratchet] with the [deviceId] to the internal tracking state.
   Future<void> addSession(String jid, int deviceId, OmemoDoubleRatchet ratchet) async {
     await _lock.synchronized(() async {
@@ -84,6 +109,7 @@ class OmemoSessionManager {
   /// Create a ratchet session initiated by Alice to the user with Jid [jid] and the device
   /// [deviceId] from the bundle [bundle].
   Future<OmemoKeyExchange> addSessionFromBundle(String jid, int deviceId, OmemoBundle bundle) async {
+    final device = await getDevice();
     final kexResult = await x3dhFromBundle(
       bundle,
       device.ik,
@@ -105,8 +131,8 @@ class OmemoSessionManager {
 
   /// Build a new session with the user at [jid] with the device [deviceId] using data
   /// from the key exchange [kex].
-  // TODO(PapaTutuWawa): Replace the OPK
   Future<void> addSessionFromKeyExchange(String jid, int deviceId, OmemoKeyExchange kex) async {
+    final device = await getDevice();
     final kexResult = await x3dhFromInitialMessage(
       X3DHMessage(
         OmemoPublicKey.fromBytes(kex.ik!, KeyPairType.ed25519),
@@ -189,6 +215,7 @@ class OmemoSessionManager {
   /// <encrypted /> element.
   Future<String> decryptMessage(List<int> ciphertext, String senderJid, int senderDeviceId, List<EncryptedKey> keys) async {
     // Try to find a session we can decrypt with.
+    var device = await getDevice();
     final rawKey = keys.firstWhereOrNull((key) => key.rid == device.id);
     if (rawKey == null) {
       throw NotEncryptedForDeviceException();
@@ -206,6 +233,14 @@ class OmemoSessionManager {
       );
 
       authMessage = kex.message!;
+
+      // Replace the OPK
+      await _deviceLock.synchronized(() async {
+        device = await device.replaceOnetimePrekey(kex.pkId!);
+        _eventStreamController.add(
+          DeviceBundleModifiedEvent(device),
+        );
+      });
     } else {
       authMessage = OmemoAuthenticatedMessage.fromBuffer(decodedRawKey);
     }

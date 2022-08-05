@@ -47,21 +47,15 @@ class Device {
   /// This replaces the Onetime-Prekey with id [id] with a completely new one. Returns
   /// a new Device object that copies over everything but replaces said key.
   Future<Device> replaceOnetimePrekey(int id) async {
-    final newOpk = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
-
+    opks[id] = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
+    
     return Device(
       id,
       ik,
       spk,
       spkId,
       spkSignature,
-      opks.map((keyId, opk) {
-        if (keyId == id) {
-          return MapEntry(id, newOpk);
-        }
-
-        return MapEntry(id, opk);
-      }),
+      opks,
     );
   }
 

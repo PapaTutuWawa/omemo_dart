@@ -7,8 +7,15 @@ void main() {
     const bobJid = 'bob@other.server.example';
       
     // Alice and Bob generate their sessions
+    var deviceModified = false;
     final aliceSession = await OmemoSessionManager.generateNewIdentity(opkAmount: 1);
     final bobSession = await OmemoSessionManager.generateNewIdentity(opkAmount: 1);
+    final bobOpks = (await bobSession.getDevice()).opks.values.toList();
+    bobSession.eventStream.listen((event) {
+      if (event is DeviceBundleModifiedEvent) {
+        deviceModified = true;
+      }
+    });
 
     // Alice encrypts a message for Bob
     const messagePlaintext = 'Hello Bob!';
@@ -16,7 +23,7 @@ void main() {
       bobJid,
       messagePlaintext,
       newSessions: [
-        await bobSession.device.toBundle(),
+        await (await bobSession.getDevice()).toBundle(),
       ],
     );
     expect(aliceMessage.encryptedKeys.length, 1);
@@ -28,10 +35,17 @@ void main() {
     final bobMessage = await bobSession.decryptMessage(
       aliceMessage.ciphertext,
       aliceJid,
-      aliceSession.device.id,
+      (await aliceSession.getDevice()).id,
       aliceMessage.encryptedKeys,
     );
     expect(messagePlaintext, bobMessage);
+    // The event should be triggered
+    expect(deviceModified, true);
+    // Bob should have replaced his OPK
+    expect(
+      listsEqual(bobOpks, (await bobSession.getDevice()).opks.values.toList()),
+      false,
+    );
 
     // Bob responds to Alice
     const bobResponseText = 'Oh, hello Alice!';
@@ -47,7 +61,7 @@ void main() {
     final aliceReceivedMessage = await aliceSession.decryptMessage(
       bobResponseMessage.ciphertext,
       bobJid,
-      bobSession.device.id,
+      (await bobSession.getDevice()).id,
       bobResponseMessage.encryptedKeys,
     );
     expect(bobResponseText, aliceReceivedMessage);
@@ -69,8 +83,8 @@ void main() {
       bobJid,
       messagePlaintext,
       newSessions: [
-        await bobSession.device.toBundle(),
-        await bobSession2.device.toBundle(),
+        await (await bobSession.getDevice()).toBundle(),
+        await (await bobSession2.getDevice()).toBundle(),
       ],
     );
     expect(aliceMessage.encryptedKeys.length, 2);
@@ -84,7 +98,7 @@ void main() {
     final bobMessage = await bobSession.decryptMessage(
       aliceMessage.ciphertext,
       aliceJid,
-      aliceSession.device.id,
+      (await aliceSession.getDevice()).id,
       aliceMessage.encryptedKeys,
     );
     expect(messagePlaintext, bobMessage);
@@ -103,7 +117,7 @@ void main() {
     final aliceReceivedMessage = await aliceSession.decryptMessage(
       bobResponseMessage.ciphertext,
       bobJid,
-      bobSession.device.id,
+      (await bobSession.getDevice()).id,
       bobResponseMessage.encryptedKeys,
     );
     expect(bobResponseText, aliceReceivedMessage);

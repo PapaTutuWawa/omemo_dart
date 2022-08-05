@@ -12,7 +12,7 @@ List<int> concat(List<List<int>> inputs) {
 
 /// Compares the two lists [a] and [b] and return true if [a] and [b] are index-by-index
 /// equal. Returns false, if they are not "equal";
-bool listsEqual(List<int> a, List<int> b) {
+bool listsEqual<T>(List<T> a, List<T> b) {
   // TODO(Unknown): Do we need to use a constant time comparison?
   if (a.length != b.length) return false;
 
