@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:cryptography/cryptography.dart';
+import 'package:meta/meta.dart';
 import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/double_ratchet/double_ratchet.dart';
 import 'package:omemo_dart/src/errors.dart';
@@ -58,8 +59,9 @@ class OmemoSessionManager {
   
   /// Lock for _ratchetMap and _bundleMap
   final Lock _lock;
-  
+
   /// Mapping of the Device Id to its OMEMO session
+  // TODO(PapaTutuWawa): Make this map use a tuple (Jid, Id) as a key
   final Map<int, OmemoDoubleRatchet> _ratchetMap;
 
   /// Mapping of a bare Jid to its Device Ids
@@ -274,4 +276,7 @@ class OmemoSessionManager {
     final plaintext = await aes256CbcDecrypt(ciphertext, derivedKeys.encryptionKey, derivedKeys.iv);
     return utf8.decode(plaintext);
   }
+
+  @visibleForTesting
+  OmemoDoubleRatchet getRatchet(int deviceId) => _ratchetMap[deviceId]!;
 }

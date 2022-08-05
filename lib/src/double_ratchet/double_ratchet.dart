@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:cryptography/cryptography.dart';
 import 'package:meta/meta.dart';
 import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/double_ratchet/crypto.dart';
+import 'package:omemo_dart/src/double_ratchet/helpers.dart';
 import 'package:omemo_dart/src/double_ratchet/kdf.dart';
 import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/helpers.dart';
@@ -22,9 +24,27 @@ class RatchetStep {
 class SkippedKey {
 
   const SkippedKey(this.dh, this.n);
+
+  factory SkippedKey.fromJson(Map<String, dynamic> data) {
+    return SkippedKey(
+      OmemoPublicKey.fromBytes(
+        base64.decode(data['public']! as String),
+        KeyPairType.x25519,
+      ),
+      data['n']! as int,
+    );
+  }
+
   final OmemoPublicKey dh;
   final int n;
 
+  Future<Map<String, dynamic>> toJson() async {
+    return {
+      'public': base64.encode(await dh.getBytes()),
+      'n': n,
+    };
+  }
+  
   @override
   bool operator ==(Object other) {
     return other is SkippedKey && other.dh == dh && other.n == n;
@@ -46,8 +66,55 @@ class OmemoDoubleRatchet {
     this.nr,  // Nr
     this.pn,  // Pn
     this.sessionAd,
+    this.mkSkipped,
   );
-     
+
+  factory OmemoDoubleRatchet.fromJson(Map<String, dynamic> data) {
+    /*
+    {
+      'dhs': 'base/64/encoded',
+      'dhs_pub': 'base/64/encoded',
+      'dhr': null | 'base/64/encoded',
+      'rk': 'base/64/encoded',
+      'cks': null | 'base/64/encoded',
+      'ckr': null | 'base/64/encoded',
+      'ns': 0,
+      'nr': 0,
+      'pn': 0,
+      'session_ad': 'base/64/encoded',
+      'mkskipped': [
+        {
+          'key': 'base/64/encoded',
+          'public': 'base/64/encoded',
+          'n': 0
+        }, ...
+      ]
+    }
+    */
+    final mkSkipped = <SkippedKey, List<int>>{};
+    for (final entry in data['mkskipped']! as List<Map<String, dynamic>>) {
+      final key = SkippedKey.fromJson(entry);
+      mkSkipped[key] = base64.decode(entry['key']! as String);
+    }
+    
+    return OmemoDoubleRatchet(
+      OmemoKeyPair.fromBytes(
+        base64.decode(data['dhs_pub']! as String),
+        base64.decode(data['dhs']! as String),
+        KeyPairType.x25519,
+      ),
+      decodeKeyIfNotNull(data, 'dhr', KeyPairType.x25519),
+      base64.decode(data['rk']! as String),
+      base64DecodeIfNotNull(data, 'cks'),
+      base64DecodeIfNotNull(data, 'ckr'),
+      data['ns']! as int,
+      data['nr']! as int,
+      data['pn']! as int,
+      base64.decode(data['session_ad']! as String),
+      mkSkipped,
+    );
+  }
+  
   /// Sending DH keypair
   OmemoKeyPair dhs;
 
@@ -70,7 +137,7 @@ class OmemoDoubleRatchet {
 
   final List<int> sessionAd;
 
-  final Map<SkippedKey, List<int>> mkSkipped = {};
+  final Map<SkippedKey, List<int>> mkSkipped;
 
   /// Create an OMEMO session using the Signed Pre Key [spk], the shared secret [sk] that
   /// was obtained using a X3DH and the associated data [ad] that was also obtained through
@@ -91,6 +158,7 @@ class OmemoDoubleRatchet {
       0,
       0,
       ad,
+      {},
     );
   }
 
@@ -108,7 +176,32 @@ class OmemoDoubleRatchet {
       0,
       0,
       ad,
+      {},
     );
+  }
+
+  Future<Map<String, dynamic>> toJson() async {
+    final mkSkippedSerialised = List<Map<String, dynamic>>.empty(growable: true);
+    for (final entry in mkSkipped.entries) {
+      final result = await entry.key.toJson();
+      result['key'] = base64.encode(entry.value);
+
+      mkSkippedSerialised.add(result);
+    }
+    
+    return {
+      'dhs': base64.encode(await dhs.sk.getBytes()),
+      'dhs_pub': base64.encode(await dhs.pk.getBytes()),
+      'dhr': dhr != null ? base64.encode(await dhr!.getBytes()) : null,
+      'rk': base64.encode(rk),
+      'cks': cks != null ? base64.encode(cks!) : null,
+      'ckr': ckr != null ? base64.encode(ckr!) : null,
+      'ns': ns,
+      'nr': nr,
+      'pn': pn,
+      'session_ad': base64.encode(sessionAd),
+      'mkskipped': mkSkippedSerialised,
+    };
   }
   
   Future<List<int>?> _trySkippedMessageKeys(OmemoMessage header, List<int> ciphertext) async {
