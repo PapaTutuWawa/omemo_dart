@@ -166,4 +166,31 @@ class Device {
       'opks': serialisedOpks,
     };
   }
+
+  @visibleForTesting
+  Future<bool> equals(Device other) async {
+    var opksMatch = true;
+    if (opks.length != other.opks.length) {
+      opksMatch = false;
+    } else {
+      for (final entry in opks.entries) {
+        // ignore: invalid_use_of_visible_for_testing_member
+        final matches = await other.opks[entry.key]?.equals(entry.value) ?? false;
+        if (!matches) {
+          opksMatch = false;
+        }
+      }
+    }
+
+    // ignore: invalid_use_of_visible_for_testing_member
+    final ikMatch = await ik.equals(other.ik);
+    // ignore: invalid_use_of_visible_for_testing_member
+    final spkMatch = await spk.equals(other.spk);
+    return id == other.id &&
+      ikMatch &&
+      spkMatch &&
+      listsEqual(spkSignature, other.spkSignature) &&
+      spkId == other.spkId &&
+      opksMatch;
+  }
 }

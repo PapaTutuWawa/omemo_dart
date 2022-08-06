@@ -60,19 +60,34 @@ class RatchetMapKey {
 
 class OmemoSessionManager {
 
-  OmemoSessionManager(this._device)
-    : _ratchetMap = {},
-      _deviceMap = {},
-      _lock = Lock(),
+  OmemoSessionManager(this._device, this._deviceMap, this._ratchetMap)
+    : _lock = Lock(),
       _deviceLock = Lock(),
       _eventStreamController = StreamController<OmemoEvent>.broadcast();
 
+  /// Deserialise the OmemoSessionManager from JSON data [data].
+  factory OmemoSessionManager.fromJson(Map<String, dynamic> data) {
+    final ratchetMap = <RatchetMapKey, OmemoDoubleRatchet>{};
+    for (final rawRatchet in data['sessions']! as List<Map<String, dynamic>>) {
+      final key = RatchetMapKey(rawRatchet['jid']! as String, rawRatchet['deviceId']! as int);
+      final ratchet = OmemoDoubleRatchet.fromJson(rawRatchet['ratchet']! as Map<String, dynamic>);
+      ratchetMap[key] = ratchet;
+    }
+
+    // TODO(PapaTutuWawa): Handle Trust behaviour
+    return OmemoSessionManager(
+      Device.fromJson(data['device']! as Map<String, dynamic>),
+      data['devices']! as Map<String, List<int>>,
+      ratchetMap,
+    );
+  }
+      
   /// Generate a new cryptographic identity.
   static Future<OmemoSessionManager> generateNewIdentity({ int opkAmount = 100 }) async {
     assert(opkAmount > 0, 'opkAmount must be bigger than 0.');
     final device = await Device.generateNewDevice(opkAmount: opkAmount);
 
-    return OmemoSessionManager(device);
+    return OmemoSessionManager(device, {}, {});
   }
   
   /// Lock for _ratchetMap and _bundleMap
@@ -128,7 +143,8 @@ class OmemoSessionManager {
 
   /// Create a ratchet session initiated by Alice to the user with Jid [jid] and the device
   /// [deviceId] from the bundle [bundle].
-  Future<OmemoKeyExchange> _addSessionFromBundle(String jid, int deviceId, OmemoBundle bundle) async {
+  @visibleForTesting
+  Future<OmemoKeyExchange> addSessionFromBundle(String jid, int deviceId, OmemoBundle bundle) async {
     final device = await getDevice();
     final kexResult = await x3dhFromBundle(
       bundle,
@@ -191,7 +207,7 @@ class OmemoSessionManager {
     final kex = <int, OmemoKeyExchange>{};
     if (newSessions != null) {
       for (final newSession in newSessions) {
-        kex[newSession.id] = await _addSessionFromBundle(jid, newSession.id, newSession);
+        kex[newSession.id] = await addSessionFromBundle(jid, newSession.id, newSession);
       }
     }
     
@@ -299,4 +315,49 @@ class OmemoSessionManager {
 
   @visibleForTesting
   OmemoDoubleRatchet getRatchet(String jid, int deviceId) => _ratchetMap[RatchetMapKey(jid, deviceId)]!;
+
+  @visibleForTesting
+  Map<String, List<int>> getDeviceMap() => _deviceMap;
+
+  @visibleForTesting
+  Map<RatchetMapKey, OmemoDoubleRatchet> getRatchetMap() => _ratchetMap;
+
+  /// Serialise the entire session manager into a JSON object.
+  Future<Map<String, dynamic>> toJson() async {
+    /*
+    {
+      'devices': {
+        'alice@...': [1, 2, ...],
+        'bob@...': [1],
+        ...
+      },
+      'device': { ... },
+      'sessions': [
+        {
+          'jid': 'alice@...',
+          'deviceId': 1,
+          'ratchet': { ... },
+        },
+        ...
+      ],
+      'trust': { ... }
+    }
+    */
+
+    final sessions = List<Map<String, dynamic>>.empty(growable: true);
+    for (final entry in _ratchetMap.entries) {
+      sessions.add({
+        'jid': entry.key.jid,
+        'deviceId': entry.key.deviceId,
+        'ratchet': await entry.value.toJson(),
+      });
+    }
+    return {
+      'devices': _deviceMap,
+      'device': await (await getDevice()).toJson(),
+      'sessions': sessions,
+      // TODO(PapaTutuWawa): Implement
+      'trust': <String, dynamic>{},
+    };
+  }
 }

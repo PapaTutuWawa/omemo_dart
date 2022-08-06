@@ -293,4 +293,23 @@ class OmemoDoubleRatchet {
 
     return decrypt(mk, ciphertext, concat([sessionAd, header.writeToBuffer()]), sessionAd);
   }
+
+  @visibleForTesting
+  Future<bool> equals(OmemoDoubleRatchet other) async {
+    // ignore: invalid_use_of_visible_for_testing_member
+    final dhrMatch = dhr == null ? other.dhr == null : await dhr!.equals(other.dhr!);
+    final ckrMatch = ckr == null ? other.ckr == null : listsEqual(ckr!, other.ckr!);
+    final cksMatch = cks == null ? other.cks == null : listsEqual(cks!, other.cks!);
+
+    // ignore: invalid_use_of_visible_for_testing_member
+    return await dhs.equals(other.dhs) &&
+      dhrMatch &&
+      listsEqual(rk, other.rk) &&
+      cksMatch &&
+      ckrMatch &&
+      ns == other.ns &&
+      nr == other.nr &&
+      pn == other.pn &&
+      listsEqual(sessionAd, other.sessionAd);
+  }
 }
