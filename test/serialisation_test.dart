@@ -41,7 +41,7 @@ void main() {
       (await aliceSession.getDevice()).id,
       aliceMessage.encryptedKeys,
     );
-    final aliceOld = aliceSession.getRatchet((await bobSession.getDevice()).id);
+    final aliceOld = aliceSession.getRatchet(bobJid, (await bobSession.getDevice()).id);
     final aliceSerialised = await aliceOld.toJson();
     final aliceNew = OmemoDoubleRatchet.fromJson(aliceSerialised);
 

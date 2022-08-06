@@ -20,6 +20,7 @@ import 'package:synchronized/synchronized.dart';
 /// The info used for when encrypting the AES key for the actual payload.
 const omemoPayloadInfoString = 'OMEMO Payload';
 
+@immutable
 class EncryptionResult {
 
   const EncryptionResult(this.ciphertext, this.encryptedKeys);
@@ -32,12 +33,29 @@ class EncryptionResult {
   final List<EncryptedKey> encryptedKeys;
 }
 
+@immutable
 class EncryptedKey {
 
   const EncryptedKey(this.rid, this.value, this.kex);
   final int rid;
   final String value;
   final bool kex;
+}
+
+@immutable
+class RatchetMapKey {
+
+  const RatchetMapKey(this.jid, this.deviceId);
+  final String jid;
+  final int deviceId;
+
+  @override
+  bool operator ==(Object other) {
+    return other is RatchetMapKey && jid == other.jid && deviceId == other.deviceId;
+  }
+
+  @override
+  int get hashCode => jid.hashCode ^ deviceId.hashCode;
 }
 
 class OmemoSessionManager {
@@ -61,8 +79,7 @@ class OmemoSessionManager {
   final Lock _lock;
 
   /// Mapping of the Device Id to its OMEMO session
-  // TODO(PapaTutuWawa): Make this map use a tuple (Jid, Id) as a key
-  final Map<int, OmemoDoubleRatchet> _ratchetMap;
+  final Map<RatchetMapKey, OmemoDoubleRatchet> _ratchetMap;
 
   /// Mapping of a bare Jid to its Device Ids
   final Map<String, List<int>> _deviceMap;
@@ -99,8 +116,9 @@ class OmemoSessionManager {
       }
 
       // Add the ratchet session
-      if (!_ratchetMap.containsKey(deviceId)) {
-        _ratchetMap[deviceId] = ratchet;
+      final key = RatchetMapKey(jid, deviceId);
+      if (!_ratchetMap.containsKey(key)) {
+        _ratchetMap[key] = ratchet;
       } else {
         // TODO(PapaTutuWawa): What do we do now?
         throw Exception();
@@ -180,7 +198,8 @@ class OmemoSessionManager {
     await _lock.synchronized(() async {
       // We assume that the user already checked if the session exists
       for (final deviceId in _deviceMap[jid]!) {
-        final ratchet = _ratchetMap[deviceId]!;
+        final ratchetKey = RatchetMapKey(jid, deviceId);
+        final ratchet = _ratchetMap[ratchetKey]!;
         final ciphertext = (await ratchet.ratchetEncrypt(concatKey)).ciphertext;
 
         if (kex.isNotEmpty && kex.containsKey(deviceId)) {
@@ -256,8 +275,9 @@ class OmemoSessionManager {
     }
 
     final message = OmemoMessage.fromBuffer(authMessage.message!);
-    
-    final ratchet = _ratchetMap[senderDeviceId]!;
+
+    final ratchetKey = RatchetMapKey(senderJid, senderDeviceId);
+    final ratchet = _ratchetMap[ratchetKey]!;
     List<int> keyAndHmac;
     if (rawKey.kex) {
       keyAndHmac = await ratchet.ratchetDecrypt(message, authMessage.writeToBuffer());
@@ -278,5 +298,5 @@ class OmemoSessionManager {
   }
 
   @visibleForTesting
-  OmemoDoubleRatchet getRatchet(int deviceId) => _ratchetMap[deviceId]!;
+  OmemoDoubleRatchet getRatchet(String jid, int deviceId) => _ratchetMap[RatchetMapKey(jid, deviceId)]!;
 }
