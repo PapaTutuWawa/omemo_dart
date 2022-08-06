@@ -130,6 +130,9 @@ class OmemoSessionManager {
         _deviceMap[jid]!.add(deviceId);
       }
 
+      // Commit the device map
+      _eventStreamController.add(DeviceMapModifiedEvent(_deviceMap));
+
       // Add the ratchet session
       final key = RatchetMapKey(jid, deviceId);
       if (!_ratchetMap.containsKey(key)) {
@@ -138,6 +141,9 @@ class OmemoSessionManager {
         // TODO(PapaTutuWawa): What do we do now?
         throw Exception();
       }
+
+      // Commit the ratchet
+      _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet));
     });
   }
 
@@ -218,6 +224,9 @@ class OmemoSessionManager {
         final ratchet = _ratchetMap[ratchetKey]!;
         final ciphertext = (await ratchet.ratchetEncrypt(concatKey)).ciphertext;
 
+        // Commit the ratchet
+        _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet));
+        
         if (kex.isNotEmpty && kex.containsKey(deviceId)) {
           final k = kex[deviceId]!
             ..message = OmemoAuthenticatedMessage.fromBuffer(ciphertext);
@@ -274,9 +283,9 @@ class OmemoSessionManager {
       // Replace the OPK
       await _deviceLock.synchronized(() async {
         device = await device.replaceOnetimePrekey(kex.pkId!);
-        _eventStreamController.add(
-          DeviceBundleModifiedEvent(device),
-        );
+
+        // Commit the device
+        _eventStreamController.add(DeviceModifiedEvent(device));
       });
     } else {
       authMessage = OmemoAuthenticatedMessage.fromBuffer(decodedRawKey);
@@ -291,17 +300,22 @@ class OmemoSessionManager {
     }
 
     final message = OmemoMessage.fromBuffer(authMessage.message!);
-
     final ratchetKey = RatchetMapKey(senderJid, senderDeviceId);
-    final ratchet = _ratchetMap[ratchetKey]!;
-    List<int> keyAndHmac;
-    if (rawKey.kex) {
-      keyAndHmac = await ratchet.ratchetDecrypt(message, authMessage.writeToBuffer());
-    } else {
-      keyAndHmac = await ratchet.ratchetDecrypt(message, decodedRawKey);
-    }
-    final key = keyAndHmac.sublist(0, 32);
-    final hmac = keyAndHmac.sublist(32, 48);
+    List<int>? keyAndHmac;
+    await _lock.synchronized(() async {
+      final ratchet = _ratchetMap[ratchetKey]!;
+      if (rawKey.kex) {
+        keyAndHmac = await ratchet.ratchetDecrypt(message, authMessage.writeToBuffer());
+      } else {
+        keyAndHmac = await ratchet.ratchetDecrypt(message, decodedRawKey);
+      }
+
+      // Commit the ratchet
+      _eventStreamController.add(RatchetModifiedEvent(senderJid, senderDeviceId, ratchet));
+    });
+
+    final key = keyAndHmac!.sublist(0, 32);
+    final hmac = keyAndHmac!.sublist(32, 48);
     final derivedKeys = await deriveEncryptionKeys(key, omemoPayloadInfoString);
 
     final computedHmac = await truncatedHmac(ciphertext, derivedKeys.authenticationKey);

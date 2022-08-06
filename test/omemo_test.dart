@@ -8,12 +8,18 @@ void main() {
       
     // Alice and Bob generate their sessions
     var deviceModified = false;
+    var ratchetModified = 0;
+    var deviceMapModified = 0;
     final aliceSession = await OmemoSessionManager.generateNewIdentity(opkAmount: 1);
     final bobSession = await OmemoSessionManager.generateNewIdentity(opkAmount: 1);
     final bobOpks = (await bobSession.getDevice()).opks.values.toList();
     bobSession.eventStream.listen((event) {
-      if (event is DeviceBundleModifiedEvent) {
+      if (event is DeviceModifiedEvent) {
         deviceModified = true;
+      } else if (event is RatchetModifiedEvent) {
+        ratchetModified++;
+      } else if (event is DeviceMapModifiedEvent) {
+        deviceMapModified++;
       }
     });
 
@@ -39,6 +45,11 @@ void main() {
       aliceMessage.encryptedKeys,
     );
     expect(messagePlaintext, bobMessage);
+    // The ratchet should be modified two times: Once for when the ratchet is created and
+    // other time for when the message is decrypted
+    expect(ratchetModified, 2);
+    // Bob's device map should be modified once
+    expect(deviceMapModified, 1);
     // The event should be triggered
     expect(deviceModified, true);
     // Bob should have replaced his OPK
