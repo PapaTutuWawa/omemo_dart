@@ -23,6 +23,9 @@ the stanza format of your preferred XMPP library yourself.
 When submitting a PR, please run the linter using `dart analyze` and make sure that all
 tests still pass using `dart test`.
 
+To ensure uniform commit message formatting, please also use `gitlint` to lint your commit
+messages' formatting.
+
 ## License
 
 Licensed under the MIT license.
