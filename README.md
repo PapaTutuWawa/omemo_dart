@@ -20,6 +20,10 @@ the stanza format of your preferred XMPP library yourself.
 
 ## Contributing
 
+Due to issues with `protobuf`, `omemo_dart` reimplements the Protobuf encoding for the required
+OMEMO messages. As such, `protobuf` is only a dependency for testing that the serialisation and
+deserialisation of the custom implementation.
+
 When submitting a PR, please run the linter using `dart analyze` and make sure that all
 tests still pass using `dart test`.
 

@@ -9,12 +9,11 @@ dependencies:
   collection: ^1.16.0
   cryptography: ^2.0.5
   pinenacl: ^0.5.1
-  protobuf: ^2.1.0
   synchronized: ^3.0.0+2
 
 dev_dependencies:
   lints: ^2.0.0
+  protobuf: ^2.1.0
   protoc_plugin: ^20.0.1
   test: ^1.21.0
   very_good_analysis: ^3.0.1
-
