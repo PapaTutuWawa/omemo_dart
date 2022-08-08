@@ -35,6 +35,8 @@ class EncryptionResult {
   final List<EncryptedKey> encryptedKeys;
 }
 
+/// EncryptedKey is the intermediary format of a <key /> element in the OMEMO message's
+/// <keys /> header.
 @immutable
 class EncryptedKey {
 
