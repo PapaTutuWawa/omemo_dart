@@ -101,6 +101,7 @@ class Device {
 
   /// This replaces the Onetime-Prekey with id [id] with a completely new one. Returns
   /// a new Device object that copies over everything but replaces said key.
+  @internal
   Future<Device> replaceOnetimePrekey(int id) async {
     opks[id] = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     
@@ -117,6 +118,7 @@ class Device {
 
   /// This replaces the Signed-Prekey with a completely new one. Returns a new Device object
   /// that copies over everything but replaces the Signed-Prekey and its signature.
+  @internal
   Future<Device> replaceSignedPrekey() async {
     final newSpk = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     final newSpkId = generateRandom32BitNumber();
