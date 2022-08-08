@@ -12,6 +12,16 @@ void main() {
     expect(await oldDevice.equals(newDevice), true);
   });
 
+  test('Test serialising and deserialising the Device after rotating the SPK', () async {
+    // Generate a random session
+    final oldSession = await OmemoSessionManager.generateNewIdentity('user@test.server', opkAmount: 1);
+    final oldDevice = await (await oldSession.getDevice()).replaceSignedPrekey();
+    final serialised = await oldDevice.toJson();
+
+    final newDevice = Device.fromJson(serialised);
+    expect(await oldDevice.equals(newDevice), true);
+  });
+  
   test('Test serialising and deserialising the OmemoDoubleRatchet', () async {
     // Generate a random ratchet
     const aliceJid = 'alice@server.example';

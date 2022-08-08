@@ -3,7 +3,6 @@ import 'package:cryptography/cryptography.dart';
 import 'package:meta/meta.dart';
 import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/double_ratchet/crypto.dart';
-import 'package:omemo_dart/src/double_ratchet/helpers.dart';
 import 'package:omemo_dart/src/double_ratchet/kdf.dart';
 import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/helpers.dart';
