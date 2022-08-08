@@ -186,4 +186,39 @@ void main() {
     );
     expect(messagePlaintext, aliceMessage2);
   });
+
+  test('Test using sending empty OMEMO messages', () async {
+    const aliceJid = 'alice@server.example';
+    const bobJid = 'bob@other.server.example';
+      
+    // Alice and Bob generate their sessions
+    final aliceSession = await OmemoSessionManager.generateNewIdentity(aliceJid, opkAmount: 1);
+    final bobSession = await OmemoSessionManager.generateNewIdentity(bobJid, opkAmount: 1);
+
+    // Alice encrypts a message for Bob
+    final aliceMessage = await aliceSession.encryptToJid(
+      bobJid,
+      null,
+      newSessions: [
+        await (await bobSession.getDevice()).toBundle(),
+      ],
+    );
+    expect(aliceMessage.encryptedKeys.length, 1);
+    expect(aliceMessage.ciphertext, null);
+
+    // Alice sends the message to Bob
+    // ...
+
+    // Bob decrypts it
+    final bobMessage = await bobSession.decryptMessage(
+      aliceMessage.ciphertext,
+      aliceJid,
+      (await aliceSession.getDevice()).id,
+      aliceMessage.encryptedKeys,
+    );
+    expect(bobMessage, null);
+
+    // This call must not cause an exception
+    bobSession.getRatchet(aliceJid, (await aliceSession.getDevice()).id);
+  });
 }

@@ -28,7 +28,7 @@ class EncryptionResult {
   const EncryptionResult(this.ciphertext, this.encryptedKeys);
   
   /// The actual message that was encrypted
-  final List<int> ciphertext;
+  final List<int>? ciphertext;
 
   /// Mapping of the device Id to the key for decrypting ciphertext, encrypted
   /// for the ratchet with said device Id
@@ -186,25 +186,35 @@ class OmemoSessionManager {
   }
 
   /// Like [encryptToJids] but only for one Jid [jid].
-  Future<EncryptionResult> encryptToJid(String jid, String plaintext, { List<OmemoBundle>? newSessions }) {
+  Future<EncryptionResult> encryptToJid(String jid, String? plaintext, { List<OmemoBundle>? newSessions }) {
     return encryptToJids([jid], plaintext, newSessions: newSessions);
   }
   
   /// Encrypt the key [plaintext] for all known bundles of the Jids in [jids]. Returns a
   /// map that maps the device Id to the ciphertext of [plaintext].
-  Future<EncryptionResult> encryptToJids(List<String> jids, String plaintext, { List<OmemoBundle>? newSessions }) async {
+  ///
+  /// If [plaintext] is null, then the result will be an empty OMEMO message, i.e. one that
+  /// does not contain a <payload /> element. This means that the ciphertext attribute of
+  /// the result will be null as well.
+  Future<EncryptionResult> encryptToJids(List<String> jids, String? plaintext, { List<OmemoBundle>? newSessions }) async {
     final encryptedKeys = List<EncryptedKey>.empty(growable: true);
 
-    // Generate the key and encrypt the plaintext
-    final key = generateRandomBytes(32);
-    final keys = await deriveEncryptionKeys(key, omemoPayloadInfoString);
-    final ciphertext = await aes256CbcEncrypt(
-      utf8.encode(plaintext),
-      keys.encryptionKey,
-      keys.iv,
-    );
-    final hmac = await truncatedHmac(ciphertext, keys.authenticationKey);
-    final concatKey = concat([key, hmac]);
+    var ciphertext = const <int>[];
+    var keyPayload = const <int>[];
+    if (plaintext != null) {
+      // Generate the key and encrypt the plaintext
+      final key = generateRandomBytes(32);
+      final keys = await deriveEncryptionKeys(key, omemoPayloadInfoString);
+      ciphertext = await aes256CbcEncrypt(
+        utf8.encode(plaintext),
+        keys.encryptionKey,
+        keys.iv,
+      );
+      final hmac = await truncatedHmac(ciphertext, keys.authenticationKey);
+      keyPayload = concat([key, hmac]);
+    } else {
+      keyPayload = List<int>.filled(32, 0x0);
+    }
 
     final kex = <int, OmemoKeyExchange>{};
     if (newSessions != null) {
@@ -219,14 +229,14 @@ class OmemoSessionManager {
         for (final deviceId in _deviceMap[jid]!) {
           final ratchetKey = RatchetMapKey(jid, deviceId);
           final ratchet = _ratchetMap[ratchetKey]!;
-          final ciphertext = (await ratchet.ratchetEncrypt(concatKey)).ciphertext;
+          final ciphertext = (await ratchet.ratchetEncrypt(keyPayload)).ciphertext;
 
           // Commit the ratchet
           _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet));
           
           if (kex.isNotEmpty && kex.containsKey(deviceId)) {
             final k = kex[deviceId]!
-            ..message = OmemoAuthenticatedMessage.fromBuffer(ciphertext);
+              ..message = OmemoAuthenticatedMessage.fromBuffer(ciphertext);
             encryptedKeys.add(
               EncryptedKey(
                 jid,
@@ -250,7 +260,7 @@ class OmemoSessionManager {
     });
 
     return EncryptionResult(
-      ciphertext,
+      plaintext != null ? ciphertext : null,
       encryptedKeys,
     );
   }
@@ -259,7 +269,12 @@ class OmemoSessionManager {
   /// <keys /> element with a "jid" attribute matching our own. [senderJid] refers to the
   /// bare Jid of the sender. [senderDeviceId] refers to the "sid" attribute of the
   /// <encrypted /> element.
-  Future<String> decryptMessage(List<int> ciphertext, String senderJid, int senderDeviceId, List<EncryptedKey> keys) async {
+  ///
+  /// If the received message is an empty OMEMO message, i.e. there is no <payload />
+  /// element, then [ciphertext] must be set to null. In this case, this function
+  /// will return null as there is no message to be decrypted. This, however, is used
+  /// to set up sessions or advance the ratchets.
+  Future<String?> decryptMessage(List<int>? ciphertext, String senderJid, int senderDeviceId, List<EncryptedKey> keys) async {
     // Try to find a session we can decrypt with.
     var device = await getDevice();
     final rawKey = keys.firstWhereOrNull((key) => key.rid == device.id);
@@ -314,6 +329,11 @@ class OmemoSessionManager {
       _eventStreamController.add(RatchetModifiedEvent(senderJid, senderDeviceId, ratchet));
     });
 
+    // Empty OMEMO messages should just have the key decrypted and/or session set up.
+    if (ciphertext == null) {
+      return null;
+    }
+    
     final key = keyAndHmac!.sublist(0, 32);
     final hmac = keyAndHmac!.sublist(32, 48);
     final derivedKeys = await deriveEncryptionKeys(key, omemoPayloadInfoString);
@@ -322,7 +342,7 @@ class OmemoSessionManager {
     if (!listsEqual(hmac, computedHmac)) {
       throw InvalidMessageHMACException();
     }
-
+    
     final plaintext = await aes256CbcDecrypt(ciphertext, derivedKeys.encryptionKey, derivedKeys.iv);
     return utf8.decode(plaintext);
   }
