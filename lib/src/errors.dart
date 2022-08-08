@@ -24,3 +24,9 @@ class NotEncryptedForDeviceException implements Exception {
 class NoDecryptionKeyException implements Exception {
   String errMsg() => 'No key available for decrypting the message';
 }
+
+/// Triggered by the Session Manager when the identifier of the used Signed Prekey
+/// is neither the current SPK's identifier nor the old one's.
+class UnknownSignedPrekeyException implements Exception {
+  String errMsg() => 'Unknown Signed Prekey used.';
+}

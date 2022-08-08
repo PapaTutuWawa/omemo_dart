@@ -249,4 +249,39 @@ void main() {
     expect(newDevice!.oldSpkId, oldDevice.spkId);
     expect(listsEqual(newDevice!.oldSpkSignature!, oldDevice.spkSignature), true);
   });
+
+  test('Test accepting a session with an old SPK', () async {
+    const aliceJid = 'alice@server.example';
+    const bobJid = 'bob@other.server.example';
+      
+    // Alice and Bob generate their sessions
+    final aliceSession = await OmemoSessionManager.generateNewIdentity(aliceJid, opkAmount: 1);
+    final bobSession = await OmemoSessionManager.generateNewIdentity(bobJid, opkAmount: 1);
+
+    // Alice encrypts a message for Bob
+    const messagePlaintext = 'Hello Bob!';
+    final aliceMessage = await aliceSession.encryptToJid(
+      bobJid,
+      messagePlaintext,
+      newSessions: [
+        await (await bobSession.getDevice()).toBundle(),
+      ],
+    );
+    expect(aliceMessage.encryptedKeys.length, 1);
+
+    // Alice loses her Internet connection. Bob rotates his SPK.
+    await bobSession.rotateSignedPrekey();
+    
+    // Alice regains her Internet connection and sends the message to Bob
+    // ...
+
+    // Bob decrypts it
+    final bobMessage = await bobSession.decryptMessage(
+      aliceMessage.ciphertext,
+      aliceJid,
+      (await aliceSession.getDevice()).id,
+      aliceMessage.encryptedKeys,
+    );
+    expect(messagePlaintext, bobMessage);
+  });
 }

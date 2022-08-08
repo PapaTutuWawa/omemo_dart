@@ -156,27 +156,40 @@ class OmemoSessionManager {
 
     return OmemoKeyExchange()
       ..pkId = kexResult.opkId
-      ..spkId = 0
+      ..spkId = bundle.spkId
       ..ik = await device.ik.pk.getBytes()
       ..ek = await kexResult.ek.pk.getBytes();
   }
 
   /// Build a new session with the user at [jid] with the device [deviceId] using data
-  /// from the key exchange [kex].
+  /// from the key exchange [kex]. In case [kex] contains an unknown Signed Prekey
+  /// identifier an UnknownSignedPrekeyException will be thrown.
   Future<void> _addSessionFromKeyExchange(String jid, int deviceId, OmemoKeyExchange kex) async {
+    // Pick the correct SPK
     final device = await getDevice();
+    OmemoKeyPair? spk;
+    if (kex.spkId == device.spkId) {
+      spk = device.spk;
+    } else if (kex.spkId == device.oldSpkId) {
+      spk = device.oldSpk;
+    } else {
+      throw UnknownSignedPrekeyException();
+    }
+
+    assert(spk != null, 'The used SPK must be found');
+    
     final kexResult = await x3dhFromInitialMessage(
       X3DHMessage(
         OmemoPublicKey.fromBytes(kex.ik!, KeyPairType.ed25519),
         OmemoPublicKey.fromBytes(kex.ek!, KeyPairType.x25519),
         kex.pkId!,
       ),
-      device.spk,
+      spk!,
       device.opks.values.elementAt(kex.pkId!),
       device.ik,
     );
     final ratchet = await OmemoDoubleRatchet.acceptNewSession(
-      device.spk,
+      spk,
       OmemoPublicKey.fromBytes(kex.ik!, KeyPairType.ed25519),
       kexResult.sk,
       kexResult.ad,
