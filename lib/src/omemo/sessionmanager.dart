@@ -369,6 +369,19 @@ class OmemoSessionManager {
 
     return fingerprints;
   }
+
+  /// Replaces the Signed Prekey and its signature in our own device bundle. Triggers
+  /// a DeviceModifiedEvent when done.
+  /// See https://xmpp.org/extensions/xep-0384.html#protocol-key_exchange under the point
+  /// "signed PreKey rotation period" for recommendations.
+  Future<void> rotateSignedPrekey() async {
+    await _deviceLock.synchronized(() async {
+      _device = await _device.replaceSignedPrekey();
+
+      // Commit the new device
+      _eventStreamController.add(DeviceModifiedEvent(_device));
+    });
+  }
   
   @visibleForTesting
   OmemoDoubleRatchet getRatchet(String jid, int deviceId) => _ratchetMap[RatchetMapKey(jid, deviceId)]!;

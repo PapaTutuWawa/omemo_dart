@@ -221,4 +221,28 @@ void main() {
     // This call must not cause an exception
     bobSession.getRatchet(aliceJid, (await aliceSession.getDevice()).id);
   });
+
+  test('Test rotating the Signed Prekey', () async {
+    // Generate the session
+    const aliceJid = 'alice@some.server';
+    final aliceSession = await OmemoSessionManager.generateNewIdentity(aliceJid, opkAmount: 1);
+
+    // Setup an event listener
+    final oldDevice = await aliceSession.getDevice();
+    Device? newDevice;
+    aliceSession.eventStream.listen((event) {
+      if (event is DeviceModifiedEvent) {
+        newDevice = event.device;
+      }
+    });
+
+    // Rotate the Signed Prekey
+    await aliceSession.rotateSignedPrekey();
+
+    // Just for safety...
+    await Future<void>.delayed(const Duration(seconds: 2));
+
+    expect(await oldDevice.equals(newDevice!), false);
+    expect(await newDevice!.equals(await aliceSession.getDevice()), true);
+  });
 }
