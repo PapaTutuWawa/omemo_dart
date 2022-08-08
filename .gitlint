@@ -5,6 +5,6 @@ line-length=72
 [title-trailing-punctuation]
 [title-hard-tab]
 [title-match-regex]
-regex=^(feat|fix|test|release|chore|security|docs):.*$
+regex=^(feat|fix|test|release|chore|security|docs|refactor):.*$
 [body-trailing-whitespace]
 [body-first-line-empty]

@@ -12,6 +12,8 @@ import 'package:omemo_dart/src/helpers.dart';
 import 'package:omemo_dart/src/keys.dart';
 import 'package:omemo_dart/src/omemo/bundle.dart';
 import 'package:omemo_dart/src/omemo/device.dart';
+import 'package:omemo_dart/src/omemo/encrypted_key.dart';
+import 'package:omemo_dart/src/omemo/encryption_result.dart';
 import 'package:omemo_dart/src/omemo/fingerprint.dart';
 import 'package:omemo_dart/src/omemo/ratchet_map_key.dart';
 import 'package:omemo_dart/src/protobuf/omemo_authenticated_message.dart';
@@ -22,30 +24,6 @@ import 'package:synchronized/synchronized.dart';
 
 /// The info used for when encrypting the AES key for the actual payload.
 const omemoPayloadInfoString = 'OMEMO Payload';
-@immutable
-class EncryptionResult {
-
-  const EncryptionResult(this.ciphertext, this.encryptedKeys);
-  
-  /// The actual message that was encrypted
-  final List<int>? ciphertext;
-
-  /// Mapping of the device Id to the key for decrypting ciphertext, encrypted
-  /// for the ratchet with said device Id
-  final List<EncryptedKey> encryptedKeys;
-}
-
-/// EncryptedKey is the intermediary format of a <key /> element in the OMEMO message's
-/// <keys /> header.
-@immutable
-class EncryptedKey {
-
-  const EncryptedKey(this.jid, this.rid, this.value, this.kex);
-  final String jid;
-  final int rid;
-  final String value;
-  final bool kex;
-}
 
 class OmemoSessionManager {
 
