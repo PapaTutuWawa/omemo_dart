@@ -10,7 +10,7 @@ import 'package:omemo_dart/src/x3dh/x3dh.dart';
 @immutable
 class Device {
 
-  const Device(this.id, this.ik, this.spk, this.spkId, this.spkSignature, this.opks);
+  const Device(this.jid, this.id, this.ik, this.spk, this.spkId, this.spkSignature, this.opks);
 
   /// Deserialize the Device
   factory Device.fromJson(Map<String, dynamic> data) {
@@ -19,6 +19,7 @@ class Device {
     //       key.
     /*
     {
+      'jid': 'alice@...',
       'id': 123,
       'ik': 'base/64/encoded',
       'ik_pub': 'base/64/encoded',
@@ -45,6 +46,7 @@ class Device {
     }
 
     return Device(
+      data['jid']! as String,
       data['id']! as int,
       OmemoKeyPair.fromBytes(
         base64.decode(data['ik_pub']! as String),
@@ -63,7 +65,7 @@ class Device {
   }
   
   /// Generate a completely new device, i.e. cryptographic identity.
-  static Future<Device> generateNewDevice({ int opkAmount = 100 }) async {
+  static Future<Device> generateNewDevice(String jid, { int opkAmount = 100 }) async {
     final id = generateRandom32BitNumber();
     final ik = await OmemoKeyPair.generateNewPair(KeyPairType.ed25519);
     final spk = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
@@ -75,8 +77,11 @@ class Device {
       opks[i] = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     }
 
-    return Device(id, ik, spk, spkId, signature, opks);
+    return Device(jid, id, ik, spk, spkId, signature, opks);
   }
+
+  /// Our bare Jid
+  final String jid;
   
   /// The device Id
   final int id;
@@ -100,6 +105,7 @@ class Device {
     opks[id] = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     
     return Device(
+      jid,
       id,
       ik,
       spk,
@@ -117,6 +123,7 @@ class Device {
     final newSignature = await sig(ik, await newSpk.pk.getBytes());
 
     return Device(
+      jid,
       id,
       ik,
       newSpk,
@@ -134,6 +141,7 @@ class Device {
     }
 
     return OmemoBundle(
+      jid,
       id,
       base64.encode(await spk.pk.getBytes()),
       spkId,
@@ -156,6 +164,7 @@ class Device {
     }
     
     return {
+      'jid': jid,
       'id': id,
       'ik': base64.encode(await ik.sk.getBytes()),
       'ik_pub': base64.encode(await ik.pk.getBytes()),
@@ -189,6 +198,7 @@ class Device {
     return id == other.id &&
       ikMatch &&
       spkMatch &&
+      jid == other.jid &&
       listsEqual(spkSignature, other.spkSignature) &&
       spkId == other.spkId &&
       opksMatch;

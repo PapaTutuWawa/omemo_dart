@@ -11,6 +11,7 @@ void main() {
     final spkBob = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     final opkBob = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     final bundleBob = OmemoBundle(
+      'alice@some.server',
       1,
       await spkBob.pk.asBase64(),
       3,
@@ -53,6 +54,7 @@ void main() {
     final spkBob = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     final opkBob = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     final bundleBob = OmemoBundle(
+      'bob@some.server',
       1,
       await spkBob.pk.asBase64(),
       3,

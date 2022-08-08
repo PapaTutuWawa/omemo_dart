@@ -10,8 +10,8 @@ void main() {
     var deviceModified = false;
     var ratchetModified = 0;
     var deviceMapModified = 0;
-    final aliceSession = await OmemoSessionManager.generateNewIdentity(opkAmount: 1);
-    final bobSession = await OmemoSessionManager.generateNewIdentity(opkAmount: 1);
+    final aliceSession = await OmemoSessionManager.generateNewIdentity(aliceJid, opkAmount: 1);
+    final bobSession = await OmemoSessionManager.generateNewIdentity(bobJid, opkAmount: 1);
     final bobOpks = (await bobSession.getDevice()).opks.values.toList();
     bobSession.eventStream.listen((event) {
       if (event is DeviceModifiedEvent) {
@@ -83,10 +83,10 @@ void main() {
     const bobJid = 'bob@other.server.example';
       
     // Alice and Bob generate their sessions
-    final aliceSession = await OmemoSessionManager.generateNewIdentity(opkAmount: 1);
-    final bobSession = await OmemoSessionManager.generateNewIdentity(opkAmount: 1);
+    final aliceSession = await OmemoSessionManager.generateNewIdentity(aliceJid, opkAmount: 1);
+    final bobSession = await OmemoSessionManager.generateNewIdentity(bobJid, opkAmount: 1);
     // Bob's other device
-    final bobSession2 = await OmemoSessionManager.generateNewIdentity(opkAmount: 1);
+    final bobSession2 = await OmemoSessionManager.generateNewIdentity(bobJid, opkAmount: 1);
 
     // Alice encrypts a message for Bob
     const messagePlaintext = 'Hello Bob!';
@@ -142,5 +142,48 @@ void main() {
     aliceSession
       ..getRatchet(bobJid, fingerprints[0].deviceId)
       ..getRatchet(bobJid, fingerprints[1].deviceId);
+  });
+
+  test('Test using OMEMO sessions with encrypt to self', () async {
+    const aliceJid = 'alice@server.example';
+    const bobJid = 'bob@other.server.example';
+      
+    // Alice and Bob generate their sessions
+    final aliceSession1 = await OmemoSessionManager.generateNewIdentity(aliceJid, opkAmount: 1);
+    final aliceSession2 = await OmemoSessionManager.generateNewIdentity(aliceJid, opkAmount: 1);
+    final bobSession = await OmemoSessionManager.generateNewIdentity(bobJid, opkAmount: 1);
+
+    // Alice encrypts a message for Bob
+    const messagePlaintext = 'Hello Bob!';
+    final aliceMessage = await aliceSession1.encryptToJids(
+      [bobJid, aliceJid],
+      messagePlaintext,
+      newSessions: [
+        await (await bobSession.getDevice()).toBundle(),
+        await (await aliceSession2.getDevice()).toBundle(),
+      ],
+    );
+    expect(aliceMessage.encryptedKeys.length, 2);
+
+    // Alice sends the message to Bob
+    // ...
+
+    // Bob decrypts it
+    final bobMessage = await bobSession.decryptMessage(
+      aliceMessage.ciphertext,
+      aliceJid,
+      (await aliceSession1.getDevice()).id,
+      aliceMessage.encryptedKeys,
+    );
+    expect(messagePlaintext, bobMessage);
+
+    // Alice's other device decrypts it
+    final aliceMessage2 = await aliceSession2.decryptMessage(
+      aliceMessage.ciphertext,
+      aliceJid,
+      (await aliceSession1.getDevice()).id,
+      aliceMessage.encryptedKeys,
+    );
+    expect(messagePlaintext, aliceMessage2);
   });
 }

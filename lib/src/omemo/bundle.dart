@@ -5,6 +5,7 @@ import 'package:omemo_dart/src/keys.dart';
 class OmemoBundle {
 
   const OmemoBundle(
+    this.jid,
     this.id,
     this.spkEncoded,
     this.spkId,
@@ -12,6 +13,9 @@ class OmemoBundle {
     this.ikEncoded,
     this.opksEncoded,
   );
+  /// The bare Jid the Bundle belongs to
+  final String jid;
+  /// The device Id
   final int id;
   /// The SPK but base64 encoded
   final String spkEncoded;

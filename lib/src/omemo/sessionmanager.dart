@@ -40,7 +40,8 @@ class EncryptionResult {
 @immutable
 class EncryptedKey {
 
-  const EncryptedKey(this.rid, this.value, this.kex);
+  const EncryptedKey(this.jid, this.rid, this.value, this.kex);
+  final String jid;
   final int rid;
   final String value;
   final bool kex;
@@ -71,9 +72,9 @@ class OmemoSessionManager {
   }
       
   /// Generate a new cryptographic identity.
-  static Future<OmemoSessionManager> generateNewIdentity({ int opkAmount = 100 }) async {
+  static Future<OmemoSessionManager> generateNewIdentity(String jid, { int opkAmount = 100 }) async {
     assert(opkAmount > 0, 'opkAmount must be bigger than 0.');
-    final device = await Device.generateNewDevice(opkAmount: opkAmount);
+    final device = await Device.generateNewDevice(jid, opkAmount: opkAmount);
 
     return OmemoSessionManager(device, {}, {});
   }
@@ -183,10 +184,15 @@ class OmemoSessionManager {
 
     await _addSession(jid, deviceId, ratchet);
   }
+
+  /// Like [encryptToJids] but only for one Jid [jid].
+  Future<EncryptionResult> encryptToJid(String jid, String plaintext, { List<OmemoBundle>? newSessions }) {
+    return encryptToJids([jid], plaintext, newSessions: newSessions);
+  }
   
-  /// Encrypt the key [plaintext] for all known bundles of [jid]. Returns a map that
-  /// maps the Bundle Id to the ciphertext of [plaintext].
-  Future<EncryptionResult> encryptToJid(String jid, String plaintext, { List<OmemoBundle>? newSessions }) async {
+  /// Encrypt the key [plaintext] for all known bundles of the Jids in [jids]. Returns a
+  /// map that maps the device Id to the ciphertext of [plaintext].
+  Future<EncryptionResult> encryptToJids(List<String> jids, String plaintext, { List<OmemoBundle>? newSessions }) async {
     final encryptedKeys = List<EncryptedKey>.empty(growable: true);
 
     // Generate the key and encrypt the plaintext
@@ -203,38 +209,42 @@ class OmemoSessionManager {
     final kex = <int, OmemoKeyExchange>{};
     if (newSessions != null) {
       for (final newSession in newSessions) {
-        kex[newSession.id] = await addSessionFromBundle(jid, newSession.id, newSession);
+        kex[newSession.id] = await addSessionFromBundle(newSession.jid, newSession.id, newSession);
       }
     }
     
     await _lock.synchronized(() async {
       // We assume that the user already checked if the session exists
-      for (final deviceId in _deviceMap[jid]!) {
-        final ratchetKey = RatchetMapKey(jid, deviceId);
-        final ratchet = _ratchetMap[ratchetKey]!;
-        final ciphertext = (await ratchet.ratchetEncrypt(concatKey)).ciphertext;
+      for (final jid in jids) {
+        for (final deviceId in _deviceMap[jid]!) {
+          final ratchetKey = RatchetMapKey(jid, deviceId);
+          final ratchet = _ratchetMap[ratchetKey]!;
+          final ciphertext = (await ratchet.ratchetEncrypt(concatKey)).ciphertext;
 
-        // Commit the ratchet
-        _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet));
-        
-        if (kex.isNotEmpty && kex.containsKey(deviceId)) {
-          final k = kex[deviceId]!
+          // Commit the ratchet
+          _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet));
+          
+          if (kex.isNotEmpty && kex.containsKey(deviceId)) {
+            final k = kex[deviceId]!
             ..message = OmemoAuthenticatedMessage.fromBuffer(ciphertext);
-          encryptedKeys.add(
-            EncryptedKey(
-              deviceId,
-              base64.encode(k.writeToBuffer()),
-              true,
-            ),
-          );
-        } else {
-          encryptedKeys.add(
-            EncryptedKey(
-              deviceId,
-              base64.encode(ciphertext),
-              false,
-            ),
-          );
+            encryptedKeys.add(
+              EncryptedKey(
+                jid,
+                deviceId,
+                base64.encode(k.writeToBuffer()),
+                true,
+              ),
+            );
+          } else {
+            encryptedKeys.add(
+              EncryptedKey(
+                jid,
+                deviceId,
+                base64.encode(ciphertext),
+                false,
+              ),
+            );
+          }
         }
       }
     });

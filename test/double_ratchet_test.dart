@@ -36,11 +36,13 @@ void main() {
 
   test('Test the Double Ratchet', () async {
     // Generate keys
+    const bobJid = 'bob@other.example.server';
     final ikAlice = await OmemoKeyPair.generateNewPair(KeyPairType.ed25519);
     final ikBob = await OmemoKeyPair.generateNewPair(KeyPairType.ed25519);
     final spkBob = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     final opkBob = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     final bundleBob = OmemoBundle(
+      bobJid,
       1,
       await spkBob.pk.asBase64(),
       3,
