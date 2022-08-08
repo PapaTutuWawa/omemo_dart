@@ -135,6 +135,7 @@ class Device {
     );
   }
 
+  /// Converts this device into an OmemoBundle that could be used for publishing.
   Future<OmemoBundle> toBundle() async {
     final encodedOpks = <int, String>{};
 
