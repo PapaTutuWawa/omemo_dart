@@ -13,6 +13,7 @@ import 'package:omemo_dart/src/keys.dart';
 import 'package:omemo_dart/src/omemo/bundle.dart';
 import 'package:omemo_dart/src/omemo/device.dart';
 import 'package:omemo_dart/src/omemo/fingerprint.dart';
+import 'package:omemo_dart/src/omemo/ratchet_map_key.dart';
 import 'package:omemo_dart/src/protobuf/omemo_authenticated_message.dart';
 import 'package:omemo_dart/src/protobuf/omemo_key_exchange.dart';
 import 'package:omemo_dart/src/protobuf/omemo_message.dart';
@@ -41,22 +42,6 @@ class EncryptedKey {
   final int rid;
   final String value;
   final bool kex;
-}
-
-@immutable
-class RatchetMapKey {
-
-  const RatchetMapKey(this.jid, this.deviceId);
-  final String jid;
-  final int deviceId;
-
-  @override
-  bool operator ==(Object other) {
-    return other is RatchetMapKey && jid == other.jid && deviceId == other.deviceId;
-  }
-
-  @override
-  int get hashCode => jid.hashCode ^ deviceId.hashCode;
 }
 
 class OmemoSessionManager {
