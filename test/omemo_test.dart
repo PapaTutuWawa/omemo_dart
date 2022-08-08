@@ -247,7 +247,6 @@ void main() {
 
     expect(await newDevice!.oldSpk!.equals(oldDevice.spk), true);
     expect(newDevice!.oldSpkId, oldDevice.spkId);
-    expect(listsEqual(newDevice!.oldSpkSignature!, oldDevice.spkSignature), true);
   });
 
   test('Test accepting a session with an old SPK', () async {

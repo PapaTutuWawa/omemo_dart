@@ -19,7 +19,6 @@ class Device {
     this.spkSignature,
     this.oldSpk,
     this.oldSpkId,
-    this.oldSpkSignature,
     this.opks,
   );
 
@@ -41,7 +40,6 @@ class Device {
       'old_spk': 'base/64/encoded',
       'old_spk_pub': 'base/64/encoded',
       'old_spk_id': 122,
-      'old_ spk_sig': 'base/64/encoded',
       'opks': [
         {
           'id': 0,
@@ -81,7 +79,6 @@ class Device {
         KeyPairType.x25519,
       ),
       data['old_spk_id'] as int?,
-      base64DecodeIfNotNull(data, 'old_spk_sig'),
       opks,
     );
   }
@@ -99,7 +96,7 @@ class Device {
       opks[i] = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     }
 
-    return Device(jid, id, ik, spk, spkId, signature, null, null, null, opks);
+    return Device(jid, id, ik, spk, spkId, signature, null, null, opks);
   }
 
   /// Our bare Jid
@@ -120,10 +117,8 @@ class Device {
 
   /// The old Signed Prekey...
   final OmemoKeyPair? oldSpk;
-  /// its Id, ...
+  /// ...and its Id
   final int? oldSpkId;
-  /// ...and its signature
-  final List<int>? oldSpkSignature;
 
   /// Map of an id to the associated Onetime-Prekey
   final Map<int, OmemoKeyPair> opks;
@@ -143,7 +138,6 @@ class Device {
       spkSignature,
       oldSpk,
       oldSpkId,
-      oldSpkSignature,
       opks,
     );
   }
@@ -165,7 +159,6 @@ class Device {
       newSignature,
       spk,
       spkId,
-      spkSignature,
       opks,
     );
   }
@@ -213,7 +206,6 @@ class Device {
       'old_spk': base64EncodeIfNotNull(await oldSpk?.sk.getBytes()),
       'old_spk_pub': base64EncodeIfNotNull(await oldSpk?.pk.getBytes()),
       'old_spk_id': oldSpkId,
-      'old_spk_sig': base64EncodeIfNotNull(oldSpkSignature),
       'opks': serialisedOpks,
     };
   }
@@ -239,7 +231,6 @@ class Device {
     final spkMatch = await spk.equals(other.spk);
     // ignore: invalid_use_of_visible_for_testing_member
     final oldSpkMatch = oldSpk != null ? await oldSpk!.equals(other.oldSpk!) : other.oldSpk == null;
-    final oldSpkSigsMatch = oldSpkSignature != null ? listsEqual(oldSpkSignature!, other.oldSpkSignature!) : other.oldSpkSignature == null;
     return id == other.id &&
       ikMatch &&
       spkMatch &&
@@ -248,7 +239,6 @@ class Device {
       listsEqual(spkSignature, other.spkSignature) &&
       spkId == other.spkId &&
       oldSpkId == other.oldSpkId &&
-      oldSpkSigsMatch &&
       opksMatch;
   }
 }
