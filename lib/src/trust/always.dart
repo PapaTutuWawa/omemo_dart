@@ -8,4 +8,7 @@ import 'package:omemo_dart/src/trust/base.dart';
 class AlwaysTrustingTrustManager extends TrustManager {
   @override
   Future<bool> isTrusted(String jid, int deviceId) async => true;
+
+  @override
+  Future<void> onNewSession(String jid, int deviceId) async {}
 }

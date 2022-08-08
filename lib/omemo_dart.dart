@@ -12,5 +12,5 @@ export 'src/omemo/encryption_result.dart';
 export 'src/omemo/fingerprint.dart';
 export 'src/omemo/sessionmanager.dart';
 export 'src/trust/base.dart';
-//export 'src/trust/btbv.dart';
+export 'src/trust/btbv.dart';
 export 'src/x3dh/x3dh.dart';

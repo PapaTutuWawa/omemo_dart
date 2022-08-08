@@ -134,6 +134,7 @@ class OmemoSessionManager {
       kexResult.ad,
     );
 
+    await _trustManager.onNewSession(jid, deviceId);
     await _addSession(jid, deviceId, ratchet);
 
     return OmemoKeyExchange()
@@ -177,6 +178,7 @@ class OmemoSessionManager {
       kexResult.ad,
     );
 
+    await _trustManager.onNewSession(jid, deviceId);
     await _addSession(jid, deviceId, ratchet);
   }
 
