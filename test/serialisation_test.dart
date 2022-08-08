@@ -1,10 +1,15 @@
 import 'package:omemo_dart/omemo_dart.dart';
+import 'package:omemo_dart/src/trust/always.dart';
 import 'package:test/test.dart';
 
 void main() {
   test('Test serialising and deserialising the Device', () async {
     // Generate a random session
-    final oldSession = await OmemoSessionManager.generateNewIdentity('user@test.server', opkAmount: 1);
+    final oldSession = await OmemoSessionManager.generateNewIdentity(
+      'user@test.server',
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
     final oldDevice = await oldSession.getDevice();
     final serialised = await oldDevice.toJson();
 
@@ -14,7 +19,11 @@ void main() {
 
   test('Test serialising and deserialising the Device after rotating the SPK', () async {
     // Generate a random session
-    final oldSession = await OmemoSessionManager.generateNewIdentity('user@test.server', opkAmount: 1);
+    final oldSession = await OmemoSessionManager.generateNewIdentity(
+      'user@test.server',
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
     final oldDevice = await (await oldSession.getDevice()).replaceSignedPrekey();
     final serialised = await oldDevice.toJson();
 
@@ -26,8 +35,16 @@ void main() {
     // Generate a random ratchet
     const aliceJid = 'alice@server.example';
     const bobJid = 'bob@other.server.example';
-    final aliceSession = await OmemoSessionManager.generateNewIdentity(aliceJid, opkAmount: 1);
-    final bobSession = await OmemoSessionManager.generateNewIdentity(bobJid, opkAmount: 1);
+    final aliceSession = await OmemoSessionManager.generateNewIdentity(
+      aliceJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
+    final bobSession = await OmemoSessionManager.generateNewIdentity(
+      bobJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
     final aliceMessage = await aliceSession.encryptToJid(
       bobJid,
       'Hello Bob!',
@@ -50,8 +67,16 @@ void main() {
 
   test('Test serialising and deserialising the OmemoSessionManager', () async {
     // Generate a random session
-    final oldSession = await OmemoSessionManager.generateNewIdentity('a@server', opkAmount: 4);
-    final bobSession = await OmemoSessionManager.generateNewIdentity('b@other.server', opkAmount: 4);
+    final oldSession = await OmemoSessionManager.generateNewIdentity(
+      'a@server',
+      AlwaysTrustingTrustManager(),
+      opkAmount: 4,
+    );
+    final bobSession = await OmemoSessionManager.generateNewIdentity(
+      'b@other.server',
+      AlwaysTrustingTrustManager(),
+      opkAmount: 4,
+    );
     await oldSession.addSessionFromBundle(
       'bob@localhost',
       (await bobSession.getDevice()).id,
@@ -60,7 +85,10 @@ void main() {
 
     // Serialise and deserialise
     final serialised = await oldSession.toJson();
-    final newSession = OmemoSessionManager.fromJson(serialised);
+    final newSession = OmemoSessionManager.fromJson(
+      serialised,
+      AlwaysTrustingTrustManager(),
+    );
 
     final oldDevice = await oldSession.getDevice();
     final newDevice = await newSession.getDevice();

@@ -1,4 +1,5 @@
 import 'package:omemo_dart/omemo_dart.dart';
+import 'package:omemo_dart/src/trust/always.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -10,8 +11,16 @@ void main() {
     var deviceModified = false;
     var ratchetModified = 0;
     var deviceMapModified = 0;
-    final aliceSession = await OmemoSessionManager.generateNewIdentity(aliceJid, opkAmount: 1);
-    final bobSession = await OmemoSessionManager.generateNewIdentity(bobJid, opkAmount: 1);
+    final aliceSession = await OmemoSessionManager.generateNewIdentity(
+      aliceJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
+    final bobSession = await OmemoSessionManager.generateNewIdentity(
+      bobJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
     final bobOpks = (await bobSession.getDevice()).opks.values.toList();
     bobSession.eventStream.listen((event) {
       if (event is DeviceModifiedEvent) {
@@ -83,10 +92,22 @@ void main() {
     const bobJid = 'bob@other.server.example';
       
     // Alice and Bob generate their sessions
-    final aliceSession = await OmemoSessionManager.generateNewIdentity(aliceJid, opkAmount: 1);
-    final bobSession = await OmemoSessionManager.generateNewIdentity(bobJid, opkAmount: 1);
+    final aliceSession = await OmemoSessionManager.generateNewIdentity(
+      aliceJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
+    final bobSession = await OmemoSessionManager.generateNewIdentity(
+      bobJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
     // Bob's other device
-    final bobSession2 = await OmemoSessionManager.generateNewIdentity(bobJid, opkAmount: 1);
+    final bobSession2 = await OmemoSessionManager.generateNewIdentity(
+      bobJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
 
     // Alice encrypts a message for Bob
     const messagePlaintext = 'Hello Bob!';
@@ -149,9 +170,21 @@ void main() {
     const bobJid = 'bob@other.server.example';
       
     // Alice and Bob generate their sessions
-    final aliceSession1 = await OmemoSessionManager.generateNewIdentity(aliceJid, opkAmount: 1);
-    final aliceSession2 = await OmemoSessionManager.generateNewIdentity(aliceJid, opkAmount: 1);
-    final bobSession = await OmemoSessionManager.generateNewIdentity(bobJid, opkAmount: 1);
+    final aliceSession1 = await OmemoSessionManager.generateNewIdentity(
+      aliceJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
+    final aliceSession2 = await OmemoSessionManager.generateNewIdentity(
+      aliceJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
+    final bobSession = await OmemoSessionManager.generateNewIdentity(
+      bobJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
 
     // Alice encrypts a message for Bob
     const messagePlaintext = 'Hello Bob!';
@@ -192,8 +225,16 @@ void main() {
     const bobJid = 'bob@other.server.example';
       
     // Alice and Bob generate their sessions
-    final aliceSession = await OmemoSessionManager.generateNewIdentity(aliceJid, opkAmount: 1);
-    final bobSession = await OmemoSessionManager.generateNewIdentity(bobJid, opkAmount: 1);
+    final aliceSession = await OmemoSessionManager.generateNewIdentity(
+      aliceJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
+    final bobSession = await OmemoSessionManager.generateNewIdentity(
+      bobJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
 
     // Alice encrypts a message for Bob
     final aliceMessage = await aliceSession.encryptToJid(
@@ -225,7 +266,11 @@ void main() {
   test('Test rotating the Signed Prekey', () async {
     // Generate the session
     const aliceJid = 'alice@some.server';
-    final aliceSession = await OmemoSessionManager.generateNewIdentity(aliceJid, opkAmount: 1);
+    final aliceSession = await OmemoSessionManager.generateNewIdentity(
+      aliceJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
 
     // Setup an event listener
     final oldDevice = await aliceSession.getDevice();
@@ -254,8 +299,16 @@ void main() {
     const bobJid = 'bob@other.server.example';
       
     // Alice and Bob generate their sessions
-    final aliceSession = await OmemoSessionManager.generateNewIdentity(aliceJid, opkAmount: 1);
-    final bobSession = await OmemoSessionManager.generateNewIdentity(bobJid, opkAmount: 1);
+    final aliceSession = await OmemoSessionManager.generateNewIdentity(
+      aliceJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
+    final bobSession = await OmemoSessionManager.generateNewIdentity(
+      bobJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
 
     // Alice encrypts a message for Bob
     const messagePlaintext = 'Hello Bob!';

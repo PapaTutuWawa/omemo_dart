@@ -19,6 +19,7 @@ import 'package:omemo_dart/src/omemo/ratchet_map_key.dart';
 import 'package:omemo_dart/src/protobuf/omemo_authenticated_message.dart';
 import 'package:omemo_dart/src/protobuf/omemo_key_exchange.dart';
 import 'package:omemo_dart/src/protobuf/omemo_message.dart';
+import 'package:omemo_dart/src/trust/base.dart';
 import 'package:omemo_dart/src/x3dh/x3dh.dart';
 import 'package:synchronized/synchronized.dart';
 
@@ -27,13 +28,13 @@ const omemoPayloadInfoString = 'OMEMO Payload';
 
 class OmemoSessionManager {
 
-  OmemoSessionManager(this._device, this._deviceMap, this._ratchetMap)
+  OmemoSessionManager(this._device, this._deviceMap, this._ratchetMap, this._trustManager)
     : _lock = Lock(),
       _deviceLock = Lock(),
       _eventStreamController = StreamController<OmemoEvent>.broadcast();
 
   /// Deserialise the OmemoSessionManager from JSON data [data].
-  factory OmemoSessionManager.fromJson(Map<String, dynamic> data) {
+  factory OmemoSessionManager.fromJson(Map<String, dynamic> data, TrustManager trustManager) {
     final ratchetMap = <RatchetMapKey, OmemoDoubleRatchet>{};
     for (final rawRatchet in data['sessions']! as List<Map<String, dynamic>>) {
       final key = RatchetMapKey(rawRatchet['jid']! as String, rawRatchet['deviceId']! as int);
@@ -41,20 +42,20 @@ class OmemoSessionManager {
       ratchetMap[key] = ratchet;
     }
 
-    // TODO(PapaTutuWawa): Handle Trust behaviour
     return OmemoSessionManager(
       Device.fromJson(data['device']! as Map<String, dynamic>),
       data['devices']! as Map<String, List<int>>,
       ratchetMap,
+      trustManager,
     );
   }
       
   /// Generate a new cryptographic identity.
-  static Future<OmemoSessionManager> generateNewIdentity(String jid, { int opkAmount = 100 }) async {
+  static Future<OmemoSessionManager> generateNewIdentity(String jid, TrustManager trustManager, { int opkAmount = 100 }) async {
     assert(opkAmount > 0, 'opkAmount must be bigger than 0.');
     final device = await Device.generateNewDevice(jid, opkAmount: opkAmount);
 
-    return OmemoSessionManager(device, {}, {});
+    return OmemoSessionManager(device, {}, {}, trustManager);
   }
   
   /// Lock for _ratchetMap and _bundleMap
@@ -75,6 +76,9 @@ class OmemoSessionManager {
   /// and its lock
   final Lock _deviceLock;
 
+  /// The trust manager
+  final TrustManager _trustManager;
+  
   /// A stream that receives events regarding the session
   Stream<OmemoEvent> get eventStream => _eventStreamController.stream;
 
@@ -218,6 +222,9 @@ class OmemoSessionManager {
       // We assume that the user already checked if the session exists
       for (final jid in jids) {
         for (final deviceId in _deviceMap[jid]!) {
+          // Only encrypt to devices that are trusted
+          if (!(await _trustManager.isTrusted(jid, deviceId))) continue;
+
           final ratchetKey = RatchetMapKey(jid, deviceId);
           final ratchet = _ratchetMap[ratchetKey]!;
           final ciphertext = (await ratchet.ratchetEncrypt(keyPayload)).ciphertext;
