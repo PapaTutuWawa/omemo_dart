@@ -79,11 +79,13 @@ void main() {
     // Build a session
     final alicesRatchet = await OmemoDoubleRatchet.initiateNewSession(
       spkBob.pk,
+      ikBob.pk,
       resultAlice.sk,
       resultAlice.ad,
     );
     final bobsRatchet = await OmemoDoubleRatchet.acceptNewSession(
       spkBob,
+      ikAlice.pk,
       resultBob.sk,
       resultBob.ad,
     );

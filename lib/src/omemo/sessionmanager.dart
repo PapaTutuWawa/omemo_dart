@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:cryptography/cryptography.dart';
+import 'package:hex/hex.dart';
 import 'package:meta/meta.dart';
 import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/double_ratchet/double_ratchet.dart';
@@ -11,6 +12,7 @@ import 'package:omemo_dart/src/helpers.dart';
 import 'package:omemo_dart/src/keys.dart';
 import 'package:omemo_dart/src/omemo/bundle.dart';
 import 'package:omemo_dart/src/omemo/device.dart';
+import 'package:omemo_dart/src/omemo/fingerprint.dart';
 import 'package:omemo_dart/src/protobuf/omemo_authenticated_message.dart';
 import 'package:omemo_dart/src/protobuf/omemo_key_exchange.dart';
 import 'package:omemo_dart/src/protobuf/omemo_message.dart';
@@ -19,7 +21,6 @@ import 'package:synchronized/synchronized.dart';
 
 /// The info used for when encrypting the AES key for the actual payload.
 const omemoPayloadInfoString = 'OMEMO Payload';
-
 @immutable
 class EncryptionResult {
 
@@ -158,6 +159,7 @@ class OmemoSessionManager {
     );
     final ratchet = await OmemoDoubleRatchet.initiateNewSession(
       bundle.spk,
+      bundle.ik,
       kexResult.sk,
       kexResult.ad,
     );
@@ -187,6 +189,7 @@ class OmemoSessionManager {
     );
     final ratchet = await OmemoDoubleRatchet.acceptNewSession(
       device.spk,
+      OmemoPublicKey.fromBytes(kex.ik!, KeyPairType.ed25519),
       kexResult.sk,
       kexResult.ad,
     );
@@ -327,6 +330,29 @@ class OmemoSessionManager {
     return utf8.decode(plaintext);
   }
 
+  /// Returns the list of hex-encoded fingerprints we have for sessions with [jid].
+  Future<List<DeviceFingerprint>> getHexFingerprintsForJid(String jid) async {
+    final fingerprints = List<DeviceFingerprint>.empty(growable: true);
+
+    await _lock.synchronized(() async {
+      // Get devices for jid
+      final devices = _deviceMap[jid]!;
+
+      for (final deviceId in devices) {
+        final ratchet = _ratchetMap[RatchetMapKey(jid, deviceId)]!;
+
+        fingerprints.add(
+          DeviceFingerprint(
+            deviceId,
+            HEX.encode(await ratchet.ik.getBytes()),
+          ),
+        );
+      }
+    });
+
+    return fingerprints;
+  }
+  
   @visibleForTesting
   OmemoDoubleRatchet getRatchet(String jid, int deviceId) => _ratchetMap[RatchetMapKey(jid, deviceId)]!;
 

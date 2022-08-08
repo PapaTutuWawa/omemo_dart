@@ -132,5 +132,15 @@ void main() {
       bobResponseMessage.encryptedKeys,
     );
     expect(bobResponseText, aliceReceivedMessage);
+
+    // Alice checks the fingerprints
+    final fingerprints = await aliceSession.getHexFingerprintsForJid(bobJid);
+    // Check that they the fingerprints are correct
+    expect(fingerprints.length, 2);
+    expect(fingerprints[0] != fingerprints[1], true);
+    // Check that those two calls do not throw an exception
+    aliceSession
+      ..getRatchet(bobJid, fingerprints[0].deviceId)
+      ..getRatchet(bobJid, fingerprints[1].deviceId);
   });
 }

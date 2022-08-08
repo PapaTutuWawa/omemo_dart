@@ -65,8 +65,9 @@ class OmemoDoubleRatchet {
     this.ns,  // Ns
     this.nr,  // Nr
     this.pn,  // Pn
+    this.ik,
     this.sessionAd,
-    this.mkSkipped,
+    this.mkSkipped, // MKSKIPPED
   );
 
   factory OmemoDoubleRatchet.fromJson(Map<String, dynamic> data) {
@@ -81,6 +82,7 @@ class OmemoDoubleRatchet {
       'ns': 0,
       'nr': 0,
       'pn': 0,
+      'ik_pub': 'base/64/encoded',
       'session_ad': 'base/64/encoded',
       'mkskipped': [
         {
@@ -110,6 +112,10 @@ class OmemoDoubleRatchet {
       data['ns']! as int,
       data['nr']! as int,
       data['pn']! as int,
+      OmemoPublicKey.fromBytes(
+        base64.decode(data['ik_pub']! as String),
+        KeyPairType.ed25519,
+      ),
       base64.decode(data['session_ad']! as String),
       mkSkipped,
     );
@@ -135,14 +141,18 @@ class OmemoDoubleRatchet {
   /// Previous sending chain number
   int pn;
 
+  /// The IK public key from the chat partner. Not used for the actual encryption but
+  /// for verification purposes
+  final OmemoPublicKey ik;
+  
   final List<int> sessionAd;
 
   final Map<SkippedKey, List<int>> mkSkipped;
 
   /// Create an OMEMO session using the Signed Pre Key [spk], the shared secret [sk] that
   /// was obtained using a X3DH and the associated data [ad] that was also obtained through
-  /// a X3DH.
-  static Future<OmemoDoubleRatchet> initiateNewSession(OmemoPublicKey spk, List<int> sk, List<int> ad) async {
+  /// a X3DH. [ik] refers to Bob's (the receiver's) IK public key.
+  static Future<OmemoDoubleRatchet> initiateNewSession(OmemoPublicKey spk, OmemoPublicKey ik, List<int> sk, List<int> ad) async {
     final dhs = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     final dhr = spk;
     final rk  = await kdfRk(sk, await omemoDH(dhs, dhr, 0));
@@ -157,6 +167,7 @@ class OmemoDoubleRatchet {
       0,
       0,
       0,
+      ik,
       ad,
       {},
     );
@@ -164,8 +175,9 @@ class OmemoDoubleRatchet {
 
   /// Create an OMEMO session that was not initiated by the caller using the used Signed
   /// Pre Key keypair [spk], the shared secret [sk] that was obtained through a X3DH and
-  /// the associated data [ad] that was also obtained through a X3DH.
-  static Future<OmemoDoubleRatchet> acceptNewSession(OmemoKeyPair spk, List<int> sk, List<int> ad) async {
+  /// the associated data [ad] that was also obtained through a X3DH. [ik] refers to
+  /// Alice's (the initiator's) IK public key.
+  static Future<OmemoDoubleRatchet> acceptNewSession(OmemoKeyPair spk, OmemoPublicKey ik, List<int> sk, List<int> ad) async {
     return OmemoDoubleRatchet(
       spk,
       null,
@@ -175,6 +187,7 @@ class OmemoDoubleRatchet {
       0,
       0,
       0,
+      ik,
       ad,
       {},
     );
@@ -199,6 +212,7 @@ class OmemoDoubleRatchet {
       'ns': ns,
       'nr': nr,
       'pn': pn,
+      'ik_pub': base64.encode(await ik.getBytes()),
       'session_ad': base64.encode(sessionAd),
       'mkskipped': mkSkippedSerialised,
     };
@@ -300,9 +314,14 @@ class OmemoDoubleRatchet {
     final dhrMatch = dhr == null ? other.dhr == null : await dhr!.equals(other.dhr!);
     final ckrMatch = ckr == null ? other.ckr == null : listsEqual(ckr!, other.ckr!);
     final cksMatch = cks == null ? other.cks == null : listsEqual(cks!, other.cks!);
-
+ 
     // ignore: invalid_use_of_visible_for_testing_member
-    return await dhs.equals(other.dhs) &&
+    final dhsMatch = await dhs.equals(other.dhs);
+    // ignore: invalid_use_of_visible_for_testing_member
+    final ikMatch = await ik.equals(other.ik);
+    
+    return dhsMatch &&
+      ikMatch &&
       dhrMatch &&
       listsEqual(rk, other.rk) &&
       cksMatch &&
