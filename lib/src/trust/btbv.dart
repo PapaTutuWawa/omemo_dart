@@ -13,29 +13,33 @@ enum BTBVTrustState {
   verified,
 }
 
-class BlindTrustBeforeVerificationTrustManager extends TrustManager {
+/// A TrustManager that implements the idea of Blind Trust Before Verification.
+/// See https://gultsch.de/trust.html for more details.
+abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
   BlindTrustBeforeVerificationTrustManager()
-    : _trustCache = {},
-      _devices = {},
+    : trustCache = {},
+      devices = {},
       _lock = Lock();
 
   /// The cache for Mapping a RatchetMapKey to its trust state
-  final Map<RatchetMapKey, BTBVTrustState> _trustCache;
+  @protected
+  final Map<RatchetMapKey, BTBVTrustState> trustCache;
 
   /// Mapping of Jids to their device identifiers
-  final Map<String, List<int>> _devices;
+  @protected
+  final Map<String, List<int>> devices;
 
-  /// The lock for _devices and _trustCache
+  /// The lock for devices and trustCache
   final Lock _lock;
 
   /// Returns true if [jid] has at least one device that is verified. If not, returns false.
-  /// Note that this function accesses _devices and _trustCache, which requires that the
+  /// Note that this function accesses devices and trustCache, which requires that the
   /// lock for those two maps (_lock) has been aquired before calling.
   bool _hasAtLeastOneVerifiedDevice(String jid) {
-    if (!_devices.containsKey(jid)) return false;
+    if (!devices.containsKey(jid)) return false;
 
-    return _devices[jid]!.any((id) {
-      return _trustCache[RatchetMapKey(jid, id)]! == BTBVTrustState.verified;
+    return devices[jid]!.any((id) {
+      return trustCache[RatchetMapKey(jid, id)]! == BTBVTrustState.verified;
     });
   }
   
@@ -43,7 +47,7 @@ class BlindTrustBeforeVerificationTrustManager extends TrustManager {
   Future<bool> isTrusted(String jid, int deviceId) async {
     var returnValue = false;
     await _lock.synchronized(() async {
-      final trustCacheValue = _trustCache[RatchetMapKey(jid, deviceId)];
+      final trustCacheValue = trustCache[RatchetMapKey(jid, deviceId)];
       if (trustCacheValue == BTBVTrustState.notTrusted) {
         returnValue = false;
         return;
@@ -71,16 +75,19 @@ class BlindTrustBeforeVerificationTrustManager extends TrustManager {
   Future<void> onNewSession(String jid, int deviceId) async {
     await _lock.synchronized(() async {
       if (_hasAtLeastOneVerifiedDevice(jid)) {
-        _trustCache[RatchetMapKey(jid, deviceId)] = BTBVTrustState.notTrusted;
+        trustCache[RatchetMapKey(jid, deviceId)] = BTBVTrustState.notTrusted;
       } else {
-        _trustCache[RatchetMapKey(jid, deviceId)] = BTBVTrustState.blindTrust;
+        trustCache[RatchetMapKey(jid, deviceId)] = BTBVTrustState.blindTrust;
       }
 
-      if (_devices.containsKey(jid)) {
-        _devices[jid]!.add(deviceId);
+      if (devices.containsKey(jid)) {
+        devices[jid]!.add(deviceId);
       } else {
-        _devices[jid] = List<int>.from([deviceId]);
+        devices[jid] = List<int>.from([deviceId]);
       }
+
+      // Commit the state
+      await commitState();
     });
   }
   
@@ -89,8 +96,8 @@ class BlindTrustBeforeVerificationTrustManager extends TrustManager {
     final map = <int, BTBVTrustState>{};
 
     await _lock.synchronized(() async {
-      for (final deviceId in _devices[jid]!) {
-        map[deviceId] = _trustCache[RatchetMapKey(jid, deviceId)]!;
+      for (final deviceId in devices[jid]!) {
+        map[deviceId] = trustCache[RatchetMapKey(jid, deviceId)]!;
       }
     });
 
@@ -100,10 +107,33 @@ class BlindTrustBeforeVerificationTrustManager extends TrustManager {
   /// Sets the trust of [jid]'s device with identifier [deviceId] to [state].
   Future<void> setDeviceTrust(String jid, int deviceId, BTBVTrustState state) async {
     await _lock.synchronized(() async {
-      _trustCache[RatchetMapKey(jid, deviceId)] = state;
+      trustCache[RatchetMapKey(jid, deviceId)] = state;
+
+      // Commit the state
+      await commitState();
     });
   }
 
+  /// Called when the state of the trust manager has been changed. Allows the user to
+  /// commit the trust state to persistent storage.
+  @visibleForOverriding
+  Future<void> commitState();
+
+  /// Called when the user wants to restore the state of the trust manager. The format
+  /// and actual storage mechanism is left to the user.
+  @visibleForOverriding
+  Future<void> loadState();
+  
   @visibleForTesting
-  BTBVTrustState getDeviceTrust(String jid, int deviceId) => _trustCache[RatchetMapKey(jid, deviceId)]!;
+  BTBVTrustState getDeviceTrust(String jid, int deviceId) => trustCache[RatchetMapKey(jid, deviceId)]!;
+}
+
+/// A BTBV TrustManager that does not commit its state to persistent storage. Well suited
+/// for testing.
+class MemoryBTBVTrustManager extends BlindTrustBeforeVerificationTrustManager {
+  @override
+  Future<void> commitState() async {}
+
+  @override
+  Future<void> loadState() async {}
 }

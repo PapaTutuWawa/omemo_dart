@@ -4,7 +4,7 @@ import 'package:test/test.dart';
 void main() {
   test('Test the Blind Trust Before Verification TrustManager', () async {
     // Caroline's BTBV manager
-    final btbv = BlindTrustBeforeVerificationTrustManager();
+    final btbv = MemoryBTBVTrustManager();
     // Example data
     const aliceJid = 'alice@some.server';
     const bobJid = 'bob@other.server';
