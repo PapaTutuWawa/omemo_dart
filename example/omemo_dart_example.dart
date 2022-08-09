@@ -150,5 +150,6 @@ void main() async {
   // - subscribe to the session manager's `eventStream`. There, events get triggered
   //   everytime a ratchet changes, our own device changes or the internal ratchet map
   //   gets changed. This give finer control over the the serialisation. The session
-  //   manager can then be restored using its constructor.
+  //   manager can then be restored using its constructor. For a list of events, see
+  //   lib/src/omemo/events.dart.
 }
