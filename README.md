@@ -18,6 +18,22 @@ the stanza format of your preferred XMPP library yourself.
 - **Please note that this library has not been audited for its security! Use at your own risk!**
 - This library is not tested with other implementations of OMEMO 0.8.3 as I do not know of any client implementing spec compliant OMEMO 0.8.3. It does, however, work with itself.
 
+## Usage
+
+Include `omemo_dart` in your `pubspec.yaml` like this:
+
+```yaml
+# [...]
+
+dependencies:
+	omemo_dart:
+		hosted: https://git.polynom.me/api/packages/PapaTutuWawa/pub
+		version: ^0.1.0
+	# [...]
+
+# [...]
+```
+
 ## Contributing
 
 Due to issues with `protobuf`, `omemo_dart` reimplements the Protobuf encoding for the required
