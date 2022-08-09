@@ -224,8 +224,11 @@ class OmemoSessionManager {
       // We assume that the user already checked if the session exists
       for (final jid in jids) {
         for (final deviceId in _deviceMap[jid]!) {
-          // Only encrypt to devices that are trusted
-          if (!(await _trustManager.isTrusted(jid, deviceId))) continue;
+          // Empty OMEMO messages are allowed to bypass trust
+          if (plaintext != null) {
+            // Only encrypt to devices that are trusted
+            if (!(await _trustManager.isTrusted(jid, deviceId))) continue;
+          }
 
           final ratchetKey = RatchetMapKey(jid, deviceId);
           final ratchet = _ratchetMap[ratchetKey]!;

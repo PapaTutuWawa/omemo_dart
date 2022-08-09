@@ -1,5 +1,6 @@
 import 'package:omemo_dart/omemo_dart.dart';
 import 'package:omemo_dart/src/trust/always.dart';
+import 'package:omemo_dart/src/trust/never.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -335,5 +336,35 @@ void main() {
       aliceMessage.encryptedKeys,
     );
     expect(messagePlaintext, bobMessage);
+  });
+
+  test('Test trust bypassing with empty OMEMO messages', () async {
+    const aliceJid = 'alice@server.example';
+    const bobJid = 'bob@other.server.example';
+      
+    // Alice and Bob generate their sessions
+    final aliceSession = await OmemoSessionManager.generateNewIdentity(
+      aliceJid,
+      NeverTrustingTrustManager(),
+      opkAmount: 1,
+    );
+    final bobSession = await OmemoSessionManager.generateNewIdentity(
+      bobJid,
+      NeverTrustingTrustManager(),
+      opkAmount: 1,
+    );
+
+    // Alice encrypts an empty message for Bob
+    final aliceMessage = await aliceSession.encryptToJid(
+      bobJid,
+      null,
+      newSessions: [
+        await (await bobSession.getDevice()).toBundle(),
+      ],
+    );
+
+    // Despite Alice not trusting Bob's device, we should have encrypted it for his
+    // untrusted device.
+    expect(aliceMessage.encryptedKeys.length, 1);
   });
 }
