@@ -78,6 +78,7 @@ class OmemoSessionManager {
 
   /// The trust manager
   final TrustManager _trustManager;
+  TrustManager get trustManager => _trustManager;
   
   /// A stream that receives events regarding the session
   Stream<OmemoEvent> get eventStream => _eventStreamController.stream;

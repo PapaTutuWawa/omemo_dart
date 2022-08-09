@@ -1,6 +1,5 @@
 import 'package:meta/meta.dart';
 
-@internal
 @immutable
 class RatchetMapKey {
 
