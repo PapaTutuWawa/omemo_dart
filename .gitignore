@@ -12,3 +12,6 @@ pubspec.lock
 # NixOS
 .direnv
 .envrc
+
+# Protobuf build artifacts
+lib/protobuf/*.dart

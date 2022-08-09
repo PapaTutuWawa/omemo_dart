@@ -22,7 +22,12 @@ the stanza format of your preferred XMPP library yourself.
 
 Due to issues with `protobuf`, `omemo_dart` reimplements the Protobuf encoding for the required
 OMEMO messages. As such, `protobuf` is only a dependency for testing that the serialisation and
-deserialisation of the custom implementation.
+deserialisation of the custom implementation. In order to run tests, you need the Protbuf
+compiler. After that, making sure that
+the [Dart Protobuf compiler addon](https://pub.dev/packages/protoc_plugin) and the
+Protobuf compiler itself is in your PATH,
+run `protoc -I=./protobuf/ --dart_out=lib/protobuf/ ./protobuf/schema.proto` in the
+repository's root to generate the real Protobuf bindings.
 
 When submitting a PR, please run the linter using `dart analyze` and make sure that all
 tests still pass using `dart test`.
