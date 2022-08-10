@@ -7,7 +7,6 @@ void main() {
   test('Test using OMEMO sessions with only one device per user', () async {
     const aliceJid = 'alice@server.example';
     const bobJid = 'bob@other.server.example';
-      
     // Alice and Bob generate their sessions
     var deviceModified = false;
     var ratchetModified = 0;
@@ -366,5 +365,61 @@ void main() {
     // Despite Alice not trusting Bob's device, we should have encrypted it for his
     // untrusted device.
     expect(aliceMessage.encryptedKeys.length, 1);
+  });
+
+  test('Test by sending multiple messages back and forth', () async {
+    const aliceJid = 'alice@server.example';
+    const bobJid = 'bob@other.server.example';
+    // Alice and Bob generate their sessions
+    final aliceSession = await OmemoSessionManager.generateNewIdentity(
+      aliceJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
+    final bobSession = await OmemoSessionManager.generateNewIdentity(
+      bobJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
+
+    // Alice encrypts a message for Bob
+    final aliceMessage = await aliceSession.encryptToJid(
+      bobJid,
+      'Hello Bob!',
+      newSessions: [
+        await (await bobSession.getDevice()).toBundle(),
+      ],
+    );
+
+    // Alice sends the message to Bob
+    // ...
+
+    await bobSession.decryptMessage(
+      aliceMessage.ciphertext,
+      aliceJid,
+      (await aliceSession.getDevice()).id,
+      aliceMessage.encryptedKeys,
+    );
+
+    for (var i = 0; i < 100; i++) {
+      final messageText = 'Test Message #$i';
+      // Bob responds to Alice
+      final bobResponseMessage = await bobSession.encryptToJid(
+        aliceJid,
+        messageText,
+      );
+
+      // Bob sends the message to Alice
+      // ...
+
+      // Alice decrypts it
+      final aliceReceivedMessage = await aliceSession.decryptMessage(
+        bobResponseMessage.ciphertext,
+        bobJid,
+        (await bobSession.getDevice()).id,
+        bobResponseMessage.encryptedKeys,
+      );
+      expect(messageText, aliceReceivedMessage);
+    }
   });
 }
