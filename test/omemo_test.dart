@@ -4,7 +4,6 @@ import 'package:omemo_dart/src/trust/never.dart';
 import 'package:test/test.dart';
 
 void main() {
-  /*
   test('Test using OMEMO sessions with only one device per user', () async {
     const aliceJid = 'alice@server.example';
     const bobJid = 'bob@other.server.example';
@@ -366,7 +365,7 @@ void main() {
     // Despite Alice not trusting Bob's device, we should have encrypted it for his
     // untrusted device.
     expect(aliceMessage.encryptedKeys.length, 1);
-  });*/
+  });
 
   test('Test by sending multiple messages back and forth', () async {
     const aliceJid = 'alice@server.example';
