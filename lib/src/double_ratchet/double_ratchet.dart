@@ -293,11 +293,15 @@ class OmemoDoubleRatchet {
       return plaintext;
     }
 
-    if (header.dhPub != await dhr?.getBytes()) {
+    final dhPubMatches = listsEqual(
+      header.dhPub ?? <int>[],
+      await dhr?.getBytes() ?? <int>[],
+    );
+    if (!dhPubMatches) {
       await _skipMessageKeys(header.pn!);
       await _dhRatchet(header);
     }
-
+    
     await _skipMessageKeys(header.n!);
     final newCkr = await kdfCk(ckr!, kdfCkNextChainKey);
     final mk = await kdfCk(ckr!, kdfCkNextMessageKey);
