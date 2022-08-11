@@ -26,10 +26,10 @@ Include `omemo_dart` in your `pubspec.yaml` like this:
 # [...]
 
 dependencies:
-	omemo_dart:
-		hosted: https://git.polynom.me/api/packages/PapaTutuWawa/pub
-		version: ^0.1.0
-	# [...]
+  omemo_dart:
+    hosted: https://git.polynom.me/api/packages/PapaTutuWawa/pub
+    version: ^0.1.0
+  # [...]
 
 # [...]
 ```
