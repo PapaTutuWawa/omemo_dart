@@ -93,7 +93,7 @@ void main() {
     final oldDevice = await oldSession.getDevice();
     final newDevice = await newSession.getDevice();
     expect(await oldDevice.equals(newDevice), true);
-    expect(oldSession.getDeviceMap(), newSession.getDeviceMap());
+    expect(await oldSession.getDeviceMap(), await newSession.getDeviceMap());
 
     expect(oldSession.getRatchetMap().length, newSession.getRatchetMap().length);
     for (final session in oldSession.getRatchetMap().entries) {

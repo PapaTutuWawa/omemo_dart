@@ -386,12 +386,21 @@ class OmemoSessionManager {
       _eventStreamController.add(DeviceModifiedEvent(_device));
     });
   }
+
+  /// Returns the device map, i.e. the mapping of bare Jid to its device identifiers
+  /// we have built sessions with.
+  Future<Map<String, List<int>>> getDeviceMap() async {
+    Map<String, List<int>>? map;
+
+    await _lock.synchronized(() async {
+        map = _deviceMap;
+    });
+
+    return map!;
+  }
   
   @visibleForTesting
   OmemoDoubleRatchet getRatchet(String jid, int deviceId) => _ratchetMap[RatchetMapKey(jid, deviceId)]!;
-
-  @visibleForTesting
-  Map<String, List<int>> getDeviceMap() => _deviceMap;
 
   @visibleForTesting
   Map<RatchetMapKey, OmemoDoubleRatchet> getRatchetMap() => _ratchetMap;
