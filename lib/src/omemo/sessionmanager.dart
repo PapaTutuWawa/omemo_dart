@@ -3,7 +3,8 @@ import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:hex/hex.dart';
-import 'package:meta/meta.dart'; import 'package:omemo_dart/src/crypto.dart';
+import 'package:meta/meta.dart';
+import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/double_ratchet/double_ratchet.dart';
 import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/helpers.dart';
@@ -93,6 +94,7 @@ class OmemoSessionManager {
   /// A stream that receives events regarding the session
   Stream<OmemoEvent> get eventStream => _eventStreamController.stream;
 
+  /// Returns our own device.
   Future<Device> getDevice() async {
     Device? dev;
     await _deviceLock.synchronized(() async {
@@ -403,10 +405,30 @@ class OmemoSessionManager {
     Map<String, List<int>>? map;
 
     await _lock.synchronized(() async {
-        map = _deviceMap;
+      map = _deviceMap;
     });
 
     return map!;
+  }
+
+  /// Removes the ratchet identified by [jid] and [deviceId] from the session manager.
+  /// Also triggers events for commiting the new device map to storage and removing
+  /// the old ratchet.
+  Future<void> removeRatchet(String jid, int deviceId) async {
+    await _lock.synchronized(() async {
+      // Remove the ratchet
+      _ratchetMap.remove(RatchetMapKey(jid, deviceId));
+      // Commit it
+      _eventStreamController.add(RatchetRemovedEvent(jid, deviceId));
+
+      // Remove the device from jid
+      _deviceMap[jid]!.remove(deviceId);
+      if (_deviceMap[jid]!.isEmpty) {
+        _deviceMap.remove(jid);
+      }
+      // Commit it
+      _eventStreamController.add(DeviceMapModifiedEvent(_deviceMap));
+    });
   }
   
   @visibleForTesting

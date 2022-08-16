@@ -12,6 +12,14 @@ class RatchetModifiedEvent extends OmemoEvent {
   final OmemoDoubleRatchet ratchet;
 }
 
+/// Triggered when a ratchet has been removed and should be removed from storage.
+class RatchetRemovedEvent extends OmemoEvent {
+
+  RatchetRemovedEvent(this.jid, this.deviceId);
+  final String jid;
+  final int deviceId;
+}
+
 /// Triggered when the device map has been modified
 class DeviceMapModifiedEvent extends OmemoEvent {
 

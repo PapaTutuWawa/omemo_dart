@@ -422,4 +422,81 @@ void main() {
       expect(messageText, aliceReceivedMessage);
     }
   });
+
+  group('Test removing a ratchet', () {
+    test('Test removing a ratchet when the user has multiple', () async {
+      const aliceJid = 'alice@server.local';
+      const bobJid = 'bob@some.server.local';
+      final aliceSession = await OmemoSessionManager.generateNewIdentity(
+        aliceJid,
+        AlwaysTrustingTrustManager(),
+        opkAmount: 1,
+      );
+      final bobSession1 = await OmemoSessionManager.generateNewIdentity(
+        bobJid,
+        AlwaysTrustingTrustManager(),
+        opkAmount: 1,
+      );
+      final bobSession2 = await OmemoSessionManager.generateNewIdentity(
+        bobJid,
+        AlwaysTrustingTrustManager(),
+        opkAmount: 1,
+      );
+
+      // Alice sends a message to those two Bobs
+      final aliceMessage = await aliceSession.encryptToJid(
+        bobJid,
+        'Hallo Welt',
+        newSessions: [
+          await (await bobSession1.getDevice()).toBundle(),
+          await (await bobSession2.getDevice()).toBundle(),
+        ],
+      );
+
+      // One of those two sessions is broken, so Alice removes the session2 ratchet
+      final id1 = (await bobSession1.getDevice()).id;
+      final id2 = (await bobSession2.getDevice()).id;
+      await aliceSession.removeRatchet(bobJid, id1);
+
+      final map = await aliceSession.getRatchetMap();
+      expect(map.containsKey(RatchetMapKey(bobJid, id1)), false);
+      expect(map.containsKey(RatchetMapKey(bobJid, id2)), true);
+      final deviceMap = await aliceSession.getDeviceMap();
+      expect(deviceMap.containsKey(bobJid), true);
+      expect(deviceMap[bobJid], [id2]);
+    });
+
+    test('Test removing a ratchet when the user has only one', () async {
+      const aliceJid = 'alice@server.local';
+      const bobJid = 'bob@some.server.local';
+      final aliceSession = await OmemoSessionManager.generateNewIdentity(
+        aliceJid,
+        AlwaysTrustingTrustManager(),
+        opkAmount: 1,
+      );
+      final bobSession = await OmemoSessionManager.generateNewIdentity(
+        bobJid,
+        AlwaysTrustingTrustManager(),
+        opkAmount: 1,
+      );
+
+      // Alice sends a message to those two Bobs
+      final aliceMessage = await aliceSession.encryptToJid(
+        bobJid,
+        'Hallo Welt',
+        newSessions: [
+          await (await bobSession.getDevice()).toBundle(),
+        ],
+      );
+
+      // One of those two sessions is broken, so Alice removes the session2 ratchet
+      final id = (await bobSession.getDevice()).id;
+      await aliceSession.removeRatchet(bobJid, id);
+
+      final map = await aliceSession.getRatchetMap();
+      expect(map.containsKey(RatchetMapKey(bobJid, id)), false);
+      final deviceMap = await aliceSession.getDeviceMap();
+      expect(deviceMap.containsKey(bobJid), false);
+    });
+  });
 }
