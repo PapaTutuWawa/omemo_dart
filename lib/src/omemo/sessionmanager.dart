@@ -430,6 +430,33 @@ class OmemoSessionManager {
       _eventStreamController.add(DeviceMapModifiedEvent(_deviceMap));
     });
   }
+
+  /// Returns the list of device identifiers belonging to [jid] that are yet unacked, i.e.
+  /// we have not yet received an empty OMEMO message from.
+  Future<List<int>> getUnacknowledgedRatchets(String jid) async {
+    final ret = List<int>.empty(growable: true);
+
+    await _lock.synchronized(() async {
+      final devices = _deviceMap[jid]!;
+      for (final device in devices) {
+        final ratchet = _ratchetMap[RatchetMapKey(jid, device)]!;
+        if (!ratchet.acknowledged) ret.add(device);
+      }
+    });
+
+    return ret;
+  }
+
+  /// Mark the ratchet for device [deviceId] from [jid] as acked.
+  Future<void> ratchetAcknowledged(String jid, int deviceId) async {
+    await _lock.synchronized(() async {
+      final ratchet = _ratchetMap[RatchetMapKey(jid, deviceId)]!
+        ..acknowledged = true;
+
+      // Commit it
+      _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet));
+    });
+  }
   
   @visibleForTesting
   OmemoDoubleRatchet getRatchet(String jid, int deviceId) => _ratchetMap[RatchetMapKey(jid, deviceId)]!;

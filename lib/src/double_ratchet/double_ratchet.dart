@@ -67,6 +67,7 @@ class OmemoDoubleRatchet {
     this.ik,
     this.sessionAd,
     this.mkSkipped, // MKSKIPPED
+    this.acknowledged,
   );
 
   factory OmemoDoubleRatchet.fromJson(Map<String, dynamic> data) {
@@ -83,6 +84,7 @@ class OmemoDoubleRatchet {
       'pn': 0,
       'ik_pub': 'base/64/encoded',
       'session_ad': 'base/64/encoded',
+      'acknowledged': true | false,
       'mkskipped': [
         {
           'key': 'base/64/encoded',
@@ -117,6 +119,7 @@ class OmemoDoubleRatchet {
       ),
       base64.decode(data['session_ad']! as String),
       mkSkipped,
+      data['acknowledged']! as bool,
     );
   }
   
@@ -148,6 +151,10 @@ class OmemoDoubleRatchet {
 
   final Map<SkippedKey, List<int>> mkSkipped;
 
+  /// Indicates whether we received an empty OMEMO message after building a session with
+  /// the device.
+  bool acknowledged;
+
   /// Create an OMEMO session using the Signed Pre Key [spk], the shared secret [sk] that
   /// was obtained using a X3DH and the associated data [ad] that was also obtained through
   /// a X3DH. [ik] refers to Bob's (the receiver's) IK public key.
@@ -169,6 +176,7 @@ class OmemoDoubleRatchet {
       ik,
       ad,
       {},
+      false,
     );
   }
 
@@ -189,6 +197,7 @@ class OmemoDoubleRatchet {
       ik,
       ad,
       {},
+      true,
     );
   }
 
@@ -214,6 +223,7 @@ class OmemoDoubleRatchet {
       'ik_pub': base64.encode(await ik.getBytes()),
       'session_ad': base64.encode(sessionAd),
       'mkskipped': mkSkippedSerialised,
+      'acknowledged': acknowledged,
     };
   }
   

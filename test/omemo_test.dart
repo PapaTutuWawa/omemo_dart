@@ -499,4 +499,48 @@ void main() {
       expect(deviceMap.containsKey(bobJid), false);
     });
   });
+
+  test('Test acknowledging a ratchet', () async {
+    const aliceJid = 'alice@server.example';
+    const bobJid = 'bob@other.server.example';
+    // Alice and Bob generate their sessions
+    final aliceSession = await OmemoSessionManager.generateNewIdentity(
+      aliceJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
+    final bobSession = await OmemoSessionManager.generateNewIdentity(
+      bobJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
+
+    // Alice sends Bob a message
+    await aliceSession.encryptToJid(
+      bobJid,
+      'Hallo Welt',
+      newSessions: [
+        await (await bobSession.getDevice()).toBundle(),
+      ],
+    );
+    expect(
+      await aliceSession.getUnacknowledgedRatchets(bobJid),
+      [
+        (await bobSession.getDevice()).id,
+      ],
+    );
+
+    // Bob sends alice an empty message
+    // ...
+
+    // Alice decrypts it
+    // ...
+
+    // Alice marks the ratchet as acknowledged
+    await aliceSession.ratchetAcknowledged(bobJid, (await bobSession.getDevice()).id);
+    expect(
+      (await aliceSession.getUnacknowledgedRatchets(bobJid)).isEmpty,
+      true,
+    );
+  });
 }
