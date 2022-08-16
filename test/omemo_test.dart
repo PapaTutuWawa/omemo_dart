@@ -444,7 +444,7 @@ void main() {
       );
 
       // Alice sends a message to those two Bobs
-      final aliceMessage = await aliceSession.encryptToJid(
+      await aliceSession.encryptToJid(
         bobJid,
         'Hallo Welt',
         newSessions: [
@@ -458,7 +458,7 @@ void main() {
       final id2 = (await bobSession2.getDevice()).id;
       await aliceSession.removeRatchet(bobJid, id1);
 
-      final map = await aliceSession.getRatchetMap();
+      final map = aliceSession.getRatchetMap();
       expect(map.containsKey(RatchetMapKey(bobJid, id1)), false);
       expect(map.containsKey(RatchetMapKey(bobJid, id2)), true);
       final deviceMap = await aliceSession.getDeviceMap();
@@ -481,7 +481,7 @@ void main() {
       );
 
       // Alice sends a message to those two Bobs
-      final aliceMessage = await aliceSession.encryptToJid(
+      await aliceSession.encryptToJid(
         bobJid,
         'Hallo Welt',
         newSessions: [
@@ -493,7 +493,7 @@ void main() {
       final id = (await bobSession.getDevice()).id;
       await aliceSession.removeRatchet(bobJid, id);
 
-      final map = await aliceSession.getRatchetMap();
+      final map = aliceSession.getRatchetMap();
       expect(map.containsKey(RatchetMapKey(bobJid, id)), false);
       final deviceMap = await aliceSession.getDeviceMap();
       expect(deviceMap.containsKey(bobJid), false);
