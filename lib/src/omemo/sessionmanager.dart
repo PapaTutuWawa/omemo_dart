@@ -48,7 +48,18 @@ class OmemoSessionManager {
       trustManager,
     );
   }
-      
+
+  /// Deserialise the OmemoSessionManager from JSON data [data] that does not contain
+  /// the ratchet sessions.
+  factory OmemoSessionManager.fromJsonWithoutSessions(Map<String, dynamic> data, Map<RatchetMapKey, OmemoDoubleRatchet> ratchetMap, TrustManager trustManager) {
+    return OmemoSessionManager(
+      Device.fromJson(data['device']! as Map<String, dynamic>),
+      data['devices']! as Map<String, List<int>>,
+      ratchetMap,
+      trustManager,
+    );
+  }
+  
   /// Generate a new cryptographic identity.
   static Future<OmemoSessionManager> generateNewIdentity(String jid, TrustManager trustManager, { int opkAmount = 100 }) async {
     assert(opkAmount > 0, 'opkAmount must be bigger than 0.');
@@ -437,6 +448,25 @@ class OmemoSessionManager {
       'devices': _deviceMap,
       'device': await (await getDevice()).toJson(),
       'sessions': sessions,
+    };
+  }
+
+  /// Serialise the entire session manager into a JSON object.
+  Future<Map<String, dynamic>> toJsonWithoutSessions() async {
+    /*
+    {
+      'devices': {
+        'alice@...': [1, 2, ...],
+        'bob@...': [1],
+        ...
+      },
+      'device': { ... },
+    }
+    */
+
+    return {
+      'devices': _deviceMap,
+      'device': await (await getDevice()).toJson(),
     };
   }
 }
