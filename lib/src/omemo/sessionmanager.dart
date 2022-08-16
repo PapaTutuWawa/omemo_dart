@@ -3,8 +3,7 @@ import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:hex/hex.dart';
-import 'package:meta/meta.dart';
-import 'package:omemo_dart/src/crypto.dart';
+import 'package:meta/meta.dart'; import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/double_ratchet/double_ratchet.dart';
 import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/helpers.dart';
@@ -423,7 +422,6 @@ class OmemoSessionManager {
         },
         ...
       ],
-      'trust': { ... }
     }
     */
 
@@ -439,8 +437,6 @@ class OmemoSessionManager {
       'devices': _deviceMap,
       'device': await (await getDevice()).toJson(),
       'sessions': sessions,
-      // TODO(PapaTutuWawa): Implement
-      'trust': <String, dynamic>{},
     };
   }
 }
