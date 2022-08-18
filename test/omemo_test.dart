@@ -539,7 +539,7 @@ void main() {
     // Alice marks the ratchet as acknowledged
     await aliceSession.ratchetAcknowledged(bobJid, await bobSession.getDeviceId());
     expect(
-      (await aliceSession.getUnacknowledgedRatchets(bobJid)).isEmpty,
+      (await aliceSession.getUnacknowledgedRatchets(bobJid))!.isEmpty,
       true,
     );
   });
