@@ -9,3 +9,9 @@
 
 - Fix bug with the Double Ratchet causing only the initial message to be decryptable
 - Expose `getDeviceMap` as a developer usable function
+
+## 0.2.0
+
+- Add convenience functions `getDeviceId` and `getDeviceBundle`
+- Creating a new ratchet with an id for which we already have a ratchet will now overwrite the old ratchet
+- Ratchet now carry an "acknowledged" attribute
