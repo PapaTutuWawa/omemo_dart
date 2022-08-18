@@ -457,6 +457,15 @@ class OmemoSessionManager {
       _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet));
     });
   }
+
+  /// Generates an entirely new device. May be useful when the user wants to reset their cryptographic
+  /// identity. Triggers an event to commit it to storage.
+  Future<void> regenerateDevice({ int opkAmount = 100 }) async {
+    await _deviceLock.synchronized(() async {
+      _device = await Device.generateNewDevice(_device.jid, opkAmount: opkAmount);
+      _eventStreamController.add(DeviceModifiedEvent(_device));
+    });
+  }
   
   @visibleForTesting
   OmemoDoubleRatchet getRatchet(String jid, int deviceId) => _ratchetMap[RatchetMapKey(jid, deviceId)]!;
