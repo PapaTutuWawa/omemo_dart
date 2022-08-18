@@ -543,4 +543,75 @@ void main() {
       true,
     );
   });
+
+  test('Test overwriting sessions', () async {
+    const aliceJid = 'alice@server.example';
+    const bobJid = 'bob@other.server.example';
+    // Alice and Bob generate their sessions
+    final aliceSession = await OmemoSessionManager.generateNewIdentity(
+      aliceJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
+    final bobSession = await OmemoSessionManager.generateNewIdentity(
+      bobJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 2,
+    );
+
+    // Alice sends Bob a message
+    final msg1 = await aliceSession.encryptToJid(
+      bobJid,
+      'Hallo Welt',
+      newSessions: [
+        await (await bobSession.getDevice()).toBundle(),
+      ],
+    );
+    await bobSession.decryptMessage(
+      msg1.ciphertext,
+      aliceJid,
+      (await aliceSession.getDevice()).id,
+      msg1.encryptedKeys,
+    );
+    final aliceRatchet1 = aliceSession.getRatchet(
+      bobJid,
+      (await bobSession.getDevice()).id,
+    );
+    final bobRatchet1 = bobSession.getRatchet(
+      aliceJid,
+      (await aliceSession.getDevice()).id,
+    );
+
+    // Alice is impatient and immediately sends another message before the original one
+    // can be acknowledged by Bob
+    final msg2 = await aliceSession.encryptToJid(
+      bobJid,
+      "Why don't you answer?",
+      newSessions: [
+        await (await bobSession.getDevice()).toBundle(),
+      ],
+    );
+    await bobSession.decryptMessage(
+      msg2.ciphertext,
+      aliceJid,
+      (await aliceSession.getDevice()).id,
+      msg2.encryptedKeys,
+    );
+    final aliceRatchet2 = aliceSession.getRatchet(
+      bobJid,
+      (await bobSession.getDevice()).id,
+    );
+    final bobRatchet2 = bobSession.getRatchet(
+      aliceJid,
+      (await aliceSession.getDevice()).id,
+    );
+
+    // Both should only have one ratchet
+    expect(aliceSession.getRatchetMap().length, 1);
+    expect(bobSession.getRatchetMap().length, 1);
+    
+    // The ratchets should both be different
+    expect(await aliceRatchet1.equals(aliceRatchet2), false);
+    expect(await bobRatchet1.equals(bobRatchet2), false);
+  });
 }

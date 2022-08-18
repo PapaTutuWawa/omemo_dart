@@ -110,21 +110,22 @@ class OmemoSessionManager {
       // Add the bundle Id
       if (!_deviceMap.containsKey(jid)) {
         _deviceMap[jid] = [deviceId];
-      } else {
-        _deviceMap[jid]!.add(deviceId);
-      }
 
-      // Commit the device map
-      _eventStreamController.add(DeviceMapModifiedEvent(_deviceMap));
+        // Commit the device map
+        _eventStreamController.add(DeviceMapModifiedEvent(_deviceMap));
+      } else {
+        // Prevent having the same device multiple times in the list
+        if (!_deviceMap[jid]!.contains(deviceId)) {
+          _deviceMap[jid]!.add(deviceId);
+
+          // Commit the device map
+          _eventStreamController.add(DeviceMapModifiedEvent(_deviceMap));
+        }
+      }
 
       // Add the ratchet session
       final key = RatchetMapKey(jid, deviceId);
-      if (!_ratchetMap.containsKey(key)) {
-        _ratchetMap[key] = ratchet;
-      } else {
-        // TODO(PapaTutuWawa): What do we do now?
-        throw Exception();
-      }
+      _ratchetMap[key] = ratchet;
 
       // Commit the ratchet
       _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet));
