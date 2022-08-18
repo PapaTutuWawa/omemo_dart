@@ -38,7 +38,7 @@ void main() {
       bobJid,
       messagePlaintext,
       newSessions: [
-        await (await bobSession.getDevice()).toBundle(),
+        await bobSession.getDeviceBundle(),
       ],
     );
     expect(aliceMessage.encryptedKeys.length, 1);
@@ -50,7 +50,7 @@ void main() {
     final bobMessage = await bobSession.decryptMessage(
       aliceMessage.ciphertext,
       aliceJid,
-      (await aliceSession.getDevice()).id,
+      await aliceSession.getDeviceId(),
       aliceMessage.encryptedKeys,
     );
     expect(messagePlaintext, bobMessage);
@@ -81,7 +81,7 @@ void main() {
     final aliceReceivedMessage = await aliceSession.decryptMessage(
       bobResponseMessage.ciphertext,
       bobJid,
-      (await bobSession.getDevice()).id,
+      await bobSession.getDeviceId(),
       bobResponseMessage.encryptedKeys,
     );
     expect(bobResponseText, aliceReceivedMessage);
@@ -115,8 +115,8 @@ void main() {
       bobJid,
       messagePlaintext,
       newSessions: [
-        await (await bobSession.getDevice()).toBundle(),
-        await (await bobSession2.getDevice()).toBundle(),
+        await bobSession.getDeviceBundle(),
+        await bobSession2.getDeviceBundle(),
       ],
     );
     expect(aliceMessage.encryptedKeys.length, 2);
@@ -130,7 +130,7 @@ void main() {
     final bobMessage = await bobSession.decryptMessage(
       aliceMessage.ciphertext,
       aliceJid,
-      (await aliceSession.getDevice()).id,
+      await aliceSession.getDeviceId(),
       aliceMessage.encryptedKeys,
     );
     expect(messagePlaintext, bobMessage);
@@ -149,7 +149,7 @@ void main() {
     final aliceReceivedMessage = await aliceSession.decryptMessage(
       bobResponseMessage.ciphertext,
       bobJid,
-      (await bobSession.getDevice()).id,
+      await bobSession.getDeviceId(),
       bobResponseMessage.encryptedKeys,
     );
     expect(bobResponseText, aliceReceivedMessage);
@@ -192,8 +192,8 @@ void main() {
       [bobJid, aliceJid],
       messagePlaintext,
       newSessions: [
-        await (await bobSession.getDevice()).toBundle(),
-        await (await aliceSession2.getDevice()).toBundle(),
+        await bobSession.getDeviceBundle(),
+        await aliceSession2.getDeviceBundle(),
       ],
     );
     expect(aliceMessage.encryptedKeys.length, 2);
@@ -205,7 +205,7 @@ void main() {
     final bobMessage = await bobSession.decryptMessage(
       aliceMessage.ciphertext,
       aliceJid,
-      (await aliceSession1.getDevice()).id,
+      await aliceSession1.getDeviceId(),
       aliceMessage.encryptedKeys,
     );
     expect(messagePlaintext, bobMessage);
@@ -214,7 +214,7 @@ void main() {
     final aliceMessage2 = await aliceSession2.decryptMessage(
       aliceMessage.ciphertext,
       aliceJid,
-      (await aliceSession1.getDevice()).id,
+      await aliceSession1.getDeviceId(),
       aliceMessage.encryptedKeys,
     );
     expect(messagePlaintext, aliceMessage2);
@@ -241,7 +241,7 @@ void main() {
       bobJid,
       null,
       newSessions: [
-        await (await bobSession.getDevice()).toBundle(),
+        await bobSession.getDeviceBundle(),
       ],
     );
     expect(aliceMessage.encryptedKeys.length, 1);
@@ -254,13 +254,13 @@ void main() {
     final bobMessage = await bobSession.decryptMessage(
       aliceMessage.ciphertext,
       aliceJid,
-      (await aliceSession.getDevice()).id,
+      await aliceSession.getDeviceId(),
       aliceMessage.encryptedKeys,
     );
     expect(bobMessage, null);
 
     // This call must not cause an exception
-    bobSession.getRatchet(aliceJid, (await aliceSession.getDevice()).id);
+    bobSession.getRatchet(aliceJid, await aliceSession.getDeviceId());
   });
 
   test('Test rotating the Signed Prekey', () async {
@@ -316,7 +316,7 @@ void main() {
       bobJid,
       messagePlaintext,
       newSessions: [
-        await (await bobSession.getDevice()).toBundle(),
+        await bobSession.getDeviceBundle(),
       ],
     );
     expect(aliceMessage.encryptedKeys.length, 1);
@@ -331,7 +331,7 @@ void main() {
     final bobMessage = await bobSession.decryptMessage(
       aliceMessage.ciphertext,
       aliceJid,
-      (await aliceSession.getDevice()).id,
+      await aliceSession.getDeviceId(),
       aliceMessage.encryptedKeys,
     );
     expect(messagePlaintext, bobMessage);
@@ -358,7 +358,7 @@ void main() {
       bobJid,
       null,
       newSessions: [
-        await (await bobSession.getDevice()).toBundle(),
+        await bobSession.getDeviceBundle(),
       ],
     );
 
@@ -387,7 +387,7 @@ void main() {
       bobJid,
       'Hello Bob!',
       newSessions: [
-        await (await bobSession.getDevice()).toBundle(),
+        await bobSession.getDeviceBundle(),
       ],
     );
 
@@ -397,7 +397,7 @@ void main() {
     await bobSession.decryptMessage(
       aliceMessage.ciphertext,
       aliceJid,
-      (await aliceSession.getDevice()).id,
+      await aliceSession.getDeviceId(),
       aliceMessage.encryptedKeys,
     );
 
@@ -416,7 +416,7 @@ void main() {
       final aliceReceivedMessage = await aliceSession.decryptMessage(
         bobResponseMessage.ciphertext,
         bobJid,
-        (await bobSession.getDevice()).id,
+        await bobSession.getDeviceId(),
         bobResponseMessage.encryptedKeys,
       );
       expect(messageText, aliceReceivedMessage);
@@ -448,14 +448,14 @@ void main() {
         bobJid,
         'Hallo Welt',
         newSessions: [
-          await (await bobSession1.getDevice()).toBundle(),
-          await (await bobSession2.getDevice()).toBundle(),
+          await bobSession1.getDeviceBundle(),
+          await bobSession2.getDeviceBundle(),
         ],
       );
 
       // One of those two sessions is broken, so Alice removes the session2 ratchet
-      final id1 = (await bobSession1.getDevice()).id;
-      final id2 = (await bobSession2.getDevice()).id;
+      final id1 = await bobSession1.getDeviceId();
+      final id2 = await bobSession2.getDeviceId();
       await aliceSession.removeRatchet(bobJid, id1);
 
       final map = aliceSession.getRatchetMap();
@@ -485,12 +485,12 @@ void main() {
         bobJid,
         'Hallo Welt',
         newSessions: [
-          await (await bobSession.getDevice()).toBundle(),
+          await bobSession.getDeviceBundle(),
         ],
       );
 
       // One of those two sessions is broken, so Alice removes the session2 ratchet
-      final id = (await bobSession.getDevice()).id;
+      final id = await bobSession.getDeviceId();
       await aliceSession.removeRatchet(bobJid, id);
 
       final map = aliceSession.getRatchetMap();
@@ -520,13 +520,13 @@ void main() {
       bobJid,
       'Hallo Welt',
       newSessions: [
-        await (await bobSession.getDevice()).toBundle(),
+        await bobSession.getDeviceBundle(),
       ],
     );
     expect(
       await aliceSession.getUnacknowledgedRatchets(bobJid),
       [
-        (await bobSession.getDevice()).id,
+        await bobSession.getDeviceId(),
       ],
     );
 
@@ -537,7 +537,7 @@ void main() {
     // ...
 
     // Alice marks the ratchet as acknowledged
-    await aliceSession.ratchetAcknowledged(bobJid, (await bobSession.getDevice()).id);
+    await aliceSession.ratchetAcknowledged(bobJid, await bobSession.getDeviceId());
     expect(
       (await aliceSession.getUnacknowledgedRatchets(bobJid)).isEmpty,
       true,
@@ -564,22 +564,22 @@ void main() {
       bobJid,
       'Hallo Welt',
       newSessions: [
-        await (await bobSession.getDevice()).toBundle(),
+        await bobSession.getDeviceBundle(),
       ],
     );
     await bobSession.decryptMessage(
       msg1.ciphertext,
       aliceJid,
-      (await aliceSession.getDevice()).id,
+      await aliceSession.getDeviceId(),
       msg1.encryptedKeys,
     );
     final aliceRatchet1 = aliceSession.getRatchet(
       bobJid,
-      (await bobSession.getDevice()).id,
+      await bobSession.getDeviceId(),
     );
     final bobRatchet1 = bobSession.getRatchet(
       aliceJid,
-      (await aliceSession.getDevice()).id,
+      await aliceSession.getDeviceId(),
     );
 
     // Alice is impatient and immediately sends another message before the original one
@@ -588,22 +588,22 @@ void main() {
       bobJid,
       "Why don't you answer?",
       newSessions: [
-        await (await bobSession.getDevice()).toBundle(),
+        await bobSession.getDeviceBundle(),
       ],
     );
     await bobSession.decryptMessage(
       msg2.ciphertext,
       aliceJid,
-      (await aliceSession.getDevice()).id,
+      await aliceSession.getDeviceId(),
       msg2.encryptedKeys,
     );
     final aliceRatchet2 = aliceSession.getRatchet(
       bobJid,
-      (await bobSession.getDevice()).id,
+      await bobSession.getDeviceId(),
     );
     final bobRatchet2 = bobSession.getRatchet(
       aliceJid,
-      (await aliceSession.getDevice()).id,
+      await aliceSession.getDeviceId(),
     );
 
     // Both should only have one ratchet

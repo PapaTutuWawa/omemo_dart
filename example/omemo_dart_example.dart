@@ -65,7 +65,7 @@ void main() async {
     // a new session. Let's also assume that Bob only has one device. We may, however,
     // add more bundles to newSessions, if we know of more.
     newSessions: [
-      await (await bobSession.getDevice()).toBundle(),
+      await bobSession.getDeviceBundle(),
     ],
   );
 

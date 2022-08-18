@@ -49,16 +49,16 @@ void main() {
       bobJid,
       'Hello Bob!',
       newSessions: [
-        await (await bobSession.getDevice()).toBundle(),
+        await bobSession.getDeviceBundle(),
       ],
     );
     await bobSession.decryptMessage(
       aliceMessage.ciphertext,
       aliceJid,
-      (await aliceSession.getDevice()).id,
+      await aliceSession.getDeviceId(),
       aliceMessage.encryptedKeys,
     );
-    final aliceOld = aliceSession.getRatchet(bobJid, (await bobSession.getDevice()).id);
+    final aliceOld = aliceSession.getRatchet(bobJid, await bobSession.getDeviceId());
     final aliceSerialised = await aliceOld.toJson();
     final aliceNew = OmemoDoubleRatchet.fromJson(aliceSerialised);
 
@@ -79,8 +79,8 @@ void main() {
     );
     await oldSession.addSessionFromBundle(
       'bob@localhost',
-      (await bobSession.getDevice()).id,
-      await (await bobSession.getDevice()).toBundle(),
+      await bobSession.getDeviceId(),
+      await bobSession.getDeviceBundle(),
     );
 
     // Serialise and deserialise

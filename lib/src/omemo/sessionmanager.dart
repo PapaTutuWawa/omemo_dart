@@ -103,6 +103,18 @@ class OmemoSessionManager {
 
     return dev!;
   }
+
+  /// Returns the id attribute of our own device. This is just a short-hand for
+  /// ```await (session.getDevice()).id```.
+  Future<int> getDeviceId() async {
+    return _deviceLock.synchronized(() => _device.id);
+  }
+
+  /// Returns the device as an OmemoBundle. This is just a short-hand for
+  /// ```await (await session.getDevice()).toBundle()```.
+  Future<OmemoBundle> getDeviceBundle() async {
+    return _deviceLock.synchronized(() async => _device.toBundle());
+  }
   
   /// Add a session [ratchet] with the [deviceId] to the internal tracking state.
   Future<void> _addSession(String jid, int deviceId, OmemoDoubleRatchet ratchet) async {
