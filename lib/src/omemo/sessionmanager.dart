@@ -463,6 +463,19 @@ class OmemoSessionManager {
   Future<void> regenerateDevice({ int opkAmount = 100 }) async {
     await _deviceLock.synchronized(() async {
       _device = await Device.generateNewDevice(_device.jid, opkAmount: opkAmount);
+
+      // Commit it
+      _eventStreamController.add(DeviceModifiedEvent(_device));
+    });
+  }
+
+  /// Make our device have a new identifier. Only useful before publishing it as a bundle
+  /// to make sure that our device has a id that is account unique.
+  Future<void> regenerateDeviceId() async {
+    await _deviceLock.synchronized(() async {
+      _device = _device.withNewId();
+
+      // Commit it
       _eventStreamController.add(DeviceModifiedEvent(_device));
     });
   }

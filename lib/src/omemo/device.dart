@@ -163,6 +163,23 @@ class Device {
     );
   }
 
+  /// Returns a new device that is equal to this one with the exception that the new
+  /// device's id is a new number between 0 and 2**32 - 1.
+  @internal
+  Device withNewId() {
+    return Device(
+      jid,
+      generateRandom32BitNumber(),
+      ik,
+      spk,
+      spkId,
+      spkSignature,
+      oldSpk,
+      oldSpkId,
+      opks,
+    );
+  }
+  
   /// Converts this device into an OmemoBundle that could be used for publishing.
   Future<OmemoBundle> toBundle() async {
     final encodedOpks = <int, String>{};
