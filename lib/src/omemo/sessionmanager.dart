@@ -461,6 +461,12 @@ class OmemoSessionManager {
     });
   }
 
+  /// Returns true if the ratchet for [jid] with device identifier [deviceId] is
+  /// acknowledged. Returns false if not.
+  Future<bool> isRatchetAcknowledged(String jid, int deviceId) async {
+    return _lock.synchronized(() => _ratchetMap[RatchetMapKey(jid, deviceId)]!.acknowledged);
+  }
+  
   /// Mark the ratchet for device [deviceId] from [jid] as acked.
   Future<void> ratchetAcknowledged(String jid, int deviceId) async {
     await _lock.synchronized(() async {
