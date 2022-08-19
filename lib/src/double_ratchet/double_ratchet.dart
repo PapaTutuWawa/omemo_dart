@@ -197,7 +197,7 @@ class OmemoDoubleRatchet {
       ik,
       ad,
       {},
-      true,
+      false,
     );
   }
 
