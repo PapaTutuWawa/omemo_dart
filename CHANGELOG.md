@@ -15,3 +15,8 @@
 - Add convenience functions `getDeviceId` and `getDeviceBundle`
 - Creating a new ratchet with an id for which we already have a ratchet will now overwrite the old ratchet
 - Ratchet now carry an "acknowledged" attribute
+
+## 0.2.1
+
+- Add `isRatchetAcknowledged`
+- Ratchets that are created due to accepting a kex are now unacknowledged

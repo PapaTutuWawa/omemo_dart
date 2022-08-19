@@ -1,6 +1,6 @@
 name: omemo_dart
 description: An XMPP library independent OMEMO library
-version: 0.2.0
+version: 0.2.1
 homepage: https://github.com/PapaTutuWawa/omemo_dart
 publish_to: https://git.polynom.me/api/packages/PapaTutuWawa/pub
 
