@@ -415,13 +415,7 @@ class OmemoSessionManager {
   /// Returns the device map, i.e. the mapping of bare Jid to its device identifiers
   /// we have built sessions with.
   Future<Map<String, List<int>>> getDeviceMap() async {
-    Map<String, List<int>>? map;
-
-    await _lock.synchronized(() async {
-      map = _deviceMap;
-    });
-
-    return map!;
+    return _lock.synchronized(() => _deviceMap);
   }
 
   /// Removes the ratchet identified by [jid] and [deviceId] from the session manager.
