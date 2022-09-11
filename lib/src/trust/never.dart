@@ -11,4 +11,10 @@ class NeverTrustingTrustManager extends TrustManager {
 
   @override
   Future<void> onNewSession(String jid, int deviceId) async {}
+
+  @override
+  Future<bool> isEnabled(String jid, int deviceId) async => true;
+
+  @override
+  Future<void> setEnabled(String jid, int deviceId, bool enabled) async {}
 }

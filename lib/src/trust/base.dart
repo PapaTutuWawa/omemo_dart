@@ -8,4 +8,12 @@ abstract class TrustManager {
   /// Called by the OmemoSessionManager when a new session has been built. Should set
   /// a default trust state to [jid]'s device with identifier [deviceId].
   Future<void> onNewSession(String jid, int deviceId);
+
+  /// Return true if the device with id [deviceId] of Jid [jid] should be used for encryption.
+  /// If not, return false.
+  Future<bool> isEnabled(String jid, int deviceId);
+
+  /// Mark the device with id [deviceId] of Jid [jid] as enabled if [enabled] is true or as disabled
+  /// if [enabled] is false.
+  Future<void> setEnabled(String jid, int deviceId, bool enabled);
 }

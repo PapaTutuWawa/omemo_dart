@@ -254,6 +254,9 @@ class OmemoSessionManager {
           if (plaintext != null) {
             // Only encrypt to devices that are trusted
             if (!(await _trustManager.isTrusted(jid, deviceId))) continue;
+
+            // Onyl encrypt to devices that are enabled
+            if (!(await _trustManager.isEnabled(jid, deviceId))) continue;
           }
 
           final ratchetKey = RatchetMapKey(jid, deviceId);

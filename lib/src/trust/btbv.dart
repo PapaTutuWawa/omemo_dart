@@ -18,13 +18,18 @@ enum BTBVTrustState {
 abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
   BlindTrustBeforeVerificationTrustManager()
     : trustCache = {},
+      enablementCache = {},
       devices = {},
       _lock = Lock();
 
-  /// The cache for Mapping a RatchetMapKey to its trust state
+  /// The cache for mapping a RatchetMapKey to its trust state
   @protected
   final Map<RatchetMapKey, BTBVTrustState> trustCache;
 
+  /// The cache for mapping a RatchetMapKey to whether it is enabled or not
+  @protected
+  final Map<RatchetMapKey, bool> enablementCache;
+  
   /// Mapping of Jids to their device identifiers
   @protected
   final Map<String, List<int>> devices;
@@ -74,10 +79,13 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
   @override
   Future<void> onNewSession(String jid, int deviceId) async {
     await _lock.synchronized(() async {
+      final key = RatchetMapKey(jid, deviceId);
       if (_hasAtLeastOneVerifiedDevice(jid)) {
-        trustCache[RatchetMapKey(jid, deviceId)] = BTBVTrustState.notTrusted;
+        trustCache[key] = BTBVTrustState.notTrusted;
+        enablementCache[key] = false;
       } else {
-        trustCache[RatchetMapKey(jid, deviceId)] = BTBVTrustState.blindTrust;
+        trustCache[key] = BTBVTrustState.blindTrust;
+        enablementCache[key] = true;
       }
 
       if (devices.containsKey(jid)) {
@@ -85,7 +93,7 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
       } else {
         devices[jid] = List<int>.from([deviceId]);
       }
-
+      
       // Commit the state
       await commitState();
     });
@@ -114,6 +122,26 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
     });
   }
 
+  @override
+  Future<bool> isEnabled(String jid, int deviceId) async {
+    return _lock.synchronized(() async {
+      final value = enablementCache[RatchetMapKey(jid, deviceId)];
+
+      if (value == null) return false;
+      return value;
+    });
+  }
+
+  @override
+  Future<void> setEnabled(String jid, int deviceId, bool enabled) async {
+    await _lock.synchronized(() async {
+      enablementCache[RatchetMapKey(jid, deviceId)] = enabled;
+    });
+
+    // Commit the state
+    await commitState();
+  }
+  
   /// Called when the state of the trust manager has been changed. Allows the user to
   /// commit the trust state to persistent storage.
   @visibleForOverriding
