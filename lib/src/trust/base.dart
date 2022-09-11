@@ -16,4 +16,7 @@ abstract class TrustManager {
   /// Mark the device with id [deviceId] of Jid [jid] as enabled if [enabled] is true or as disabled
   /// if [enabled] is false.
   Future<void> setEnabled(String jid, int deviceId, bool enabled);
+
+  /// Serialize the trust manager to JSON.
+  Future<Map<String, dynamic>> toJson();
 }

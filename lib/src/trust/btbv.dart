@@ -8,9 +8,26 @@ import 'package:synchronized/synchronized.dart';
 /// - blindTrust: The fingerprint is not verified using OOB means
 /// - verified: The fingerprint has been verified using OOB means
 enum BTBVTrustState {
-  notTrusted,
-  blindTrust,
-  verified,
+  notTrusted, // = 1
+  blindTrust, // = 2
+  verified,   // = 3
+}
+
+int _trustToInt(BTBVTrustState state) {
+  switch (state) {
+    case BTBVTrustState.notTrusted: return 1;
+    case BTBVTrustState.blindTrust: return 2;
+    case BTBVTrustState.verified:   return 3;
+  }
+}
+
+BTBVTrustState _trustFromInt(int i) {
+  switch (i) {
+    case 1: return BTBVTrustState.notTrusted;
+    case 2: return BTBVTrustState.blindTrust;
+    case 3: return BTBVTrustState.verified;
+    default: return BTBVTrustState.notTrusted;
+  }
 }
 
 /// A TrustManager that implements the idea of Blind Trust Before Verification.
@@ -23,14 +40,17 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
       _lock = Lock();
 
   /// The cache for mapping a RatchetMapKey to its trust state
+  @visibleForTesting
   @protected
   final Map<RatchetMapKey, BTBVTrustState> trustCache;
 
   /// The cache for mapping a RatchetMapKey to whether it is enabled or not
+  @visibleForTesting
   @protected
   final Map<RatchetMapKey, bool> enablementCache;
   
   /// Mapping of Jids to their device identifiers
+  @visibleForTesting
   @protected
   final Map<String, List<int>> devices;
 
@@ -140,6 +160,50 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
 
     // Commit the state
     await commitState();
+  }
+
+  @override
+  Future<Map<String, dynamic>> toJson() async {
+    return {
+      'devices': devices,
+      'trust': trustCache.map((key, value) => MapEntry(
+        key.toJsonKey(), _trustToInt(value),
+      ),),
+      'enable': enablementCache.map((key, value) => MapEntry(key.toJsonKey(), value)),
+    };
+  }
+
+  /// From a serialized version of a BTBV trust manager, extract the device list.
+  /// NOTE: This is needed as Dart cannot just cast a List<dynamic> to List<int> and so on.
+  static Map<String, List<int>> deviceListFromJson(Map<String, dynamic> json) {
+    return (json['devices']! as Map<String, dynamic>).map<String, List<int>>(
+      (key, value) => MapEntry(
+        key,
+        (value as List<dynamic>).map<int>((i) => i as int).toList(),
+      ),
+    );
+  }
+
+  /// From a serialized version of a BTBV trust manager, extract the trust cache.
+  /// NOTE: This is needed as Dart cannot just cast a List<dynamic> to List<int> and so on.
+  static Map<RatchetMapKey, BTBVTrustState> trustCacheFromJson(Map<String, dynamic> json) {
+    return (json['trust']! as Map<String, dynamic>).map<RatchetMapKey, BTBVTrustState>(
+      (key, value) => MapEntry(
+        RatchetMapKey.fromJsonKey(key),
+        _trustFromInt(value as int),
+      ),
+    );
+  }
+
+  /// From a serialized version of a BTBV trust manager, extract the enable cache.
+  /// NOTE: This is needed as Dart cannot just cast a List<dynamic> to List<int> and so on.
+  static Map<RatchetMapKey, bool> enableCacheFromJson(Map<String, dynamic> json) {
+    return (json['enable']! as Map<String, dynamic>).map<RatchetMapKey, bool>(
+      (key, value) => MapEntry(
+        RatchetMapKey.fromJsonKey(key),
+        value as bool,
+      ),
+    );
   }
   
   /// Called when the state of the trust manager has been changed. Allows the user to

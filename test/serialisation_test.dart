@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:omemo_dart/omemo_dart.dart';
 import 'package:omemo_dart/src/trust/always.dart';
 import 'package:test/test.dart';
@@ -103,5 +104,85 @@ void main() {
       final newRatchet = newSession.getRatchetMap()[session.key]!;
       expect(await oldRatchet.equals(newRatchet), true);
     }
+  });
+
+  test('Test serialising and deserialising the BlindTrustBeforeVerificationTrustManager', () async {
+    // Caroline's BTBV manager
+    final btbv = MemoryBTBVTrustManager();
+    // Example data
+    const aliceJid = 'alice@some.server';
+    const bobJid = 'bob@other.server';
+    
+    // Caroline starts a chat a device from Alice
+    await btbv.onNewSession(aliceJid, 1);
+    expect(await btbv.isTrusted(aliceJid, 1), true);
+    expect(await btbv.isEnabled(aliceJid, 1), true);
+
+    // Caroline meets with Alice and verifies her fingerprint
+    await btbv.setDeviceTrust(aliceJid, 1, BTBVTrustState.verified);
+    expect(await btbv.isTrusted(aliceJid, 1), true);
+
+    // Alice adds a new device
+    await btbv.onNewSession(aliceJid, 2);
+    expect(await btbv.isTrusted(aliceJid, 2), false);
+    expect(btbv.getDeviceTrust(aliceJid, 2), BTBVTrustState.notTrusted);
+    expect(await btbv.isEnabled(aliceJid, 2), false);
+
+    // Caronline starts a chat with Bob but since they live far apart, Caroline cannot
+    // verify his fingerprint.
+    await btbv.onNewSession(bobJid, 3);
+
+    // Bob adds a new device
+    await btbv.onNewSession(bobJid, 4);
+    expect(await btbv.isTrusted(bobJid, 3), true);
+    expect(await btbv.isTrusted(bobJid, 4), true);
+    expect(btbv.getDeviceTrust(bobJid, 3), BTBVTrustState.blindTrust);
+    expect(btbv.getDeviceTrust(bobJid, 4), BTBVTrustState.blindTrust);
+    expect(await btbv.isEnabled(bobJid, 3), true);
+    expect(await btbv.isEnabled(bobJid, 4), true);
+  });
+
+  test('Test serializing and deserializing RatchetMapKey', () {
+    const test1 = RatchetMapKey('user@example.org', 1234);
+    final result1 = RatchetMapKey.fromJsonKey(test1.toJsonKey());
+    expect(result1.jid, test1.jid);
+    expect(result1.deviceId, test1.deviceId);
+
+    const test2 = RatchetMapKey('user@example.org/hallo:welt', 3333);
+    final result2 = RatchetMapKey.fromJsonKey(test2.toJsonKey());
+    expect(result2.jid, test2.jid);
+    expect(result2.deviceId, test2.deviceId);
+  });
+
+  test('Test serializing and deserializing the components of the BTBV manager', () async {
+    // Caroline's BTBV manager
+    final btbv = MemoryBTBVTrustManager();
+    // Example data
+    const aliceJid = 'alice@some.server';
+    const bobJid = 'bob@other.server';
+    
+    await btbv.onNewSession(aliceJid, 1);
+    await btbv.setDeviceTrust(aliceJid, 1, BTBVTrustState.verified);
+    await btbv.onNewSession(aliceJid, 2);
+    await btbv.onNewSession(bobJid, 3);
+    await btbv.onNewSession(bobJid, 4);
+
+    final managerJson = await btbv.toJson();
+    final managerString = jsonEncode(managerJson);
+    final managerPostJson = jsonDecode(managerString) as Map<String, dynamic>;
+    final deviceList = BlindTrustBeforeVerificationTrustManager.deviceListFromJson(
+      managerPostJson,
+    );
+    expect(btbv.devices, deviceList);
+
+    final trustCache = BlindTrustBeforeVerificationTrustManager.trustCacheFromJson(
+      managerPostJson,
+    );
+    expect(btbv.trustCache, trustCache);
+
+    final enableCache = BlindTrustBeforeVerificationTrustManager.enableCacheFromJson(
+      managerPostJson,
+    );
+    expect(btbv.enablementCache, enableCache);
   });
 }
