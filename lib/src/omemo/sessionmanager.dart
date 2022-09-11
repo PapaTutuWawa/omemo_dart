@@ -441,6 +441,24 @@ class OmemoSessionManager {
     });
   }
 
+  /// Removes all ratchets for Jid [jid]. Triggers a DeviceMapModified event at the end and an
+  /// RatchetRemovedEvent for each ratchet.
+  Future<void> removeAllRatchets(String jid) async {
+    await _lock.synchronized(() async {
+      for (final deviceId in _deviceMap[jid]!) {
+        // Remove the ratchet
+        _ratchetMap.remove(RatchetMapKey(jid, deviceId));
+        // Commit it
+        _eventStreamController.add(RatchetRemovedEvent(jid, deviceId));
+      }
+
+      // Remove the device from jid
+      _deviceMap.remove(jid);
+      // Commit it
+      _eventStreamController.add(DeviceMapModifiedEvent(_deviceMap));
+    });
+  }
+  
   /// Returns the list of device identifiers belonging to [jid] that are yet unacked, i.e.
   /// we have not yet received an empty OMEMO message from.
   Future<List<int>?> getUnacknowledgedRatchets(String jid) async {
