@@ -48,6 +48,10 @@ void main() {
         <int>[172, 2],
       );
     });
+
+    test('Test some special cases', () {
+      expect(decodeVarint(encodeVarint(1042464893), 0).n, 1042464893);
+    });
   });
 
   group('OMEMOMessage', () {
@@ -169,6 +173,14 @@ void main() {
 
       expect(decoded.message!.mac, <int>[5, 6, 8, 0]);
       expect(decoded.message!.message, <int>[4, 5, 7, 3, 2]);
+    });
+    test('Test decoding an issue', () {
+      /*
+      final data = 'CAAQfRogc2GwslU219dUkrMHNM4KdZRmuFnBTae+bQaJ+55IsAMiII7aZKj2sUpb6xR/3Ari7WZUmKFV0G6czUc4NMvjKDBaKnwKEM2ZpI8X3TgcxhxwENANnlsSaAgAEAAaICy8T9WPgLb7RdYd8/4JkrLF0RahEkC3ZaEfk5jw3dsLIkBMILzLyByweLgF4lCn0oNea+kbdrFr6rY7r/7WyI8hXEQz38QpnN+jyGGwC7Ga0dq70WuyqE7VpiFArQwqZh2G';
+      final kex = OmemoKeyExchange.fromBuffer(base64Decode(data));
+
+      expect(kex.spkId!, 1042464893);
+      */
     });
   });
 }

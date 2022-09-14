@@ -46,21 +46,18 @@ List<int> encodeVarint(int i) {
   assert(i >= 0, "Two's complement is not implemented");
   final ret = List<int>.empty(growable: true);
 
-  var j = 0;
-  while (true) {
+  // Thanks to https://github.com/hathibelagal-dev/LEB128 for the trick with toRadixString!
+  final numSevenBlocks = (i.toRadixString(2).length / 7).ceil();
+  for (var j = 0; j < numSevenBlocks; j++) {
     // The 7 LSB of the byte we're creating
     final x = (i & (lsb7Mask << j * 7)) >> j * 7;
-    // The next bits
-    final next = i & (lsb7Mask << (j + 1) * 7);
 
-    if (next == 0) {
+    if (j == numSevenBlocks - 1) {
       // If we were to shift further, we only get zero, so we're at the end
       ret.add(x);
-      break;
     } else {
       // We still have at least one bit more to go, so set the MSB to 1
       ret.add(x + msb);
-      j++;
     }
   }
 

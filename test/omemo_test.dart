@@ -220,7 +220,7 @@ void main() {
     expect(messagePlaintext, aliceMessage2);
   });
 
-  test('Test using sending empty OMEMO messages', () async {
+  test('Test sending empty OMEMO messages', () async {
     const aliceJid = 'alice@server.example';
     const bobJid = 'bob@other.server.example';
       
@@ -638,6 +638,7 @@ void main() {
         await bobSession.getDeviceBundle(),
       ],
     );
+
     await bobSession.decryptMessage(
       msg1.ciphertext,
       aliceJid,

@@ -177,15 +177,17 @@ class OmemoSessionManager {
     // Pick the correct SPK
     final device = await getDevice();
     OmemoKeyPair? spk;
-    if (kex.spkId == device.spkId) {
-      spk = device.spk;
-    } else if (kex.spkId == device.oldSpkId) {
-      spk = device.oldSpk;
-    } else {
+
+    await _lock.synchronized(() async {
+      if (kex.spkId == _device.spkId) {
+        spk = _device.spk;
+      } else if (kex.spkId == _device.oldSpkId) {
+        spk = _device.oldSpk;
+      }
+    });
+    if (spk == null) {
       throw UnknownSignedPrekeyException();
     }
-
-    assert(spk != null, 'The used SPK must be found');
     
     final kexResult = await x3dhFromInitialMessage(
       X3DHMessage(
@@ -198,7 +200,7 @@ class OmemoSessionManager {
       device.ik,
     );
     final ratchet = await OmemoDoubleRatchet.acceptNewSession(
-      spk,
+      spk!,
       OmemoPublicKey.fromBytes(kex.ik!, KeyPairType.ed25519),
       kexResult.sk,
       kexResult.ad,
