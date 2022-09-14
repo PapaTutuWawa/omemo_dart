@@ -297,6 +297,16 @@ class OmemoSessionManager {
     );
   }
 
+  /// In case a decryption error occurs, the Double Ratchet spec says to just restore
+  /// the ratchet to its old state. As such, this function restores the ratchet at
+  /// [mapKey] with [oldRatchet].
+  Future<void> _restoreRatchet(RatchetMapKey mapKey, OmemoDoubleRatchet oldRatchet) async {
+    await _lock.synchronized(() {
+      print('RESTORING RATCHETS');
+      _ratchetMap[mapKey] = oldRatchet;
+    });
+  }
+  
   /// Attempt to decrypt [ciphertext]. [keys] refers to the <key /> elements inside the
   /// <keys /> element with a "jid" attribute matching our own. [senderJid] refers to the
   /// bare Jid of the sender. [senderDeviceId] refers to the "sid" attribute of the
@@ -314,9 +324,15 @@ class OmemoSessionManager {
       throw NotEncryptedForDeviceException();
     }
 
+    final ratchetKey = RatchetMapKey(senderJid, senderDeviceId);
     final decodedRawKey = base64.decode(rawKey.value);
     OmemoAuthenticatedMessage authMessage;
+    OmemoDoubleRatchet? oldRatchet;
     if (rawKey.kex) {
+      // If the ratchet already existed, we store it. If it didn't, oldRatchet will stay
+      // null.
+      oldRatchet = await _getRatchet(ratchetKey);
+
       // TODO(PapaTutuWawa): Only do this when we should
       final kex = OmemoKeyExchange.fromBuffer(decodedRawKey);
       await _addSessionFromKeyExchange(
@@ -347,31 +363,38 @@ class OmemoSessionManager {
     }
 
     final message = OmemoMessage.fromBuffer(authMessage.message!);
-    final ratchetKey = RatchetMapKey(senderJid, senderDeviceId);
     List<int>? keyAndHmac;
-    await _lock.synchronized(() async {
-      final ratchet = _ratchetMap[ratchetKey]!;
+    // We can guarantee that the ratchet exists at this point in time
+    final ratchet = (await _getRatchet(ratchetKey))!;
+    oldRatchet ??= ratchet ;
+
+    try {
       if (rawKey.kex) {
         keyAndHmac = await ratchet.ratchetDecrypt(message, authMessage.writeToBuffer());
       } else {
         keyAndHmac = await ratchet.ratchetDecrypt(message, decodedRawKey);
       }
+    } on InvalidMessageHMACException {
+      await _restoreRatchet(ratchetKey, oldRatchet);
+      rethrow;
+    }
 
-      // Commit the ratchet
-      _eventStreamController.add(RatchetModifiedEvent(senderJid, senderDeviceId, ratchet));
-    });
+    // Commit the ratchet
+    _eventStreamController.add(RatchetModifiedEvent(senderJid, senderDeviceId, ratchet));
 
     // Empty OMEMO messages should just have the key decrypted and/or session set up.
     if (ciphertext == null) {
       return null;
     }
     
-    final key = keyAndHmac!.sublist(0, 32);
-    final hmac = keyAndHmac!.sublist(32, 48);
+    final key = keyAndHmac.sublist(0, 32);
+    final hmac = keyAndHmac.sublist(32, 48);
     final derivedKeys = await deriveEncryptionKeys(key, omemoPayloadInfoString);
 
     final computedHmac = await truncatedHmac(ciphertext, derivedKeys.authenticationKey);
     if (!listsEqual(hmac, computedHmac)) {
+      // TODO(PapaTutuWawa): I am unsure if we should restore the ratchet here
+      await _restoreRatchet(ratchetKey, oldRatchet);
       throw InvalidMessageHMACException();
     }
     
@@ -512,6 +535,12 @@ class OmemoSessionManager {
 
       // Commit it
       _eventStreamController.add(DeviceModifiedEvent(_device));
+    });
+  }
+
+  Future<OmemoDoubleRatchet?> _getRatchet(RatchetMapKey key) async {
+    return _lock.synchronized(() async {
+      return _ratchetMap[key];
     });
   }
   

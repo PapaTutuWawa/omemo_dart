@@ -614,4 +614,144 @@ void main() {
     expect(await aliceRatchet1.equals(aliceRatchet2), false);
     expect(await bobRatchet1.equals(bobRatchet2), false);
   });
+
+  test('Test receiving an old message that contains a KEX', () async {
+    const aliceJid = 'alice@server.example';
+    const bobJid = 'bob@other.server.example';
+    // Alice and Bob generate their sessions
+    final aliceSession = await OmemoSessionManager.generateNewIdentity(
+      aliceJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
+    final bobSession = await OmemoSessionManager.generateNewIdentity(
+      bobJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 2,
+    );
+
+    // Alice sends Bob a message
+    final msg1 = await aliceSession.encryptToJid(
+      bobJid,
+      'Hallo Welt',
+      newSessions: [
+        await bobSession.getDeviceBundle(),
+      ],
+    );
+    await bobSession.decryptMessage(
+      msg1.ciphertext,
+      aliceJid,
+      await aliceSession.getDeviceId(),
+      msg1.encryptedKeys,
+    );
+
+    // Bob responds
+    final msg2 = await bobSession.encryptToJid(
+      aliceJid,
+      'Hello!',
+    );
+    await aliceSession.decryptMessage(
+      msg2.ciphertext,
+      bobJid,
+      await bobSession.getDeviceId(),
+      msg2.encryptedKeys,
+    );
+
+    // Due to some issue with the transport protocol, the first message Bob received is
+    // received again
+    try {
+      await bobSession.decryptMessage(
+        msg1.ciphertext,
+        aliceJid,
+        await aliceSession.getDeviceId(),
+        msg1.encryptedKeys,
+      );
+      expect(true, false);
+    } on InvalidMessageHMACException {
+      // NOOP
+    }
+
+    final msg3 = await aliceSession.encryptToJid(
+      bobJid,
+      'Are you okay?',
+    );
+    final result = await bobSession.decryptMessage(
+      msg3.ciphertext,
+      aliceJid,
+      await aliceSession.getDeviceId(),
+      msg3.encryptedKeys,
+    );
+
+    expect(result, 'Are you okay?');
+  });
+
+  test('Test receiving an old message that does not contain a KEX', () async {
+    const aliceJid = 'alice@server.example';
+    const bobJid = 'bob@other.server.example';
+    // Alice and Bob generate their sessions
+    final aliceSession = await OmemoSessionManager.generateNewIdentity(
+      aliceJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 1,
+    );
+    final bobSession = await OmemoSessionManager.generateNewIdentity(
+      bobJid,
+      AlwaysTrustingTrustManager(),
+      opkAmount: 2,
+    );
+
+    // Alice sends Bob a message
+    final msg1 = await aliceSession.encryptToJid(
+      bobJid,
+      'Hallo Welt',
+      newSessions: [
+        await bobSession.getDeviceBundle(),
+      ],
+    );
+    await bobSession.decryptMessage(
+      msg1.ciphertext,
+      aliceJid,
+      await aliceSession.getDeviceId(),
+      msg1.encryptedKeys,
+    );
+
+    // Bob responds
+    final msg2 = await bobSession.encryptToJid(
+      aliceJid,
+      'Hello!',
+    );
+    await aliceSession.decryptMessage(
+      msg2.ciphertext,
+      bobJid,
+      await bobSession.getDeviceId(),
+      msg2.encryptedKeys,
+    );
+
+    // Due to some issue with the transport protocol, the first message Alice received is
+    // received again.
+    try {
+      await aliceSession.decryptMessage(
+        msg2.ciphertext,
+        bobJid,
+        await bobSession.getDeviceId(),
+        msg2.encryptedKeys,
+      );
+      expect(true, false);
+    } catch (_) {
+      // NOOP
+    }
+
+    final msg3 = await aliceSession.encryptToJid(
+      bobJid,
+      'Are you okay?',
+    );
+    final result = await bobSession.decryptMessage(
+      msg3.ciphertext,
+      aliceJid,
+      await aliceSession.getDeviceId(),
+      msg3.encryptedKeys,
+    );
+
+    expect(result, 'Are you okay?');
+  });
 }
