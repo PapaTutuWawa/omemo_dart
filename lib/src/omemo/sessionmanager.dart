@@ -304,6 +304,15 @@ class OmemoSessionManager {
     await _lock.synchronized(() {
       print('RESTORING RATCHETS');
       _ratchetMap[mapKey] = oldRatchet;
+
+      // Commit the ratchet
+      _eventStreamController.add(
+        RatchetModifiedEvent(
+          mapKey.jid,
+          mapKey.deviceId,
+          oldRatchet,
+        ),
+      );
     });
   }
   
