@@ -34,10 +34,13 @@ BTBVTrustState _trustFromInt(int i) {
 /// See https://gultsch.de/trust.html for more details.
 abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
   BlindTrustBeforeVerificationTrustManager({
-    this.trustCache = const {},
-    this.enablementCache = const {},
-    this.devices = const {},
-  }) : _lock = Lock();
+    Map<RatchetMapKey, BTBVTrustState>? trustCache,
+    Map<RatchetMapKey, bool>? enablementCache,
+    Map<String, List<int>>? devices,
+  }) : trustCache = trustCache ?? {},
+       enablementCache = enablementCache ?? {},
+       devices = devices ?? {},
+       _lock = Lock();
 
   /// The cache for mapping a RatchetMapKey to its trust state
   @visibleForTesting
