@@ -214,11 +214,6 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
   @visibleForOverriding
   Future<void> commitState();
 
-  /// Called when the user wants to restore the state of the trust manager. The format
-  /// and actual storage mechanism is left to the user.
-  @visibleForOverriding
-  Future<void> loadState();
-  
   @visibleForTesting
   BTBVTrustState getDeviceTrust(String jid, int deviceId) => trustCache[RatchetMapKey(jid, deviceId)]!;
 }
@@ -228,7 +223,4 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
 class MemoryBTBVTrustManager extends BlindTrustBeforeVerificationTrustManager {
   @override
   Future<void> commitState() async {}
-
-  @override
-  Future<void> loadState() async {}
 }
