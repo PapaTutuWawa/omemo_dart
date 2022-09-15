@@ -415,7 +415,7 @@ class OmemoSessionManager {
 
     await _lock.synchronized(() async {
       // Get devices for jid
-      final devices = _deviceMap[jid]!;
+      final devices = _deviceMap[jid] ?? [];
 
       for (final deviceId in devices) {
         final ratchet = _ratchetMap[RatchetMapKey(jid, deviceId)]!;
