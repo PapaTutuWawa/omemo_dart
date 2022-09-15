@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:hex/hex.dart';
+import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/double_ratchet/double_ratchet.dart';
@@ -31,7 +32,8 @@ class OmemoSessionManager {
   OmemoSessionManager(this._device, this._deviceMap, this._ratchetMap, this._trustManager)
     : _lock = Lock(),
       _deviceLock = Lock(),
-      _eventStreamController = StreamController<OmemoEvent>.broadcast();
+      _eventStreamController = StreamController<OmemoEvent>.broadcast(),
+      _log = Logger('OmemoSessionManager');
 
   /// Deserialise the OmemoSessionManager from JSON data [data].
   factory OmemoSessionManager.fromJson(Map<String, dynamic> data, TrustManager trustManager) {
@@ -68,6 +70,9 @@ class OmemoSessionManager {
 
     return OmemoSessionManager(device, {}, {}, trustManager);
   }
+
+  /// Logging
+  Logger _log;
   
   /// Lock for _ratchetMap and _bundleMap
   final Lock _lock;
@@ -304,7 +309,7 @@ class OmemoSessionManager {
   /// [mapKey] with [oldRatchet].
   Future<void> _restoreRatchet(RatchetMapKey mapKey, OmemoDoubleRatchet oldRatchet) async {
     await _lock.synchronized(() {
-      print('RESTORING RATCHETS');
+      _log.finest('Restoring ratchet ${mapKey.jid}:${mapKey.deviceId}');
       _ratchetMap[mapKey] = oldRatchet;
 
       // Commit the ratchet

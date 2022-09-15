@@ -1,9 +1,17 @@
+import 'package:logging/logging.dart';
 import 'package:omemo_dart/omemo_dart.dart';
 import 'package:omemo_dart/src/trust/always.dart';
 import 'package:omemo_dart/src/trust/never.dart';
 import 'package:test/test.dart';
 
 void main() {
+  Logger.root
+    ..level = Level.ALL
+    ..onRecord.listen((record) {
+      // ignore: avoid_print
+      print('${record.level.name}: ${record.message}');
+    });
+
   test('Test using OMEMO sessions with only one device per user', () async {
     const aliceJid = 'alice@server.example';
     const bobJid = 'bob@other.server.example';
