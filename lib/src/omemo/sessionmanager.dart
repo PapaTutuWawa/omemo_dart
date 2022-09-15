@@ -97,12 +97,7 @@ class OmemoSessionManager {
 
   /// Returns our own device.
   Future<Device> getDevice() async {
-    Device? dev;
-    await _deviceLock.synchronized(() async {
-      dev = _device;
-    });
-
-    return dev!;
+    return _deviceLock.synchronized(() => _device);
   }
 
   /// Returns the id attribute of our own device. This is just a short-hand for
@@ -177,14 +172,14 @@ class OmemoSessionManager {
   Future<void> _addSessionFromKeyExchange(String jid, int deviceId, OmemoKeyExchange kex) async {
     // Pick the correct SPK
     final device = await getDevice();
-    OmemoKeyPair? spk;
-
-    await _lock.synchronized(() async {
+    final spk = await _lock.synchronized(() async {
       if (kex.spkId == _device.spkId) {
-        spk = _device.spk;
+        return _device.spk;
       } else if (kex.spkId == _device.oldSpkId) {
-        spk = _device.oldSpk;
+        return _device.oldSpk;
       }
+
+      return null;
     });
     if (spk == null) {
       throw UnknownSignedPrekeyException();
@@ -196,12 +191,12 @@ class OmemoSessionManager {
         OmemoPublicKey.fromBytes(kex.ek!, KeyPairType.x25519),
         kex.pkId!,
       ),
-      spk!,
+      spk,
       device.opks.values.elementAt(kex.pkId!),
       device.ik,
     );
     final ratchet = await OmemoDoubleRatchet.acceptNewSession(
-      spk!,
+      spk,
       OmemoPublicKey.fromBytes(kex.ik!, KeyPairType.ed25519),
       kexResult.sk,
       kexResult.ad,
