@@ -3,6 +3,10 @@ import 'package:omemo_dart/omemo_dart.dart';
 import 'package:omemo_dart/src/trust/always.dart';
 import 'package:test/test.dart';
 
+Map<String, dynamic> jsonify(Map<String, dynamic> map) {
+  return jsonDecode(jsonEncode(map)) as Map<String, dynamic>;
+}
+
 void main() {
   test('Test serialising and deserialising the Device', () async {
     // Generate a random session
@@ -12,7 +16,7 @@ void main() {
       opkAmount: 1,
     );
     final oldDevice = await oldSession.getDevice();
-    final serialised = await oldDevice.toJson();
+    final serialised = jsonify(await oldDevice.toJson());
 
     final newDevice = Device.fromJson(serialised);
     expect(await oldDevice.equals(newDevice), true);
@@ -26,7 +30,7 @@ void main() {
       opkAmount: 1,
     );
     final oldDevice = await (await oldSession.getDevice()).replaceSignedPrekey();
-    final serialised = await oldDevice.toJson();
+    final serialised = jsonify(await oldDevice.toJson());
 
     final newDevice = Device.fromJson(serialised);
     expect(await oldDevice.equals(newDevice), true);
@@ -60,7 +64,7 @@ void main() {
       aliceMessage.encryptedKeys,
     );
     final aliceOld = aliceSession.getRatchet(bobJid, await bobSession.getDeviceId());
-    final aliceSerialised = await aliceOld.toJson();
+    final aliceSerialised = jsonify(await aliceOld.toJson());
     final aliceNew = OmemoDoubleRatchet.fromJson(aliceSerialised);
 
     expect(await aliceOld.equals(aliceNew), true);
@@ -85,7 +89,7 @@ void main() {
     );
 
     // Serialise and deserialise
-    final serialised = await oldSession.toJsonWithoutSessions();
+    final serialised = jsonify(await oldSession.toJsonWithoutSessions());
     final newSession = OmemoSessionManager.fromJsonWithoutSessions(
       serialised,
       // NOTE: At this point, we don't care about this attribute
@@ -97,42 +101,6 @@ void main() {
     final newDevice = await newSession.getDevice();
     expect(await oldDevice.equals(newDevice), true);
     expect(await oldSession.getDeviceMap(), await newSession.getDeviceMap());
-  });
-
-  test('Test serialising and deserialising the BlindTrustBeforeVerificationTrustManager', () async {
-    // Caroline's BTBV manager
-    final btbv = MemoryBTBVTrustManager();
-    // Example data
-    const aliceJid = 'alice@some.server';
-    const bobJid = 'bob@other.server';
-    
-    // Caroline starts a chat a device from Alice
-    await btbv.onNewSession(aliceJid, 1);
-    expect(await btbv.isTrusted(aliceJid, 1), true);
-    expect(await btbv.isEnabled(aliceJid, 1), true);
-
-    // Caroline meets with Alice and verifies her fingerprint
-    await btbv.setDeviceTrust(aliceJid, 1, BTBVTrustState.verified);
-    expect(await btbv.isTrusted(aliceJid, 1), true);
-
-    // Alice adds a new device
-    await btbv.onNewSession(aliceJid, 2);
-    expect(await btbv.isTrusted(aliceJid, 2), false);
-    expect(btbv.getDeviceTrust(aliceJid, 2), BTBVTrustState.notTrusted);
-    expect(await btbv.isEnabled(aliceJid, 2), false);
-
-    // Caronline starts a chat with Bob but since they live far apart, Caroline cannot
-    // verify his fingerprint.
-    await btbv.onNewSession(bobJid, 3);
-
-    // Bob adds a new device
-    await btbv.onNewSession(bobJid, 4);
-    expect(await btbv.isTrusted(bobJid, 3), true);
-    expect(await btbv.isTrusted(bobJid, 4), true);
-    expect(btbv.getDeviceTrust(bobJid, 3), BTBVTrustState.blindTrust);
-    expect(btbv.getDeviceTrust(bobJid, 4), BTBVTrustState.blindTrust);
-    expect(await btbv.isEnabled(bobJid, 3), true);
-    expect(await btbv.isEnabled(bobJid, 4), true);
   });
 
   test('Test serializing and deserializing RatchetMapKey', () {
@@ -160,21 +128,19 @@ void main() {
     await btbv.onNewSession(bobJid, 3);
     await btbv.onNewSession(bobJid, 4);
 
-    final managerJson = await btbv.toJson();
-    final managerString = jsonEncode(managerJson);
-    final managerPostJson = jsonDecode(managerString) as Map<String, dynamic>;
+    final serialized = jsonify(await btbv.toJson());
     final deviceList = BlindTrustBeforeVerificationTrustManager.deviceListFromJson(
-      managerPostJson,
+      serialized,
     );
     expect(btbv.devices, deviceList);
 
     final trustCache = BlindTrustBeforeVerificationTrustManager.trustCacheFromJson(
-      managerPostJson,
+      serialized,
     );
     expect(btbv.trustCache, trustCache);
 
     final enableCache = BlindTrustBeforeVerificationTrustManager.enableCacheFromJson(
-      managerPostJson,
+      serialized,
     );
     expect(btbv.enablementCache, enableCache);
   });

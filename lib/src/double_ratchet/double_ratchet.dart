@@ -94,11 +94,20 @@ class OmemoDoubleRatchet {
       ]
     }
     */
-    final mkSkipped = <SkippedKey, List<int>>{};
-    for (final entry in data['mkskipped']! as List<Map<String, dynamic>>) {
-      final key = SkippedKey.fromJson(entry);
-      mkSkipped[key] = base64.decode(entry['key']! as String);
-    }
+    // NOTE: Dart has some issues with just casting a List<dynamic> to List<Map<...>>, as
+    //       such we need to convert the items by hand.
+    final mkSkipped = Map<SkippedKey, List<int>>.fromEntries(
+      (data['mkskipped']! as List<dynamic>).map<MapEntry<SkippedKey, List<int>>>(
+        (entry) {
+          final map = entry as Map<String, dynamic>;
+          final key = SkippedKey.fromJson(map);
+          return MapEntry(
+            key,
+            base64.decode(map['key']! as String),
+          );
+        },
+      ),
+    );
     
     return OmemoDoubleRatchet(
       OmemoKeyPair.fromBytes(

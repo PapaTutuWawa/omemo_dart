@@ -49,14 +49,23 @@ class Device {
       ]
     }
     */
-    final opks = <int, OmemoKeyPair>{};
-    for (final opk in data['opks']! as List<Map<String, dynamic>>) {
-      opks[opk['id']! as int] = OmemoKeyPair.fromBytes(
-        base64.decode(opk['public']! as String),
-        base64.decode(opk['private']! as String),
-        KeyPairType.x25519,
-      );
-    }
+    // NOTE: Dart has some issues with just casting a List<dynamic> to List<Map<...>>, as
+    //       such we need to convert the items by hand.
+    final opks = Map<int, OmemoKeyPair>.fromEntries(
+      (data['opks']! as List<dynamic>).map<MapEntry<int, OmemoKeyPair>>(
+        (opk) {
+          final map = opk as Map<String, dynamic>;
+          return MapEntry(
+            map['id']! as int,
+            OmemoKeyPair.fromBytes(
+              base64.decode(map['public']! as String),
+              base64.decode(map['private']! as String),
+              KeyPairType.x25519,
+            ),
+          );
+        },
+      ),
+    );
 
     return Device(
       data['jid']! as String,

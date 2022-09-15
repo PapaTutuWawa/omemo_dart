@@ -37,10 +37,23 @@ class OmemoSessionManager {
 
   /// Deserialise the OmemoSessionManager from JSON data [data] that does not contain
   /// the ratchet sessions.
-  factory OmemoSessionManager.fromJsonWithoutSessions(Map<String, dynamic> data, Map<RatchetMapKey, OmemoDoubleRatchet> ratchetMap, TrustManager trustManager) {
+  factory OmemoSessionManager.fromJsonWithoutSessions(
+    Map<String, dynamic> data,
+    Map<RatchetMapKey, OmemoDoubleRatchet> ratchetMap,
+    TrustManager trustManager,
+  ) {
+    // NOTE: Dart has some issues with just casting a List<dynamic> to List<Map<...>>, as
+    //       such we need to convert the items by hand.
     return OmemoSessionManager(
       Device.fromJson(data['device']! as Map<String, dynamic>),
-      data['devices']! as Map<String, List<int>>,
+      (data['devices']! as Map<String, dynamic>).map<String, List<int>>(
+        (key, value) {
+          return MapEntry(
+            key,
+            (value as List<dynamic>).map<int>((i) => i as int).toList(),
+          );
+        }
+      ),
       ratchetMap,
       trustManager,
     );
