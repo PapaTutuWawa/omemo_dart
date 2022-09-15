@@ -20,3 +20,13 @@
 
 - Add `isRatchetAcknowledged`
 - Ratchets that are created due to accepting a kex are now unacknowledged
+
+## 0.3.0
+
+- Implement enabling and disabling ratchets via the TrustManager interface
+- Fix deserialization of the various objects
+- Remove the BTBV TrustManager's loadState method. Just use the constructor
+- Allow removing all ratchets for a given Jid
+- If an error occurs while decrypting the message, the ratchet will now be reset to its prior state
+- Fix a bug within the Varint encoding function. This should fix some occasional UnknownSignedPrekeyExceptions
+- Remove OmemoSessionManager's toJson and fromJson. Use toJsonWithoutSessions and fromJsonWithoutSessions. Restoring sessions is not out-of-scope for that function
