@@ -140,7 +140,7 @@ class Device {
     
     return Device(
       jid,
-      id,
+      this.id,
       ik,
       spk,
       spkId,

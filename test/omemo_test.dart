@@ -12,6 +12,36 @@ void main() {
       print('${record.level.name}: ${record.message}');
     });
 
+  test('Test replacing a onetime prekey', () async {
+    const aliceJid = 'alice@server.example';
+    final device = await Device.generateNewDevice(aliceJid, opkAmount: 1);
+
+    final newDevice = await device.replaceOnetimePrekey(0);
+
+    expect(device.jid, newDevice.jid);
+    expect(device.id, newDevice.id);
+
+    var opksMatch = true;
+    if (newDevice.opks.length != device.opks.length) {
+      opksMatch = false;
+    } else {
+      for (final entry in device.opks.entries) {
+        final m = await newDevice.opks[entry.key]?.equals(entry.value) ?? false;
+        if (!m) opksMatch = false;
+      }
+    }
+    
+    expect(opksMatch, true);
+    expect(await device.ik.equals(newDevice.ik), true);
+    expect(await device.spk.equals(newDevice.spk), true);
+
+    final oldSpkMatch = device.oldSpk != null ?
+      await device.oldSpk!.equals(newDevice.oldSpk!) :
+      newDevice.oldSpk == null;
+    expect(oldSpkMatch, true);
+    expect(listsEqual(device.spkSignature, newDevice.spkSignature), true);
+  });
+    
   test('Test using OMEMO sessions with only one device per user', () async {
     const aliceJid = 'alice@server.example';
     const bobJid = 'bob@other.server.example';
