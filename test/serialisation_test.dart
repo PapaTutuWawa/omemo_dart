@@ -85,9 +85,11 @@ void main() {
     );
 
     // Serialise and deserialise
-    final serialised = await oldSession.toJson();
-    final newSession = OmemoSessionManager.fromJson(
+    final serialised = await oldSession.toJsonWithoutSessions();
+    final newSession = OmemoSessionManager.fromJsonWithoutSessions(
       serialised,
+      // NOTE: At this point, we don't care about this attribute
+      {},
       AlwaysTrustingTrustManager(),
     );
 
@@ -95,15 +97,6 @@ void main() {
     final newDevice = await newSession.getDevice();
     expect(await oldDevice.equals(newDevice), true);
     expect(await oldSession.getDeviceMap(), await newSession.getDeviceMap());
-
-    expect(oldSession.getRatchetMap().length, newSession.getRatchetMap().length);
-    for (final session in oldSession.getRatchetMap().entries) {
-      expect(newSession.getRatchetMap().containsKey(session.key), true);
-
-      final oldRatchet = oldSession.getRatchetMap()[session.key]!;
-      final newRatchet = newSession.getRatchetMap()[session.key]!;
-      expect(await oldRatchet.equals(newRatchet), true);
-    }
   });
 
   test('Test serialising and deserialising the BlindTrustBeforeVerificationTrustManager', () async {

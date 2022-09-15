@@ -35,23 +35,6 @@ class OmemoSessionManager {
       _eventStreamController = StreamController<OmemoEvent>.broadcast(),
       _log = Logger('OmemoSessionManager');
 
-  /// Deserialise the OmemoSessionManager from JSON data [data].
-  factory OmemoSessionManager.fromJson(Map<String, dynamic> data, TrustManager trustManager) {
-    final ratchetMap = <RatchetMapKey, OmemoDoubleRatchet>{};
-    for (final rawRatchet in data['sessions']! as List<Map<String, dynamic>>) {
-      final key = RatchetMapKey(rawRatchet['jid']! as String, rawRatchet['deviceId']! as int);
-      final ratchet = OmemoDoubleRatchet.fromJson(rawRatchet['ratchet']! as Map<String, dynamic>);
-      ratchetMap[key] = ratchet;
-    }
-
-    return OmemoSessionManager(
-      Device.fromJson(data['device']! as Map<String, dynamic>),
-      data['devices']! as Map<String, List<int>>,
-      ratchetMap,
-      trustManager,
-    );
-  }
-
   /// Deserialise the OmemoSessionManager from JSON data [data] that does not contain
   /// the ratchet sessions.
   factory OmemoSessionManager.fromJsonWithoutSessions(Map<String, dynamic> data, Map<RatchetMapKey, OmemoDoubleRatchet> ratchetMap, TrustManager trustManager) {
@@ -565,42 +548,6 @@ class OmemoSessionManager {
 
   @visibleForTesting
   Map<RatchetMapKey, OmemoDoubleRatchet> getRatchetMap() => _ratchetMap;
-
-  /// Serialise the entire session manager into a JSON object.
-  Future<Map<String, dynamic>> toJson() async {
-    /*
-    {
-      'devices': {
-        'alice@...': [1, 2, ...],
-        'bob@...': [1],
-        ...
-      },
-      'device': { ... },
-      'sessions': [
-        {
-          'jid': 'alice@...',
-          'deviceId': 1,
-          'ratchet': { ... },
-        },
-        ...
-      ],
-    }
-    */
-
-    final sessions = List<Map<String, dynamic>>.empty(growable: true);
-    for (final entry in _ratchetMap.entries) {
-      sessions.add({
-        'jid': entry.key.jid,
-        'deviceId': entry.key.deviceId,
-        'ratchet': await entry.value.toJson(),
-      });
-    }
-    return {
-      'devices': _deviceMap,
-      'device': await (await getDevice()).toJson(),
-      'sessions': sessions,
-    };
-  }
 
   /// Serialise the entire session manager into a JSON object.
   Future<Map<String, dynamic>> toJsonWithoutSessions() async {
