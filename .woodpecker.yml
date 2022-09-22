@@ -1,0 +1,11 @@
+pipeline:
+  test:
+    image: dart:2.18.1
+    commands:
+      - dart pub get
+      - dart analyze --fatal-infos --fatal-warnings
+  test:
+    image: dart:2.18.1
+    commands:
+      - dart pub get
+      - dart test
