@@ -381,7 +381,7 @@ class OmemoSessionManager {
       } else {
         keyAndHmac = await ratchet.ratchetDecrypt(message, decodedRawKey);
       }
-    } on InvalidMessageHMACException {
+    } catch (_) {
       await _restoreRatchet(ratchetKey, oldRatchet);
       rethrow;
     }
