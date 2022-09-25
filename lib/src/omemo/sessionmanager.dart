@@ -432,6 +432,16 @@ class OmemoSessionManager {
     return fingerprints;
   }
 
+  /// Returns the hex-encoded fingerprint of the current device.
+  Future<DeviceFingerprint> getHexFingerprintForDevice() async {
+    final device = await getDevice();
+
+    return DeviceFingerprint(
+      device.id,
+      HEX.encode(await device.ik.pk.getBytes()),
+    );
+  }
+
   /// Replaces the Signed Prekey and its signature in our own device bundle. Triggers
   /// a DeviceModifiedEvent when done.
   /// See https://xmpp.org/extensions/xep-0384.html#protocol-key_exchange under the point
