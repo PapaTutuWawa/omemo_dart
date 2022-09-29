@@ -30,3 +30,9 @@
 - If an error occurs while decrypting the message, the ratchet will now be reset to its prior state
 - Fix a bug within the Varint encoding function. This should fix some occasional UnknownSignedPrekeyExceptions
 - Remove OmemoSessionManager's toJson and fromJson. Use toJsonWithoutSessions and fromJsonWithoutSessions. Restoring sessions is not out-of-scope for that function
+
+## 0.3.1
+
+- Fix a bug that caused the device's id to change when replacing a OPK
+- Every decryption failure now causes the ratchet to be restored to a pre-decryption state
+- Add method to get the device's fingerprint
