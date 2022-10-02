@@ -40,3 +40,9 @@ class InvalidKeyExchangeException implements Exception {
   final int actualPn;
   String errMsg() => 'The pn attribute of the key exchange is invalid. Expected $expectedPn, got $actualPn';
 }
+
+/// Triggered by the Session Manager when a message's sequence number is smaller than we
+/// expect it to be.
+class MessageAlreadyDecryptedException implements Exception {
+  String errMsg() => 'The message has already been decrypted';
+}

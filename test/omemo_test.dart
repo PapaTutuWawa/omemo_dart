@@ -730,7 +730,9 @@ void main() {
           msg.encryptedKeys,
         );
         expect(true, false);
-      } catch (_) {
+      } on MessageAlreadyDecryptedException catch (_) {
+        errorCounter++;
+      } on InvalidKeyExchangeException catch (_) {
         errorCounter++;
       }
     }

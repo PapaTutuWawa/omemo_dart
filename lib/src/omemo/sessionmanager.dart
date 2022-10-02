@@ -401,6 +401,12 @@ class OmemoSessionManager {
     final ratchet = (await _getRatchet(ratchetKey))!;
     oldRatchet ??= ratchet.clone();
 
+    if (!rawKey.kex) {
+      if (message.n! < ratchet.nr - 1) {
+        throw MessageAlreadyDecryptedException();
+      }
+    }
+    
     try {
       if (rawKey.kex) {
         keyAndHmac = await ratchet.ratchetDecrypt(message, authMessage.writeToBuffer());
