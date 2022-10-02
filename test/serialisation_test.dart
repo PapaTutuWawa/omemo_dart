@@ -86,6 +86,7 @@ void main() {
       'bob@localhost',
       await bobSession.getDeviceId(),
       await bobSession.getDeviceBundle(),
+      0,
     );
 
     // Serialise and deserialise

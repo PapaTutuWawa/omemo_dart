@@ -143,7 +143,7 @@ class OmemoSessionManager {
   /// Create a ratchet session initiated by Alice to the user with Jid [jid] and the device
   /// [deviceId] from the bundle [bundle].
   @visibleForTesting
-  Future<OmemoKeyExchange> addSessionFromBundle(String jid, int deviceId, OmemoBundle bundle) async {
+  Future<OmemoKeyExchange> addSessionFromBundle(String jid, int deviceId, OmemoBundle bundle, int pn) async {
     final device = await getDevice();
     final kexResult = await x3dhFromBundle(
       bundle,
@@ -154,6 +154,7 @@ class OmemoSessionManager {
       bundle.ik,
       kexResult.sk,
       kexResult.ad,
+      pn,
     );
 
     await _trustManager.onNewSession(jid, deviceId);
@@ -240,7 +241,22 @@ class OmemoSessionManager {
     final kex = <int, OmemoKeyExchange>{};
     if (newSessions != null) {
       for (final newSession in newSessions) {
-        kex[newSession.id] = await addSessionFromBundle(newSession.jid, newSession.id, newSession);
+        final session = await _getRatchet(
+          RatchetMapKey(
+            newSession.jid,
+            newSession.id,
+          ),
+        );
+
+        final pn = session != null ?
+          session.ns :
+          0;
+        kex[newSession.id] = await addSessionFromBundle(
+          newSession.jid,
+          newSession.id,
+          newSession,
+          pn,
+        );
       }
     }
     
@@ -300,7 +316,7 @@ class OmemoSessionManager {
   /// [mapKey] with [oldRatchet].
   Future<void> _restoreRatchet(RatchetMapKey mapKey, OmemoDoubleRatchet oldRatchet) async {
     await _lock.synchronized(() {
-      _log.finest('Restoring ratchet ${mapKey.jid}:${mapKey.deviceId}');
+      _log.finest('Restoring ratchet ${mapKey.jid}:${mapKey.deviceId} to ${oldRatchet.nr}');
       _ratchetMap[mapKey] = oldRatchet;
 
       // Commit the ratchet
@@ -335,22 +351,32 @@ class OmemoSessionManager {
     final decodedRawKey = base64.decode(rawKey.value);
     OmemoAuthenticatedMessage authMessage;
     OmemoDoubleRatchet? oldRatchet;
+    OmemoMessage? message;
     if (rawKey.kex) {
       // If the ratchet already existed, we store it. If it didn't, oldRatchet will stay
       // null.
-      oldRatchet = await _getRatchet(ratchetKey);
-
-      // TODO(PapaTutuWawa): Only do this when we should
+      final oldRatchet = (await _getRatchet(ratchetKey))?.clone();
       final kex = OmemoKeyExchange.fromBuffer(decodedRawKey);
+      authMessage = kex.message!;
+      message = OmemoMessage.fromBuffer(authMessage.message!);
+
+      // Guard against old key exchanges
+      if (oldRatchet != null) {
+        _log.finest('KEX for existent ratchet. ${oldRatchet.pn}');
+        if (message.pn != oldRatchet.nr) {
+          throw InvalidKeyExchangeException(oldRatchet.nr, message.pn!);
+        }
+      }
+      
+      // TODO(PapaTutuWawa): Only do this when we should
       await _addSessionFromKeyExchange(
         senderJid,
         senderDeviceId,
         kex,
       );
 
-      authMessage = kex.message!;
-
       // Replace the OPK
+      // TODO(PapaTutuWawa): Replace the OPK when we know that the KEX worked
       await _deviceLock.synchronized(() async {
         device = await device.replaceOnetimePrekey(kex.pkId!);
 
@@ -359,6 +385,7 @@ class OmemoSessionManager {
       });
     } else {
       authMessage = OmemoAuthenticatedMessage.fromBuffer(decodedRawKey);
+      message = OmemoMessage.fromBuffer(authMessage.message!);
     }
     
     final devices = _deviceMap[senderJid];
@@ -369,11 +396,10 @@ class OmemoSessionManager {
       throw NoDecryptionKeyException();
     }
 
-    final message = OmemoMessage.fromBuffer(authMessage.message!);
     List<int>? keyAndHmac;
     // We can guarantee that the ratchet exists at this point in time
     final ratchet = (await _getRatchet(ratchetKey))!;
-    oldRatchet ??= ratchet ;
+    oldRatchet ??= ratchet.clone();
 
     try {
       if (rawKey.kex) {

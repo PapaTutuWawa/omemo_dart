@@ -69,7 +69,7 @@ class OmemoDoubleRatchet {
     this.mkSkipped, // MKSKIPPED
     this.acknowledged,
   );
-
+  
   factory OmemoDoubleRatchet.fromJson(Map<String, dynamic> data) {
     /*
     {
@@ -167,7 +167,7 @@ class OmemoDoubleRatchet {
   /// Create an OMEMO session using the Signed Pre Key [spk], the shared secret [sk] that
   /// was obtained using a X3DH and the associated data [ad] that was also obtained through
   /// a X3DH. [ik] refers to Bob's (the receiver's) IK public key.
-  static Future<OmemoDoubleRatchet> initiateNewSession(OmemoPublicKey spk, OmemoPublicKey ik, List<int> sk, List<int> ad) async {
+  static Future<OmemoDoubleRatchet> initiateNewSession(OmemoPublicKey spk, OmemoPublicKey ik, List<int> sk, List<int> ad, int pn) async {
     final dhs = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     final dhr = spk;
     final rk  = await kdfRk(sk, await omemoDH(dhs, dhr, 0));
@@ -181,7 +181,7 @@ class OmemoDoubleRatchet {
       null,
       0,
       0,
-      0,
+      pn,
       ik,
       ad,
       {},
@@ -330,18 +330,45 @@ class OmemoDoubleRatchet {
     return decrypt(mk, ciphertext, concat([sessionAd, header.writeToBuffer()]), sessionAd);
   }
 
+  OmemoDoubleRatchet clone() {
+    return OmemoDoubleRatchet(
+      dhs,
+      dhr,
+      rk,
+      cks != null ?
+        List<int>.from(cks!) :
+        null,
+      ckr != null ?
+        List<int>.from(ckr!) :
+        null,
+      ns,
+      nr,
+      pn,
+      ik,
+      sessionAd,
+      Map<SkippedKey, List<int>>.from(mkSkipped),
+      acknowledged,
+    );
+  }
+  
   @visibleForTesting
   Future<bool> equals(OmemoDoubleRatchet other) async {
-    // ignore: invalid_use_of_visible_for_testing_member
-    final dhrMatch = dhr == null ? other.dhr == null : await dhr!.equals(other.dhr!);
-    final ckrMatch = ckr == null ? other.ckr == null : listsEqual(ckr!, other.ckr!);
-    final cksMatch = cks == null ? other.cks == null : listsEqual(cks!, other.cks!);
+    final dhrMatch = dhr == null ?
+      other.dhr == null :
+      // ignore: invalid_use_of_visible_for_testing_member
+      other.dhr != null && await dhr!.equals(other.dhr!);
+    final ckrMatch = ckr == null ?
+      other.ckr == null :
+      other.ckr != null && listsEqual(ckr!, other.ckr!);
+    final cksMatch = cks == null ?
+      other.cks == null :
+      other.cks != null && listsEqual(cks!, other.cks!);
  
     // ignore: invalid_use_of_visible_for_testing_member
     final dhsMatch = await dhs.equals(other.dhs);
     // ignore: invalid_use_of_visible_for_testing_member
     final ikMatch = await ik.equals(other.ik);
-    
+
     return dhsMatch &&
       ikMatch &&
       dhrMatch &&

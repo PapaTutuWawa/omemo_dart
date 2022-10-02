@@ -84,6 +84,7 @@ void main() {
       ikBob.pk,
       resultAlice.sk,
       resultAlice.ad,
+      0,
     );
     final bobsRatchet = await OmemoDoubleRatchet.acceptNewSession(
       spkBob,

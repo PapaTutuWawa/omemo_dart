@@ -30,3 +30,13 @@ class NoDecryptionKeyException implements Exception {
 class UnknownSignedPrekeyException implements Exception {
   String errMsg() => 'Unknown Signed Prekey used.';
 }
+
+/// Triggered by the Session Manager when the received Key Exchange message does not
+/// meet our expectations. This happens when the PN attribute of the message is not equal
+/// to our receive number.
+class InvalidKeyExchangeException implements Exception {
+  const InvalidKeyExchangeException(this.expectedPn, this.actualPn);
+  final int expectedPn;
+  final int actualPn;
+  String errMsg() => 'The pn attribute of the key exchange is invalid. Expected $expectedPn, got $actualPn';
+}
