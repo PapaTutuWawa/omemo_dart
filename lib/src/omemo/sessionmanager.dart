@@ -143,7 +143,7 @@ class OmemoSessionManager {
   /// Create a ratchet session initiated by Alice to the user with Jid [jid] and the device
   /// [deviceId] from the bundle [bundle].
   @visibleForTesting
-  Future<OmemoKeyExchange> addSessionFromBundle(String jid, int deviceId, OmemoBundle bundle, int pn) async {
+  Future<OmemoKeyExchange> addSessionFromBundle(String jid, int deviceId, OmemoBundle bundle) async {
     final device = await getDevice();
     final kexResult = await x3dhFromBundle(
       bundle,
@@ -154,7 +154,7 @@ class OmemoSessionManager {
       bundle.ik,
       kexResult.sk,
       kexResult.ad,
-      pn,
+      getTimestamp(),
     );
 
     await _trustManager.onNewSession(jid, deviceId);
@@ -201,6 +201,7 @@ class OmemoSessionManager {
       OmemoPublicKey.fromBytes(kex.ik!, KeyPairType.ed25519),
       kexResult.sk,
       kexResult.ad,
+      getTimestamp(),
     );
 
     await _trustManager.onNewSession(jid, deviceId);
@@ -241,21 +242,10 @@ class OmemoSessionManager {
     final kex = <int, OmemoKeyExchange>{};
     if (newSessions != null) {
       for (final newSession in newSessions) {
-        final session = await _getRatchet(
-          RatchetMapKey(
-            newSession.jid,
-            newSession.id,
-          ),
-        );
-
-        final pn = session != null ?
-          session.ns :
-          0;
         kex[newSession.id] = await addSessionFromBundle(
           newSession.jid,
           newSession.id,
           newSession,
-          pn,
         );
       }
     }
@@ -334,12 +324,15 @@ class OmemoSessionManager {
   /// <keys /> element with a "jid" attribute matching our own. [senderJid] refers to the
   /// bare Jid of the sender. [senderDeviceId] refers to the "sid" attribute of the
   /// <encrypted /> element.
+  /// [timestamp] refers to the time the message was sent. This might be either what the
+  /// server tells you via "XEP-0203: Delayed Delivery" or the point in time at which
+  /// you received the stanza, if no Delayed Delivery element was found.
   ///
   /// If the received message is an empty OMEMO message, i.e. there is no <payload />
   /// element, then [ciphertext] must be set to null. In this case, this function
   /// will return null as there is no message to be decrypted. This, however, is used
   /// to set up sessions or advance the ratchets.
-  Future<String?> decryptMessage(List<int>? ciphertext, String senderJid, int senderDeviceId, List<EncryptedKey> keys) async {
+  Future<String?> decryptMessage(List<int>? ciphertext, String senderJid, int senderDeviceId, List<EncryptedKey> keys, int timestamp) async {
     // Try to find a session we can decrypt with.
     var device = await getDevice();
     final rawKey = keys.firstWhereOrNull((key) => key.rid == device.id);
@@ -363,8 +356,8 @@ class OmemoSessionManager {
       // Guard against old key exchanges
       if (oldRatchet != null) {
         _log.finest('KEX for existent ratchet. ${oldRatchet.pn}');
-        if (message.pn != oldRatchet.nr) {
-          throw InvalidKeyExchangeException(oldRatchet.nr, message.pn!);
+        if (oldRatchet.kexTimestamp > timestamp) {
+          throw InvalidKeyExchangeException();
         }
       }
       
@@ -401,12 +394,6 @@ class OmemoSessionManager {
     final ratchet = (await _getRatchet(ratchetKey))!;
     oldRatchet ??= ratchet.clone();
 
-    if (!rawKey.kex) {
-      if (message.n! < ratchet.nr - 1) {
-        throw MessageAlreadyDecryptedException();
-      }
-    }
-    
     try {
       if (rawKey.kex) {
         keyAndHmac = await ratchet.ratchetDecrypt(message, authMessage.writeToBuffer());

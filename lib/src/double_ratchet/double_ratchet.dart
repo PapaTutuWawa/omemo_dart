@@ -68,6 +68,7 @@ class OmemoDoubleRatchet {
     this.sessionAd,
     this.mkSkipped, // MKSKIPPED
     this.acknowledged,
+    this.kexTimestamp,
   );
   
   factory OmemoDoubleRatchet.fromJson(Map<String, dynamic> data) {
@@ -85,6 +86,7 @@ class OmemoDoubleRatchet {
       'ik_pub': 'base/64/encoded',
       'session_ad': 'base/64/encoded',
       'acknowledged': true | false,
+      'kex_timestamp': int,
       'mkskipped': [
         {
           'key': 'base/64/encoded',
@@ -129,6 +131,7 @@ class OmemoDoubleRatchet {
       base64.decode(data['session_ad']! as String),
       mkSkipped,
       data['acknowledged']! as bool,
+      data['kex_timestamp']! as int,
     );
   }
   
@@ -160,14 +163,18 @@ class OmemoDoubleRatchet {
 
   final Map<SkippedKey, List<int>> mkSkipped;
 
+  /// The point in time at which we performed the kex exchange to create this ratchet.
+  /// Precision is milliseconds since epoch.
+  int kexTimestamp;
+
   /// Indicates whether we received an empty OMEMO message after building a session with
-  /// the device.
+  /// the device. 
   bool acknowledged;
 
   /// Create an OMEMO session using the Signed Pre Key [spk], the shared secret [sk] that
   /// was obtained using a X3DH and the associated data [ad] that was also obtained through
   /// a X3DH. [ik] refers to Bob's (the receiver's) IK public key.
-  static Future<OmemoDoubleRatchet> initiateNewSession(OmemoPublicKey spk, OmemoPublicKey ik, List<int> sk, List<int> ad, int pn) async {
+  static Future<OmemoDoubleRatchet> initiateNewSession(OmemoPublicKey spk, OmemoPublicKey ik, List<int> sk, List<int> ad, int timestamp) async {
     final dhs = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     final dhr = spk;
     final rk  = await kdfRk(sk, await omemoDH(dhs, dhr, 0));
@@ -181,11 +188,12 @@ class OmemoDoubleRatchet {
       null,
       0,
       0,
-      pn,
+      0,
       ik,
       ad,
       {},
       false,
+      timestamp,
     );
   }
 
@@ -193,7 +201,7 @@ class OmemoDoubleRatchet {
   /// Pre Key keypair [spk], the shared secret [sk] that was obtained through a X3DH and
   /// the associated data [ad] that was also obtained through a X3DH. [ik] refers to
   /// Alice's (the initiator's) IK public key.
-  static Future<OmemoDoubleRatchet> acceptNewSession(OmemoKeyPair spk, OmemoPublicKey ik, List<int> sk, List<int> ad) async {
+  static Future<OmemoDoubleRatchet> acceptNewSession(OmemoKeyPair spk, OmemoPublicKey ik, List<int> sk, List<int> ad, int kexTimestamp) async {
     return OmemoDoubleRatchet(
       spk,
       null,
@@ -207,6 +215,7 @@ class OmemoDoubleRatchet {
       ad,
       {},
       false,
+      kexTimestamp,
     );
   }
 
@@ -233,6 +242,7 @@ class OmemoDoubleRatchet {
       'session_ad': base64.encode(sessionAd),
       'mkskipped': mkSkippedSerialised,
       'acknowledged': acknowledged,
+      'kex_timestamp': kexTimestamp,
     };
   }
   
@@ -268,18 +278,18 @@ class OmemoDoubleRatchet {
   }
 
   Future<void> _dhRatchet(OmemoMessage header) async {
-    pn = header.n!;
+    pn = ns;
     ns = 0;
     nr = 0;
     dhr = OmemoPublicKey.fromBytes(header.dhPub!, KeyPairType.x25519);
 
     final newRk = await kdfRk(rk, await omemoDH(dhs, dhr!, 0));
-    rk = newRk;
-    ckr = newRk;
+    rk = List.from(newRk);
+    ckr = List.from(newRk);
     dhs = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     final newNewRk = await kdfRk(rk, await omemoDH(dhs, dhr!, 0));
-    rk = newNewRk;
-    cks = newNewRk;
+    rk = List.from(newNewRk);
+    cks = List.from(newNewRk);
   }
 
   /// Encrypt [plaintext] using the Double Ratchet.
@@ -313,8 +323,8 @@ class OmemoDoubleRatchet {
     }
 
     final dhPubMatches = listsEqual(
-      header.dhPub ?? <int>[],
-      await dhr?.getBytes() ?? <int>[],
+      header.dhPub!,
+      (await dhr?.getBytes()) ?? <int>[],
     );
     if (!dhPubMatches) {
       await _skipMessageKeys(header.pn!);
@@ -348,6 +358,7 @@ class OmemoDoubleRatchet {
       sessionAd,
       Map<SkippedKey, List<int>>.from(mkSkipped),
       acknowledged,
+      kexTimestamp,
     );
   }
   
@@ -378,6 +389,7 @@ class OmemoDoubleRatchet {
       ns == other.ns &&
       nr == other.nr &&
       pn == other.pn &&
-      listsEqual(sessionAd, other.sessionAd);
+      listsEqual(sessionAd, other.sessionAd) &&
+      kexTimestamp == other.kexTimestamp;
   }
 }

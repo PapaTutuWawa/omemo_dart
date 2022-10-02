@@ -62,6 +62,7 @@ void main() {
       aliceJid,
       await aliceSession.getDeviceId(),
       aliceMessage.encryptedKeys,
+      getTimestamp(),
     );
     final aliceOld = aliceSession.getRatchet(bobJid, await bobSession.getDeviceId());
     final aliceSerialised = jsonify(await aliceOld.toJson());
@@ -86,7 +87,6 @@ void main() {
       'bob@localhost',
       await bobSession.getDeviceId(),
       await bobSession.getDeviceBundle(),
-      0,
     );
 
     // Serialise and deserialise

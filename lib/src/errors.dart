@@ -31,14 +31,11 @@ class UnknownSignedPrekeyException implements Exception {
   String errMsg() => 'Unknown Signed Prekey used.';
 }
 
-/// Triggered by the Session Manager when the received Key Exchange message does not
-/// meet our expectations. This happens when the PN attribute of the message is not equal
-/// to our receive number.
+/// Triggered by the Session Manager when the received Key Exchange message does not meet
+/// the requirement that a key exchange, given that the ratchet already exists, must be
+/// sent after its creation.
 class InvalidKeyExchangeException implements Exception {
-  const InvalidKeyExchangeException(this.expectedPn, this.actualPn);
-  final int expectedPn;
-  final int actualPn;
-  String errMsg() => 'The pn attribute of the key exchange is invalid. Expected $expectedPn, got $actualPn';
+  String errMsg() => 'The key exchange was sent before the last kex finished';
 }
 
 /// Triggered by the Session Manager when a message's sequence number is smaller than we

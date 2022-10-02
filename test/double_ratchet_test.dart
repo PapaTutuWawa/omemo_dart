@@ -91,6 +91,7 @@ void main() {
       ikAlice.pk,
       resultBob.sk,
       resultBob.ad,
+      0,
     );
 
     expect(alicesRatchet.sessionAd, bobsRatchet.sessionAd);

@@ -73,3 +73,7 @@ OmemoKeyPair? decodeKeyPairIfNotNull(String? pk, String? sk, KeyPairType type) {
     type,
   );
 }
+
+int getTimestamp() {
+  return DateTime.now().millisecondsSinceEpoch;
+}

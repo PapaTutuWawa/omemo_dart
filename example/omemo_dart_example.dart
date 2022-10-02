@@ -119,6 +119,8 @@ void main() async {
     aliceDevice.id,
     // The deserialised keys
     keys,
+    // Since the message was not delayed, we use the current time
+    DateTime.now().millisecondsSinceEpoch,
   );
 
   // All Bob has to do now is replace the OMEMO wrapper element 

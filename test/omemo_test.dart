@@ -90,6 +90,7 @@ void main() {
       aliceJid,
       await aliceSession.getDeviceId(),
       aliceMessage.encryptedKeys,
+      0,
     );
     expect(messagePlaintext, bobMessage);
     // The ratchet should be modified two times: Once for when the ratchet is created and
@@ -121,6 +122,7 @@ void main() {
       bobJid,
       await bobSession.getDeviceId(),
       bobResponseMessage.encryptedKeys,
+      0,
     );
     expect(bobResponseText, aliceReceivedMessage);
   });
@@ -170,6 +172,7 @@ void main() {
       aliceJid,
       await aliceSession.getDeviceId(),
       aliceMessage.encryptedKeys,
+      0,
     );
     expect(messagePlaintext, bobMessage);
 
@@ -189,6 +192,7 @@ void main() {
       bobJid,
       await bobSession.getDeviceId(),
       bobResponseMessage.encryptedKeys,
+      0,
     );
     expect(bobResponseText, aliceReceivedMessage);
 
@@ -245,6 +249,7 @@ void main() {
       aliceJid,
       await aliceSession1.getDeviceId(),
       aliceMessage.encryptedKeys,
+      0,
     );
     expect(messagePlaintext, bobMessage);
 
@@ -254,6 +259,7 @@ void main() {
       aliceJid,
       await aliceSession1.getDeviceId(),
       aliceMessage.encryptedKeys,
+      0,
     );
     expect(messagePlaintext, aliceMessage2);
   });
@@ -294,6 +300,7 @@ void main() {
       aliceJid,
       await aliceSession.getDeviceId(),
       aliceMessage.encryptedKeys,
+      0,
     );
     expect(bobMessage, null);
 
@@ -371,6 +378,7 @@ void main() {
       aliceJid,
       await aliceSession.getDeviceId(),
       aliceMessage.encryptedKeys,
+      0,
     );
     expect(messagePlaintext, bobMessage);
   });
@@ -437,6 +445,7 @@ void main() {
       aliceJid,
       await aliceSession.getDeviceId(),
       aliceMessage.encryptedKeys,
+      0,
     );
 
     for (var i = 0; i < 100; i++) {
@@ -456,6 +465,7 @@ void main() {
         bobJid,
         await bobSession.getDeviceId(),
         bobResponseMessage.encryptedKeys,
+        0,
       );
       expect(messageText, aliceReceivedMessage);
     }
@@ -610,6 +620,7 @@ void main() {
       aliceJid,
       await aliceSession.getDeviceId(),
       msg1.encryptedKeys,
+      0,
     );
     final aliceRatchet1 = aliceSession.getRatchet(
       bobJid,
@@ -634,6 +645,7 @@ void main() {
       aliceJid,
       await aliceSession.getDeviceId(),
       msg2.encryptedKeys,
+      getTimestamp(),
     );
     final aliceRatchet2 = aliceSession.getRatchet(
       bobJid,
@@ -669,6 +681,7 @@ void main() {
     );
 
     final bobsReceivedMessages = List<EncryptionResult>.empty(growable: true);
+    final bobsReceivedMessagesTimestamps = List<int>.empty(growable: true);
     
     // Alice sends Bob a message
     final msg1 = await aliceSession.encryptToJid(
@@ -679,11 +692,15 @@ void main() {
       ],
     );
     bobsReceivedMessages.add(msg1);
+    final t1 = getTimestamp();
+    bobsReceivedMessagesTimestamps.add(t1);
+
     await bobSession.decryptMessage(
       msg1.ciphertext,
       aliceJid,
       await aliceSession.getDeviceId(),
       msg1.encryptedKeys,
+      t1,
     );
 
     // Bob responds
@@ -691,13 +708,15 @@ void main() {
       aliceJid,
       'Hello!',
     );
+
     await aliceSession.decryptMessage(
       msg2.ciphertext,
       bobJid,
       await bobSession.getDeviceId(),
       msg2.encryptedKeys,
+      getTimestamp(),
     );
-
+    
     // Send some messages between the two
     for (var i = 0; i < 100; i++) {
       final msg = await aliceSession.encryptToJid(
@@ -705,11 +724,14 @@ void main() {
         'Hello $i',
       );
       bobsReceivedMessages.add(msg);
+      final t = getTimestamp();
+      bobsReceivedMessagesTimestamps.add(t);
       final result = await bobSession.decryptMessage(
         msg.ciphertext,
         aliceJid,
         await aliceSession.getDeviceId(),
         msg.encryptedKeys,
+        t,
       );
 
       expect(result, 'Hello $i');
@@ -720,20 +742,23 @@ void main() {
     final ratchetPreError = bobSession
       .getRatchet(aliceJid, await aliceSession.getDeviceId())
       .clone();
+    var invalidKex = 0;
     var errorCounter = 0;
-    for (final msg in bobsReceivedMessages) {
+    for (var i = 0; i < bobsReceivedMessages.length; i++) {
+      final msg = bobsReceivedMessages[i];
       try {
         await bobSession.decryptMessage(
           msg.ciphertext,
           aliceJid,
           await aliceSession.getDeviceId(),
           msg.encryptedKeys,
+          bobsReceivedMessagesTimestamps[i],
         );
         expect(true, false);
-      } on MessageAlreadyDecryptedException catch (_) {
+      } on InvalidMessageHMACException catch (_) {
         errorCounter++;
       } on InvalidKeyExchangeException catch (_) {
-        errorCounter++;
+        invalidKex++;
       }
     }
     final ratchetPostError = bobSession
@@ -741,7 +766,8 @@ void main() {
       .clone();
 
     // The 100 messages including the initial KEX message
-    expect(errorCounter, 101);
+    expect(invalidKex, 1);
+    expect(errorCounter, 100);
     expect(await ratchetPreError.equals(ratchetPostError), true);
 
     
@@ -754,6 +780,7 @@ void main() {
       aliceJid,
       await aliceSession.getDeviceId(),
       msg3.encryptedKeys,
+      104,
     );
 
     expect(result, 'Are you okay?');
