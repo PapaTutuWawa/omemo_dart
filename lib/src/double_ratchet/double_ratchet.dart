@@ -69,6 +69,7 @@ class OmemoDoubleRatchet {
     this.mkSkipped, // MKSKIPPED
     this.acknowledged,
     this.kexTimestamp,
+    this.kex,
   );
   
   factory OmemoDoubleRatchet.fromJson(Map<String, dynamic> data) {
@@ -83,10 +84,11 @@ class OmemoDoubleRatchet {
       'ns': 0,
       'nr': 0,
       'pn': 0,
-      'ik_pub': 'base/64/encoded',
+      'ik_pub': null | 'base/64/encoded',
       'session_ad': 'base/64/encoded',
       'acknowledged': true | false,
       'kex_timestamp': int,
+      'kex': 'base/64/encoded',
       'mkskipped': [
         {
           'key': 'base/64/encoded',
@@ -132,6 +134,7 @@ class OmemoDoubleRatchet {
       mkSkipped,
       data['acknowledged']! as bool,
       data['kex_timestamp']! as int,
+      data['kex'] as String?,
     );
   }
   
@@ -167,6 +170,9 @@ class OmemoDoubleRatchet {
   /// Precision is milliseconds since epoch.
   int kexTimestamp;
 
+  /// The key exchange that was used for initiating the session.
+  final String? kex;
+  
   /// Indicates whether we received an empty OMEMO message after building a session with
   /// the device. 
   bool acknowledged;
@@ -194,6 +200,7 @@ class OmemoDoubleRatchet {
       {},
       false,
       timestamp,
+      '',
     );
   }
 
@@ -216,6 +223,7 @@ class OmemoDoubleRatchet {
       {},
       false,
       kexTimestamp,
+      null,
     );
   }
 
@@ -243,6 +251,7 @@ class OmemoDoubleRatchet {
       'mkskipped': mkSkippedSerialised,
       'acknowledged': acknowledged,
       'kex_timestamp': kexTimestamp,
+      'kex': kex,
     };
   }
   
@@ -359,6 +368,30 @@ class OmemoDoubleRatchet {
       Map<SkippedKey, List<int>>.from(mkSkipped),
       acknowledged,
       kexTimestamp,
+      kex,
+    );
+  }
+
+  OmemoDoubleRatchet cloneWithKex(String kex) {
+    return OmemoDoubleRatchet(
+      dhs,
+      dhr,
+      rk,
+      cks != null ?
+        List<int>.from(cks!) :
+        null,
+      ckr != null ?
+        List<int>.from(ckr!) :
+        null,
+      ns,
+      nr,
+      pn,
+      ik,
+      sessionAd,
+      Map<SkippedKey, List<int>>.from(mkSkipped),
+      acknowledged,
+      kexTimestamp,
+      kex,
     );
   }
   

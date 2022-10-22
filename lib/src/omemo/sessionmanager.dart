@@ -170,7 +170,7 @@ class OmemoSessionManager {
   /// Build a new session with the user at [jid] with the device [deviceId] using data
   /// from the key exchange [kex]. In case [kex] contains an unknown Signed Prekey
   /// identifier an UnknownSignedPrekeyException will be thrown.
-  Future<void> _addSessionFromKeyExchange(String jid, int deviceId, OmemoKeyExchange kex) async {
+  Future<OmemoDoubleRatchet> _addSessionFromKeyExchange(String jid, int deviceId, OmemoKeyExchange kex) async {
     // Pick the correct SPK
     final device = await getDevice();
     final spk = await _lock.synchronized(() async {
@@ -204,8 +204,7 @@ class OmemoSessionManager {
       getTimestamp(),
     );
 
-    await _trustManager.onNewSession(jid, deviceId);
-    await _addSession(jid, deviceId, ratchet);
+    return ratchet;
   }
 
   /// Like [encryptToJids] but only for one Jid [jid].
@@ -264,24 +263,53 @@ class OmemoSessionManager {
           }
 
           final ratchetKey = RatchetMapKey(jid, deviceId);
-          final ratchet = _ratchetMap[ratchetKey]!;
+          var ratchet = _ratchetMap[ratchetKey]!;
           final ciphertext = (await ratchet.ratchetEncrypt(keyPayload)).ciphertext;
-
-          // Commit the ratchet
-          _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet));
-          
+ 
           if (kex.isNotEmpty && kex.containsKey(deviceId)) {
+            // The ratchet did not exist
             final k = kex[deviceId]!
               ..message = OmemoAuthenticatedMessage.fromBuffer(ciphertext);
+            final buffer = base64.encode(k.writeToBuffer());
             encryptedKeys.add(
               EncryptedKey(
                 jid,
                 deviceId,
-                base64.encode(k.writeToBuffer()),
+                buffer,
                 true,
               ),
             );
+
+            ratchet = ratchet.cloneWithKex(buffer);
+            _ratchetMap[ratchetKey] = ratchet;
+          } else if (!ratchet.acknowledged) {
+            // The ratchet exists but is not acked
+            if (ratchet.kex != null) {
+              final oldKex = OmemoKeyExchange.fromBuffer(base64.decode(ratchet.kex!))
+              ..message = OmemoAuthenticatedMessage.fromBuffer(ciphertext);
+              
+              encryptedKeys.add(
+                EncryptedKey(
+                  jid,
+                  deviceId,
+                  base64.encode(oldKex.writeToBuffer()),
+                  true,
+                ),
+              );
+            } else {
+              // The ratchet is not acked but we don't have the old key exchange
+              _log.warning('Ratchet for $jid:$deviceId is not acked but the kex attribute is null');
+              encryptedKeys.add(
+                EncryptedKey(
+                  jid,
+                  deviceId,
+                  base64.encode(ciphertext),
+                  false,
+                ),
+              );
+            }
           } else {
+            // The ratchet exists and is acked
             encryptedKeys.add(
               EncryptedKey(
                 jid,
@@ -291,6 +319,9 @@ class OmemoSessionManager {
               ),
             );
           }
+
+          // Commit the ratchet
+          _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet));
         }
       }
     });
@@ -319,6 +350,25 @@ class OmemoSessionManager {
       );
     });
   }
+
+  Future<String?> _decryptAndVerifyHmac(List<int>? ciphertext, List<int> keyAndHmac) async {
+    // Empty OMEMO messages should just have the key decrypted and/or session set up.
+    if (ciphertext == null) {
+      return null;
+    }
+    
+    final key = keyAndHmac.sublist(0, 32);
+    final hmac = keyAndHmac.sublist(32, 48);
+    final derivedKeys = await deriveEncryptionKeys(key, omemoPayloadInfoString);
+    final computedHmac = await truncatedHmac(ciphertext, derivedKeys.authenticationKey);
+    if (!listsEqual(hmac, computedHmac)) {
+      throw InvalidMessageHMACException();
+    }
+    
+    return utf8.decode(
+      await aes256CbcDecrypt(ciphertext, derivedKeys.encryptionKey, derivedKeys.iv),
+    );
+  }
   
   /// Attempt to decrypt [ciphertext]. [keys] refers to the <key /> elements inside the
   /// <keys /> element with a "jid" attribute matching our own. [senderJid] refers to the
@@ -342,6 +392,7 @@ class OmemoSessionManager {
 
     final ratchetKey = RatchetMapKey(senderJid, senderDeviceId);
     final decodedRawKey = base64.decode(rawKey.value);
+    List<int>? keyAndHmac;
     OmemoAuthenticatedMessage authMessage;
     OmemoDoubleRatchet? oldRatchet;
     OmemoMessage? message;
@@ -359,14 +410,34 @@ class OmemoSessionManager {
         if (oldRatchet.kexTimestamp > timestamp) {
           throw InvalidKeyExchangeException();
         }
+        
+        // Try to decrypt it
+        try {
+          final decrypted = await oldRatchet.ratchetDecrypt(message, authMessage.writeToBuffer());
+
+          // Commit the ratchet
+          _eventStreamController.add(
+            RatchetModifiedEvent(
+              senderJid,
+              senderDeviceId,
+              oldRatchet,
+            ),
+          );
+          
+          final plaintext = await _decryptAndVerifyHmac(
+            ciphertext,
+            decrypted,
+          );
+          await _addSession(senderJid, senderDeviceId, oldRatchet);
+          return plaintext;
+        } catch (_) {
+          _log.finest('Failed to use old ratchet with KEX for existing ratchet');
+        }
       }
-      
-      // TODO(PapaTutuWawa): Only do this when we should
-      await _addSessionFromKeyExchange(
-        senderJid,
-        senderDeviceId,
-        kex,
-      );
+
+      final r = await _addSessionFromKeyExchange(senderJid, senderDeviceId, kex);
+      await _trustManager.onNewSession(senderJid, senderDeviceId);
+      await _addSession(senderJid, senderDeviceId, r);
 
       // Replace the OPK
       // TODO(PapaTutuWawa): Replace the OPK when we know that the KEX worked
@@ -389,7 +460,6 @@ class OmemoSessionManager {
       throw NoDecryptionKeyException();
     }
 
-    List<int>? keyAndHmac;
     // We can guarantee that the ratchet exists at this point in time
     final ratchet = (await _getRatchet(ratchetKey))!;
     oldRatchet ??= ratchet.clone();
@@ -408,24 +478,12 @@ class OmemoSessionManager {
     // Commit the ratchet
     _eventStreamController.add(RatchetModifiedEvent(senderJid, senderDeviceId, ratchet));
 
-    // Empty OMEMO messages should just have the key decrypted and/or session set up.
-    if (ciphertext == null) {
-      return null;
-    }
-    
-    final key = keyAndHmac.sublist(0, 32);
-    final hmac = keyAndHmac.sublist(32, 48);
-    final derivedKeys = await deriveEncryptionKeys(key, omemoPayloadInfoString);
-
-    final computedHmac = await truncatedHmac(ciphertext, derivedKeys.authenticationKey);
-    if (!listsEqual(hmac, computedHmac)) {
-      // TODO(PapaTutuWawa): I am unsure if we should restore the ratchet here
+    try {
+      return _decryptAndVerifyHmac(ciphertext, keyAndHmac);
+    } catch (_) { 
       await _restoreRatchet(ratchetKey, oldRatchet);
-      throw InvalidMessageHMACException();
+      rethrow;
     }
-    
-    final plaintext = await aes256CbcDecrypt(ciphertext, derivedKeys.encryptionKey, derivedKeys.iv);
-    return utf8.decode(plaintext);
   }
 
   /// Returns the list of hex-encoded fingerprints we have for sessions with [jid].
