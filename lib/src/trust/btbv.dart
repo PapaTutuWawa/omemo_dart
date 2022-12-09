@@ -122,17 +122,20 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
     });
   }
   
-  /// Returns a mapping from the device identifiers of [jid] to their trust state.
+  /// Returns a mapping from the device identifiers of [jid] to their trust state. If
+  /// there are no devices known for [jid], then an empty map is returned.
   Future<Map<int, BTBVTrustState>> getDevicesTrust(String jid) async {
-    final map = <int, BTBVTrustState>{};
+    return _lock.synchronized(() async {
+      final map = <int, BTBVTrustState>{};
 
-    await _lock.synchronized(() async {
+      if (!devices.containsKey(jid)) return map;
+      
       for (final deviceId in devices[jid]!) {
         map[deviceId] = trustCache[RatchetMapKey(jid, deviceId)]!;
       }
-    });
 
-    return map;
+      return map;
+    });
   }
 
   /// Sets the trust of [jid]'s device with identifier [deviceId] to [state].
