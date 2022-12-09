@@ -28,7 +28,6 @@ import 'package:synchronized/synchronized.dart';
 const omemoPayloadInfoString = 'OMEMO Payload';
 
 class OmemoSessionManager {
-
   OmemoSessionManager(this._device, this._deviceMap, this._ratchetMap, this._trustManager)
     : _lock = Lock(),
       _deviceLock = Lock(),
@@ -136,7 +135,7 @@ class OmemoSessionManager {
       _ratchetMap[key] = ratchet;
 
       // Commit the ratchet
-      _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet));
+      _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet, true));
     });
   }
 
@@ -321,7 +320,7 @@ class OmemoSessionManager {
           }
 
           // Commit the ratchet
-          _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet));
+          _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet, false));
         }
       }
     });
@@ -346,6 +345,7 @@ class OmemoSessionManager {
           mapKey.jid,
           mapKey.deviceId,
           oldRatchet,
+          false,
         ),
       );
     });
@@ -421,6 +421,7 @@ class OmemoSessionManager {
               senderJid,
               senderDeviceId,
               oldRatchet,
+              false,
             ),
           );
           
@@ -476,7 +477,14 @@ class OmemoSessionManager {
     }
 
     // Commit the ratchet
-    _eventStreamController.add(RatchetModifiedEvent(senderJid, senderDeviceId, ratchet));
+    _eventStreamController.add(
+      RatchetModifiedEvent(
+        senderJid,
+        senderDeviceId,
+        ratchet,
+        false,
+      ),
+    );
 
     try {
       return _decryptAndVerifyHmac(ciphertext, keyAndHmac);
@@ -606,7 +614,7 @@ class OmemoSessionManager {
         ..acknowledged = true;
 
       // Commit it
-      _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet));
+      _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet, false));
     });
   }
 

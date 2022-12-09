@@ -5,16 +5,17 @@ abstract class OmemoEvent {}
 
 /// Triggered when a ratchet has been modified
 class RatchetModifiedEvent extends OmemoEvent {
-
-  RatchetModifiedEvent(this.jid, this.deviceId, this.ratchet);
+  RatchetModifiedEvent(this.jid, this.deviceId, this.ratchet, this.added);
   final String jid;
   final int deviceId;
   final OmemoDoubleRatchet ratchet;
+
+  /// Indicates whether the ratchet has just been created (true) or just modified (false).
+  final bool added;
 }
 
 /// Triggered when a ratchet has been removed and should be removed from storage.
 class RatchetRemovedEvent extends OmemoEvent {
-
   RatchetRemovedEvent(this.jid, this.deviceId);
   final String jid;
   final int deviceId;
@@ -22,7 +23,6 @@ class RatchetRemovedEvent extends OmemoEvent {
 
 /// Triggered when the device map has been modified
 class DeviceMapModifiedEvent extends OmemoEvent {
-
   DeviceMapModifiedEvent(this.map);
   final Map<String, List<int>> map;
 }
@@ -30,7 +30,6 @@ class DeviceMapModifiedEvent extends OmemoEvent {
 /// Triggered by the OmemoSessionManager when our own device bundle was modified
 /// and thus should be republished.
 class DeviceModifiedEvent extends OmemoEvent {
-
   DeviceModifiedEvent(this.device);
   final Device device;
 }
