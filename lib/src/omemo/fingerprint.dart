@@ -2,7 +2,6 @@ import 'package:meta/meta.dart';
 
 @immutable
 class DeviceFingerprint {
-
   const DeviceFingerprint(this.deviceId, this.fingerprint);
   final String fingerprint;
   final int deviceId;

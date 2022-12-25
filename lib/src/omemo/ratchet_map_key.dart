@@ -2,7 +2,6 @@ import 'package:meta/meta.dart';
 
 @immutable
 class RatchetMapKey {
-
   const RatchetMapKey(this.jid, this.deviceId);
 
   factory RatchetMapKey.fromJsonKey(String key) {

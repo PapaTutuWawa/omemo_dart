@@ -65,7 +65,7 @@ void main() {
         deviceModified = true;
       } else if (event is RatchetModifiedEvent) {
         ratchetModified++;
-      } else if (event is DeviceMapModifiedEvent) {
+      } else if (event is DeviceListModifiedEvent) {
         deviceMapModified++;
       }
     });
