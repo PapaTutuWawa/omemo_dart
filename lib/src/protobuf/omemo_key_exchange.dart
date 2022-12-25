@@ -3,7 +3,6 @@ import 'package:omemo_dart/src/protobuf/omemo_authenticated_message.dart';
 import 'package:omemo_dart/src/protobuf/protobuf.dart';
 
 class OmemoKeyExchange {
-
   OmemoKeyExchange();
 
   factory OmemoKeyExchange.fromBuffer(List<int> data) {

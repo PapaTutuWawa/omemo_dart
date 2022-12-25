@@ -9,7 +9,6 @@ import 'package:omemo_dart/src/x3dh/x3dh.dart';
 /// This class represents an OmemoBundle but with all keypairs belonging to the keys
 @immutable
 class Device {
-
   const Device(
     this.jid,
     this.id,
