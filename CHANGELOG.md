@@ -36,3 +36,9 @@
 - Fix a bug that caused the device's id to change when replacing a OPK
 - Every decryption failure now causes the ratchet to be restored to a pre-decryption state
 - Add method to get the device's fingerprint
+
+## 1.0.0
+
+- [Breaking] Replace `OmemoSessionManager` with `OmemoManager`
+- Implement queued access to the ratchets inside the `OmemoManager`
+- Implement heartbeat messages
