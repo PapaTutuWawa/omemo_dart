@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:cryptography/cryptography.dart';
+import 'package:hex/hex.dart';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 import 'package:omemo_dart/src/crypto.dart';
@@ -16,6 +17,7 @@ import 'package:omemo_dart/src/omemo/device.dart';
 import 'package:omemo_dart/src/omemo/encrypted_key.dart';
 import 'package:omemo_dart/src/omemo/encryption_result.dart';
 import 'package:omemo_dart/src/omemo/events.dart';
+import 'package:omemo_dart/src/omemo/fingerprint.dart';
 import 'package:omemo_dart/src/omemo/ratchet_map_key.dart';
 import 'package:omemo_dart/src/omemo/stanza.dart';
 import 'package:omemo_dart/src/protobuf/omemo_authenticated_message.dart';
@@ -48,7 +50,6 @@ class OmemoManager {
   Map<String, List<int>> _deviceList = {};
   /// Map bare JIDs to whether we already requested the device list once
   final Map<String, bool> _deviceListRequested = {};
-
   /// Map bare a ratchet key to its ratchet. Note that this is also locked by
   /// _ratchetCriticalSectionLock.
   Map<RatchetMapKey, OmemoDoubleRatchet> _ratchetMap = {};
@@ -126,14 +127,14 @@ class OmemoManager {
       _deviceList[jid] = [deviceId];
 
       // Commit the device map
-      _eventStreamController.add(DeviceMapModifiedEvent(_deviceList));
+      _eventStreamController.add(DeviceListModifiedEvent(_deviceList));
     } else {
       // Prevent having the same device multiple times in the list
       if (!_deviceList[jid]!.contains(deviceId)) {
         _deviceList[jid]!.add(deviceId);
 
         // Commit the device map
-        _eventStreamController.add(DeviceMapModifiedEvent(_deviceList));
+        _eventStreamController.add(DeviceListModifiedEvent(_deviceList));
       }
     }
 
@@ -239,7 +240,7 @@ class OmemoManager {
   /// element, then [ciphertext] must be set to null. In this case, this function
   /// will return null as there is no message to be decrypted. This, however, is used
   /// to set up sessions or advance the ratchets.
-  Future<String?> decryptMessage(List<int>? ciphertext, String senderJid, int senderDeviceId, List<EncryptedKey> keys, int timestamp) async {
+  Future<String?> _decryptMessage(List<int>? ciphertext, String senderJid, int senderDeviceId, List<EncryptedKey> keys, int timestamp) async {
     // Try to find a session we can decrypt with.
     var device = await getDevice();
     final rawKey = keys.firstWhereOrNull((key) => key.rid == device.id);
@@ -263,7 +264,7 @@ class OmemoManager {
 
       // Guard against old key exchanges
       if (oldRatchet != null) {
-        _log.finest('KEX for existent ratchet. ${oldRatchet.pn}');
+        _log.finest('KEX for existent ratchet ${ratchetKey.toJsonKey()}. ${oldRatchet.kexTimestamp} > $timestamp: ${oldRatchet.kexTimestamp > timestamp}');
         if (oldRatchet.kexTimestamp > timestamp) {
           throw InvalidKeyExchangeException();
         }
@@ -368,6 +369,9 @@ class OmemoManager {
           return !_ratchetMap.containsKey(RatchetMapKey(jid, id)) ||
                  _deviceList[jid]?.contains(id) == false;
         }).toList();
+
+      // Trigger an event with the new device list
+      _eventStreamController.add(DeviceListModifiedEvent(_deviceList));
     } else {
       // We already have an up-to-date version of the device list
       bundlesToFetch = _deviceList[jid]!
@@ -502,7 +506,9 @@ class OmemoManager {
       encryptedKeys,
     );
   }
-  
+
+  /// Call when receiving an OMEMO:2 encrypted stanza. Will handle everything and
+  /// decrypt it.
   Future<DecryptionResult> onIncomingStanza(OmemoIncomingStanza stanza) async {
     await _enterRatchetCriticalSection(stanza.bareSenderJid);
 
@@ -510,7 +516,7 @@ class OmemoManager {
     final ratchetCreated = !_ratchetMap.containsKey(ratchetKey);
     String? payload;
     try {
-      payload = await decryptMessage(
+      payload = await _decryptMessage(
         base64.decode(stanza.payload),
         stanza.bareSenderJid,
         stanza.senderDeviceId,
@@ -569,6 +575,8 @@ class OmemoManager {
     );
   }
 
+  /// Call when sending out an encrypted stanza. Will handle everything and
+  /// encrypt it.
   Future<EncryptionResult?> onOutgoingStanza(OmemoOutgoingStanza stanza) async {
     return _encryptToJids(
       stanza.recipientJids,
@@ -589,20 +597,58 @@ class OmemoManager {
     if (enterCriticalSection) await _leaveRatchetCriticalSection(jid);
   }
 
+  /// Generates an entirely new device. May be useful when the user wants to reset their cryptographic
+  /// identity. Triggers an event to commit it to storage.
+  Future<void> regenerateDevice({ int opkAmount = 100 }) async {
+    await _deviceLock.synchronized(() async {
+      _device = await Device.generateNewDevice(_device.jid, opkAmount: opkAmount);
+
+      // Commit it
+      _eventStreamController.add(DeviceModifiedEvent(_device));
+    });
+  }
+  
+  /// Returns the device used for encryption and decryption.
   Future<Device> getDevice() => _deviceLock.synchronized(() => _device);
 
+  /// Returns the fingerprints for all devices of [jid] that we have a session with.
+  /// If there are not sessions with [jid], then returns null.
+  Future<List<DeviceFingerprint>?> getFingerprintsForJid(String jid) async {
+    if (!_deviceList.containsKey(jid)) return null;
+
+    await _enterRatchetCriticalSection(jid);
+    
+    final fingerprintKeys = _deviceList[jid]!
+      .map((id) => RatchetMapKey(jid, id))
+      .where((key) => _ratchetMap.containsKey(key));
+
+    final fingerprints = List<DeviceFingerprint>.empty(growable: true);
+    for (final key in fingerprintKeys) {
+      fingerprints.add(
+        DeviceFingerprint(
+          key.deviceId,
+          HEX.encode(await _ratchetMap[key]!.ik.getBytes()),
+        ),
+      );
+    }
+
+    await _leaveRatchetCriticalSection(jid);
+    return fingerprints;
+  }
+  
   /// Ensures that the device list is fetched again on the next message sending.
   void onNewConnection() {
     _deviceListRequested.clear();
   }
 
-  /// Sets the device list for [jid] to [devices].
+  /// Sets the device list for [jid] to [devices]. Triggers a DeviceListModifiedEvent.
   void onDeviceListUpdate(String jid, List<int> devices) {
     _deviceList[jid] = devices;
     _deviceListRequested[jid] = true;
-  }
 
-  List<int>? getDeviceListForJid(String jid) => _deviceList[jid];
+    // Trigger an event
+    _eventStreamController.add(DeviceListModifiedEvent(_deviceList));
+  }
 
   void initialize(Map<RatchetMapKey, OmemoDoubleRatchet> ratchetMap, Map<String, List<int>> deviceList) {
     _deviceList = deviceList;
