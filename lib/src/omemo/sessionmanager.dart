@@ -119,14 +119,14 @@ class OmemoSessionManager {
         _deviceMap[jid] = [deviceId];
 
         // Commit the device map
-        _eventStreamController.add(DeviceMapModifiedEvent(_deviceMap));
+        _eventStreamController.add(DeviceListModifiedEvent(_deviceMap));
       } else {
         // Prevent having the same device multiple times in the list
         if (!_deviceMap[jid]!.contains(deviceId)) {
           _deviceMap[jid]!.add(deviceId);
 
           // Commit the device map
-          _eventStreamController.add(DeviceMapModifiedEvent(_deviceMap));
+          _eventStreamController.add(DeviceListModifiedEvent(_deviceMap));
         }
       }
 
@@ -562,7 +562,7 @@ class OmemoSessionManager {
         _deviceMap.remove(jid);
       }
       // Commit it
-      _eventStreamController.add(DeviceMapModifiedEvent(_deviceMap));
+      _eventStreamController.add(DeviceListModifiedEvent(_deviceMap));
     });
   }
 
@@ -580,7 +580,7 @@ class OmemoSessionManager {
       // Remove the device from jid
       _deviceMap.remove(jid);
       // Commit it
-      _eventStreamController.add(DeviceMapModifiedEvent(_deviceMap));
+      _eventStreamController.add(DeviceListModifiedEvent(_deviceMap));
     });
   }
   
