@@ -13,7 +13,6 @@ import 'package:omemo_dart/src/protobuf/omemo_message.dart';
 const maxSkip = 1000;
 
 class RatchetStep {
-
   const RatchetStep(this.header, this.ciphertext);
   final OmemoMessage header;
   final List<int> ciphertext;
@@ -21,7 +20,6 @@ class RatchetStep {
 
 @immutable
 class SkippedKey {
-
   const SkippedKey(this.dh, this.n);
 
   factory SkippedKey.fromJson(Map<String, dynamic> data) {
@@ -54,7 +52,6 @@ class SkippedKey {
 }
 
 class OmemoDoubleRatchet {
-
   OmemoDoubleRatchet(
     this.dhs, // DHs
     this.dhr, // DHr
@@ -221,7 +218,7 @@ class OmemoDoubleRatchet {
       ik,
       ad,
       {},
-      false,
+      true,
       kexTimestamp,
       null,
     );

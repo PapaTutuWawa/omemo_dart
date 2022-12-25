@@ -3,7 +3,6 @@ import 'package:omemo_dart/src/omemo/encrypted_key.dart';
 
 @immutable
 class EncryptionResult {
-
   const EncryptionResult(this.ciphertext, this.encryptedKeys);
   
   /// The actual message that was encrypted
