@@ -217,4 +217,30 @@ void main() {
     expect(bobEmptyMessageSent, 2);
     expect(bobResultFinal.payload, 'Test message last');
   });
+
+  test('Test accessing data without it existing', () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+    final aliceDevice = await Device.generateNewDevice(aliceJid, opkAmount: 1);
+
+    final aliceManager = omemo.OmemoManager(
+      aliceDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async => [],
+      (jid, id) async => null,
+    );
+
+    // Get non-existant fingerprints
+    expect(
+      await aliceManager.getFingerprintsForJid(bobJid),
+      null,
+    );
+
+    // Ack a non-existant ratchet
+    await aliceManager.ratchetAcknowledged(
+      bobJid,
+      42,
+    );
+  });
 }
