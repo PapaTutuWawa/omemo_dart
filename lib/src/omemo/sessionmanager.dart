@@ -27,6 +27,7 @@ import 'package:synchronized/synchronized.dart';
 
 @Deprecated('Use OmemoManager instead')
 class OmemoSessionManager {
+  @Deprecated('Use OmemoManager instead')
   OmemoSessionManager(this._device, this._deviceMap, this._ratchetMap, this._trustManager)
     : _lock = Lock(),
       _deviceLock = Lock(),
@@ -35,6 +36,7 @@ class OmemoSessionManager {
 
   /// Deserialise the OmemoSessionManager from JSON data [data] that does not contain
   /// the ratchet sessions.
+  @Deprecated('Use OmemoManager instead')
   factory OmemoSessionManager.fromJsonWithoutSessions(
     Map<String, dynamic> data,
     Map<RatchetMapKey, OmemoDoubleRatchet> ratchetMap,

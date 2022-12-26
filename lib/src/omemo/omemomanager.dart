@@ -41,13 +41,15 @@ class OmemoManager {
 
   /// Functions for connecting with the OMEMO library
 
-  /// Send an empty OMEMO:2 message using the encrypted payload [result] to [recipientJid].
+  /// Send an empty OMEMO:2 message using the encrypted payload @result to
+  /// @recipientJid.
   final Future<void> Function(EncryptionResult result, String recipientJid) sendEmptyOmemoMessage;
 
-  /// Fetch the list of device ids associated with [jid].
-  final Future<List<int>> Function(String jid) fetchDeviceList;
+  /// Fetch the list of device ids associated with @jid. If the device list cannot be
+  /// fetched, return null.
+  final Future<List<int>?> Function(String jid) fetchDeviceList;
 
-  /// Fetch the device bundle for the device with id [id] of [jid]. If it cannot be fetched, return null.
+  /// Fetch the device bundle for the device with id @id of jid. If it cannot be fetched, return null.
   final Future<OmemoBundle?> Function(String jid, int id) fetchDeviceBundle;
   
   /// Map bare JID to its known devices
@@ -316,10 +318,7 @@ class OmemoManager {
     }
     
     final devices = _deviceList[senderJid];
-    if (devices == null) {
-      throw NoDecryptionKeyException();
-    }
-    if (!devices.contains(senderDeviceId)) {
+    if (devices?.contains(senderDeviceId) != true) {
       throw NoDecryptionKeyException();
     }
 
@@ -367,6 +366,8 @@ class OmemoManager {
     if (!_deviceListRequested.containsKey(jid) || !_deviceList.containsKey(jid)) {
       // We don't have an up-to-date version of the device list
       final newDeviceList = await fetchDeviceList(jid);
+      if (newDeviceList == null) return [];
+
       _deviceList[jid] = newDeviceList;
       bundlesToFetch = newDeviceList
         .where((id) {
@@ -383,6 +384,7 @@ class OmemoManager {
         .toList();
     }
 
+    _log.finest('Fetching bundles $bundlesToFetch for $jid');
     final newBundles = List<OmemoBundle>.empty(growable: true);
     for (final id in bundlesToFetch) {
       final bundle = await fetchDeviceBundle(jid, id);
