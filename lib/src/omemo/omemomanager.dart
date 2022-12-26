@@ -42,8 +42,14 @@ class OmemoManager {
   final Logger _log = Logger('OmemoManager');
 
   /// Functions for connecting with the OMEMO library
+
+  /// Send an empty OMEMO:2 message using the encrypted payload [result] to [recipientJid].
   final Future<void> Function(EncryptionResult result, String recipientJid) sendEmptyOmemoMessage;
+
+  /// Fetch the list of device ids associated with [jid].
   final Future<List<int>> Function(String jid) fetchDeviceList;
+
+  /// Fetch the device bundle for the device with id [id] of [jid]. If it cannot be fetched, return null.
   final Future<OmemoBundle?> Function(String jid, int id) fetchDeviceBundle;
   
   /// Map bare JID to its known devices
@@ -588,11 +594,16 @@ class OmemoManager {
   Future<void> ratchetAcknowledged(String jid, int deviceId, { bool enterCriticalSection = true }) async {
     if (enterCriticalSection) await _enterRatchetCriticalSection(jid);
 
-    final ratchet = _ratchetMap[RatchetMapKey(jid, deviceId)]!
-      ..acknowledged = true;
+    final key = RatchetMapKey(jid, deviceId);
+    if (_ratchetMap.containsKey(key)) {
+      final ratchet = _ratchetMap[key]!
+        ..acknowledged = true;
 
-    // Commit it
-    _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet, false));
+      // Commit it
+      _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet, false));
+    } else {
+      _log.severe('Attempted to acknowledge ratchet ${key.toJsonKey()}, even though it does not exist');
+    }
 
     if (enterCriticalSection) await _leaveRatchetCriticalSection(jid);
   }
