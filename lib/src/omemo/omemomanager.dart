@@ -12,6 +12,7 @@ import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/helpers.dart';
 import 'package:omemo_dart/src/keys.dart';
 import 'package:omemo_dart/src/omemo/bundle.dart';
+import 'package:omemo_dart/src/omemo/constants.dart';
 import 'package:omemo_dart/src/omemo/decryption_result.dart';
 import 'package:omemo_dart/src/omemo/device.dart';
 import 'package:omemo_dart/src/omemo/encrypted_key.dart';
@@ -26,9 +27,6 @@ import 'package:omemo_dart/src/protobuf/omemo_message.dart';
 import 'package:omemo_dart/src/trust/base.dart';
 import 'package:omemo_dart/src/x3dh/x3dh.dart';
 import 'package:synchronized/synchronized.dart';
-
-/// The info used for when encrypting the AES key for the actual payload.
-const omemoPayloadInfoString = 'OMEMO Payload';
 
 class OmemoManager {
   OmemoManager(
