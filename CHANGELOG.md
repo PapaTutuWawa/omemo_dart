@@ -37,8 +37,8 @@
 - Every decryption failure now causes the ratchet to be restored to a pre-decryption state
 - Add method to get the device's fingerprint
 
-## 1.0.0
+## 0.4.0
 
-- [Breaking] Replace `OmemoSessionManager` with `OmemoManager`
-- Implement queued access to the ratchets inside the `OmemoManager`
-- Implement heartbeat messages
+- Deprecate `OmemoSessionManager`. Use `OmemoManager` instead.
+- Implement queued access to the ratchets inside the `OmemoManager`.
+- Implement heartbeat messages.
