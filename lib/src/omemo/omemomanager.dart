@@ -28,6 +28,12 @@ import 'package:omemo_dart/src/trust/base.dart';
 import 'package:omemo_dart/src/x3dh/x3dh.dart';
 import 'package:synchronized/synchronized.dart';
 
+class _InternalDecryptionResult {
+  const _InternalDecryptionResult(this.ratchetCreated, this.payload);
+  final bool ratchetCreated;
+  final String? payload;
+}
+
 class OmemoManager {
   OmemoManager(
     this._device,
@@ -246,7 +252,7 @@ class OmemoManager {
   /// element, then [ciphertext] must be set to null. In this case, this function
   /// will return null as there is no message to be decrypted. This, however, is used
   /// to set up sessions or advance the ratchets.
-  Future<String?> _decryptMessage(List<int>? ciphertext, String senderJid, int senderDeviceId, List<EncryptedKey> keys, int timestamp) async {
+  Future<_InternalDecryptionResult> _decryptMessage(List<int>? ciphertext, String senderJid, int senderDeviceId, List<EncryptedKey> keys, int timestamp) async {
     // Try to find a session we can decrypt with.
     var device = await getDevice();
     final rawKey = keys.firstWhereOrNull((key) => key.rid == device.id);
@@ -260,6 +266,7 @@ class OmemoManager {
     OmemoAuthenticatedMessage authMessage;
     OmemoDoubleRatchet? oldRatchet;
     OmemoMessage? message;
+    var ratchetCreated = false;
     if (rawKey.kex) {
       // If the ratchet already existed, we store it. If it didn't, oldRatchet will stay
       // null.
@@ -294,7 +301,10 @@ class OmemoManager {
             decrypted,
           );
           _addSession(senderJid, senderDeviceId, oldRatchet);
-          return plaintext;
+          return _InternalDecryptionResult(
+            true,
+            plaintext,
+          );
         } catch (_) {
           _log.finest('Failed to use old ratchet with KEX for existing ratchet');
         }
@@ -303,6 +313,7 @@ class OmemoManager {
       final r = await _addSessionFromKeyExchange(senderJid, senderDeviceId, kex);
       await _trustManager.onNewSession(senderJid, senderDeviceId);
       _addSession(senderJid, senderDeviceId, r);
+      ratchetCreated = true;
 
       // Replace the OPK
       // TODO(PapaTutuWawa): Replace the OPK when we know that the KEX worked
@@ -348,7 +359,10 @@ class OmemoManager {
     );
 
     try {
-      return _decryptAndVerifyHmac(ciphertext, keyAndHmac);
+      return _InternalDecryptionResult(
+        ratchetCreated,
+        await _decryptAndVerifyHmac(ciphertext, keyAndHmac),
+      );
     } catch (_) { 
       _restoreRatchet(ratchetKey, oldRatchet);
       rethrow;
@@ -519,10 +533,9 @@ class OmemoManager {
     await _enterRatchetCriticalSection(stanza.bareSenderJid);
 
     final ratchetKey = RatchetMapKey(stanza.bareSenderJid, stanza.senderDeviceId);
-    final ratchetCreated = !_ratchetMap.containsKey(ratchetKey);
-    String? payload;
+    final _InternalDecryptionResult result;
     try {
-      payload = await _decryptMessage(
+      result = await _decryptMessage(
         base64.decode(stanza.payload),
         stanza.bareSenderJid,
         stanza.senderDeviceId,
@@ -541,7 +554,32 @@ class OmemoManager {
     final ratchet = _getRatchet(ratchetKey);
     assert(ratchet != null, 'We decrypted the message, so the ratchet must exist');
 
-    if (ratchet!.nr > 53) {
+    if (ratchet!.acknowledged) {
+      // Ratchet is acknowledged
+      if (ratchet.nr > 53 || result.ratchetCreated) {
+        await sendEmptyOmemoMessage(
+          await _encryptToJids(
+            [stanza.bareSenderJid],
+            null,
+          ),
+          stanza.bareSenderJid,
+        );
+      }
+
+      // Ratchet is acked
+      await _leaveRatchetCriticalSection(stanza.bareSenderJid);
+      return DecryptionResult(
+        result.payload,
+        null,
+      );
+    } else {
+      // Ratchet is not acked.
+      // Mark as acked and send an empty OMEMO message.
+      await ratchetAcknowledged(
+        stanza.bareSenderJid,
+        stanza.senderDeviceId,
+        enterCriticalSection: false,
+      );
       await sendEmptyOmemoMessage(
         await _encryptToJids(
           [stanza.bareSenderJid],
@@ -549,36 +587,13 @@ class OmemoManager {
         ),
         stanza.bareSenderJid,
       );
-    }
-    
-    // Ratchet is acked
-    if (!ratchetCreated && ratchet.acknowledged) {
+
       await _leaveRatchetCriticalSection(stanza.bareSenderJid);
       return DecryptionResult(
-        payload,
+        result.payload,
         null,
       );
     }
-
-    // Ratchet is not acked. Mark as acked and send an empty OMEMO message.
-    await ratchetAcknowledged(
-      stanza.bareSenderJid,
-      stanza.senderDeviceId,
-      enterCriticalSection: false,
-    );
-    await sendEmptyOmemoMessage(
-      await _encryptToJids(
-        [stanza.bareSenderJid],
-        null,
-      ),
-      stanza.bareSenderJid,
-    );
-
-    await _leaveRatchetCriticalSection(stanza.bareSenderJid);
-    return DecryptionResult(
-      payload,
-      null,
-    );
   }
 
   /// Call when sending out an encrypted stanza. Will handle everything and

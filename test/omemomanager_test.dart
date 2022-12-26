@@ -71,9 +71,10 @@ void main() {
       ),
     );
 
+    expect(bobResult.payload, 'Hello world');
+    expect(bobResult.error, null);
     expect(aliceEmptyMessageSent, 0);
     expect(bobEmptyMessageSent, 1);
-    expect(bobResult.payload, 'Hello world');
 
     // Alice receives the ack message
     await aliceManager.ratchetAcknowledged(
