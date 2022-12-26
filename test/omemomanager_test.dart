@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:logging/logging.dart';
 import 'package:omemo_dart/omemo_dart.dart';
-import 'package:omemo_dart/src/omemo/omemomanager.dart' as omemo;
 import 'package:omemo_dart/src/trust/always.dart';
 import 'package:test/test.dart';
 
@@ -22,7 +21,7 @@ void main() {
     final aliceDevice = await Device.generateNewDevice(aliceJid, opkAmount: 1);
     final bobDevice = await Device.generateNewDevice(bobJid, opkAmount: 1);
 
-    final aliceManager = omemo.OmemoManager(
+    final aliceManager = OmemoManager(
       aliceDevice,
       AlwaysTrustingTrustManager(),
       (result, recipientJid) async {
@@ -37,7 +36,7 @@ void main() {
         return bobDevice.toBundle();
       },
     );
-    final bobManager = omemo.OmemoManager(
+    final bobManager = OmemoManager(
       bobDevice,
       AlwaysTrustingTrustManager(),
       (result, recipientJid) async {
@@ -114,7 +113,7 @@ void main() {
     final aliceDevice = await Device.generateNewDevice(aliceJid, opkAmount: 1);
     final bobDevice = await Device.generateNewDevice(bobJid, opkAmount: 1);
 
-    final aliceManager = omemo.OmemoManager(
+    final aliceManager = OmemoManager(
       aliceDevice,
       AlwaysTrustingTrustManager(),
       (result, recipientJid) async {
@@ -129,7 +128,7 @@ void main() {
         return bobDevice.toBundle();
       },
     );
-    final bobManager = omemo.OmemoManager(
+    final bobManager = OmemoManager(
       bobDevice,
       AlwaysTrustingTrustManager(),
       (result, recipientJid) async {
@@ -223,7 +222,7 @@ void main() {
     const bobJid = 'bob@server2';
     final aliceDevice = await Device.generateNewDevice(aliceJid, opkAmount: 1);
 
-    final aliceManager = omemo.OmemoManager(
+    final aliceManager = OmemoManager(
       aliceDevice,
       AlwaysTrustingTrustManager(),
       (result, recipientJid) async {},
@@ -253,7 +252,7 @@ void main() {
     final bobOldDevice = await Device.generateNewDevice(bobJid, opkAmount: 1);
     final bobCurrentDevice = await Device.generateNewDevice(bobJid, opkAmount: 1);
 
-    final aliceManager = omemo.OmemoManager(
+    final aliceManager = OmemoManager(
       aliceDevice,
       AlwaysTrustingTrustManager(),
       (result, recipientJid) async {},
@@ -271,7 +270,7 @@ void main() {
           bobCurrentDevice.toBundle();
       },
     );
-    final bobManager = omemo.OmemoManager(
+    final bobManager = OmemoManager(
       bobCurrentDevice,
       AlwaysTrustingTrustManager(),
       (result, recipientJid) async {},
@@ -335,7 +334,7 @@ void main() {
     final bobDevice1 = await Device.generateNewDevice(bobJid, opkAmount: 1);
     final bobDevice2 = await Device.generateNewDevice(bobJid, opkAmount: 1);
 
-    final aliceManager = omemo.OmemoManager(
+    final aliceManager = OmemoManager(
       aliceDevice,
       AlwaysTrustingTrustManager(),
       (result, recipientJid) async {},
@@ -365,14 +364,14 @@ void main() {
         return null;
       },
     );
-    final bobManager1 = omemo.OmemoManager(
+    final bobManager1 = OmemoManager(
       bobDevice1,
       AlwaysTrustingTrustManager(),
       (result, recipientJid) async {},
       (jid) async => [],
       (jid, id) async => null,
     );
-    final bobManager2 = omemo.OmemoManager(
+    final bobManager2 = OmemoManager(
       bobDevice2,
       AlwaysTrustingTrustManager(),
       (result, recipientJid) async {},
@@ -440,7 +439,7 @@ void main() {
     final bobDevice1 = await Device.generateNewDevice(bobJid, opkAmount: 1);
     final bobDevice2 = await Device.generateNewDevice(bobJid, opkAmount: 1);
 
-    final aliceManager = omemo.OmemoManager(
+    final aliceManager = OmemoManager(
       aliceDevice,
       AlwaysTrustingTrustManager(),
       (result, recipientJid) async {},
@@ -470,14 +469,14 @@ void main() {
         return null;
       },
     );
-    final bobManager1 = omemo.OmemoManager(
+    final bobManager1 = OmemoManager(
       bobDevice1,
       AlwaysTrustingTrustManager(),
       (result, recipientJid) async {},
       (jid) async => null,
       (jid, id) async => null,
     );
-    final bobManager2 = omemo.OmemoManager(
+    final bobManager2 = OmemoManager(
       bobDevice2,
       AlwaysTrustingTrustManager(),
       (result, recipientJid) async {},
