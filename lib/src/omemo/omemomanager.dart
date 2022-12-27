@@ -435,10 +435,10 @@ class OmemoManager {
       keyPayload = List<int>.filled(32, 0x0);
     }
 
-    final kex = <int, OmemoKeyExchange>{};
+    final kex = <RatchetMapKey, OmemoKeyExchange>{};
     for (final jid in jids) {
       for (final newSession in await _fetchNewBundles(jid)) {
-        kex[newSession.id] = await addSessionFromBundle(
+        kex[RatchetMapKey(jid, newSession.id)] = await addSessionFromBundle(
           newSession.jid,
           newSession.id,
           newSession,
@@ -477,9 +477,9 @@ class OmemoManager {
 
         final ciphertext = (await ratchet.ratchetEncrypt(keyPayload)).ciphertext;
  
-        if (kex.isNotEmpty && kex.containsKey(deviceId)) {
+        if (kex.containsKey(ratchetKey)) {
           // The ratchet did not exist
-          final k = kex[deviceId]!
+          final k = kex[ratchetKey]!
             ..message = OmemoAuthenticatedMessage.fromBuffer(ciphertext);
           final buffer = base64.encode(k.writeToBuffer());
           encryptedKeys.add(
@@ -497,7 +497,7 @@ class OmemoManager {
           // The ratchet exists but is not acked
           if (ratchet.kex != null) {
             final oldKex = OmemoKeyExchange.fromBuffer(base64.decode(ratchet.kex!))
-            ..message = OmemoAuthenticatedMessage.fromBuffer(ciphertext);
+              ..message = OmemoAuthenticatedMessage.fromBuffer(ciphertext);
             
             encryptedKeys.add(
               EncryptedKey(
@@ -656,7 +656,7 @@ class OmemoManager {
   Future<Device> getDevice() => _deviceLock.synchronized(() => _device);
 
   /// Returns the id of the device used for encryption and decryption.
-  Future<int> getDeviceId() => (await getDevice()).id;
+  Future<int> getDeviceId() async => (await getDevice()).id;
 
   /// Returns the fingerprints for all devices of [jid] that we have a session with.
   /// If there are not sessions with [jid], then returns null.
