@@ -44,3 +44,11 @@ class InvalidKeyExchangeException extends OmemoException implements Exception {
 class MessageAlreadyDecryptedException extends OmemoException implements Exception {
   String errMsg() => 'The message has already been decrypted';
 }
+
+/// Triggered by the OmemoManager when we could not encrypt a message as we have
+/// no key material available. That happens, for example, when we want to create a
+/// ratchet session with a JID we had no session with but fetching the device bundle
+/// failed.
+class NoKeyMaterialAvailableException extends OmemoException implements Exception {
+  String errMsg() => 'No key material available to create a ratchet session with';
+}
