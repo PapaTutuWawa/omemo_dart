@@ -839,4 +839,84 @@ void main() {
 
     expect(bobResult.payload, 'Hello Bob and Coco!');
   });
+
+  test('Test sending multiple messages back and forth', () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+
+    final aliceDevice = await Device.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice = await Device.generateNewDevice(bobJid, opkAmount: 1);
+
+    final aliceManager = OmemoManager(
+      aliceDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, bobJid);
+
+        return [bobDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+
+        return bobDevice.toBundle();
+      },
+    );
+    final bobManager = OmemoManager(
+      bobDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async => null,
+      (jid, id) async => null,
+    );
+
+    // Alice encrypts a message for Bob
+    final aliceMessage = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello Bob!',
+      ),
+    );
+
+    // And Bob decrypts it
+    await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        DateTime.now().millisecondsSinceEpoch,
+        aliceMessage!.encryptedKeys,
+        base64.encode(aliceMessage.ciphertext!),
+      ),
+
+    );
+
+    // Ratchets are acked
+    await aliceManager.ratchetAcknowledged(
+      bobJid,
+      bobDevice.id,
+    );
+    
+    for (var i = 0; i < 100; i++) {
+      final messageText = 'Test Message #$i';
+      // Bob responds to Alice
+      final bobResponseMessage = await bobManager.onOutgoingStanza(
+        OmemoOutgoingStanza(
+          [aliceJid],
+          messageText,
+        ),
+      );
+      expect(bobResponseMessage!.isSuccess(1), true);
+      
+      final aliceReceivedMessage = await aliceManager.onIncomingStanza(
+        OmemoIncomingStanza(
+          bobJid,
+          bobDevice.id,
+          DateTime.now().millisecondsSinceEpoch,
+          bobResponseMessage.encryptedKeys,
+          base64.encode(bobResponseMessage.ciphertext!),
+        ),
+      );
+      expect(aliceReceivedMessage.payload, messageText);
+    }
+  });
 }
