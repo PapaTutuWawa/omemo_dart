@@ -398,7 +398,10 @@ class OmemoManager {
         .toList();
     }
 
-    _log.finest('Fetching bundles $bundlesToFetch for $jid');
+    if (bundlesToFetch.isNotEmpty) {
+      _log.finest('Fetching bundles $bundlesToFetch for $jid');
+    }
+    
     final newBundles = List<OmemoBundle>.empty(growable: true);
     for (final id in bundlesToFetch) {
       final bundle = await fetchDeviceBundle(jid, id);
