@@ -447,8 +447,17 @@ class OmemoManager {
     }
 
     // We assume that the user already checked if the session exists
+    final deviceEncryptionErrors = <RatchetMapKey, OmemoException>{};
+    final jidEncryptionErrors = <String, OmemoException>{};
     for (final jid in jids) {
-      for (final deviceId in _deviceList[jid]!) {
+      final devices = _deviceList[jid];
+      if (devices == null) {
+        _log.severe('Device list does not exist for $jid.');
+        jidEncryptionErrors[jid] = NoKeyMaterialAvailableException();
+        continue;
+      }
+
+      for (final deviceId in devices) {
         // Empty OMEMO messages are allowed to bypass trust
         if (plaintext != null) {
           // Only encrypt to devices that are trusted
@@ -459,7 +468,13 @@ class OmemoManager {
         }
 
         final ratchetKey = RatchetMapKey(jid, deviceId);
-        var ratchet = _ratchetMap[ratchetKey]!;
+        var ratchet = _ratchetMap[ratchetKey];
+        if (ratchet == null) {
+          _log.severe('Ratchet ${ratchetKey.toJsonKey()} does not exist.');
+          deviceEncryptionErrors[ratchetKey] = NoKeyMaterialAvailableException();
+          continue;
+        }
+
         final ciphertext = (await ratchet.ratchetEncrypt(keyPayload)).ciphertext;
  
         if (kex.isNotEmpty && kex.containsKey(deviceId)) {
@@ -522,8 +537,11 @@ class OmemoManager {
     }
 
     return EncryptionResult(
-      plaintext != null ? ciphertext : null,
+      plaintext != null ?
+        ciphertext : null,
       encryptedKeys,
+      deviceEncryptionErrors,
+      jidEncryptionErrors,
     );
   }
 

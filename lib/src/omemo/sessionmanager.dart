@@ -329,6 +329,8 @@ class OmemoSessionManager {
     return EncryptionResult(
       plaintext != null ? ciphertext : null,
       encryptedKeys,
+      const <RatchetMapKey, OmemoException>{},
+      const <String, OmemoException>{},
     );
   }
 
