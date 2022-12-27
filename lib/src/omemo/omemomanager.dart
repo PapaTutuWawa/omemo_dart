@@ -655,6 +655,9 @@ class OmemoManager {
   /// Returns the device used for encryption and decryption.
   Future<Device> getDevice() => _deviceLock.synchronized(() => _device);
 
+  /// Returns the id of the device used for encryption and decryption.
+  Future<int> getDeviceId() => (await getDevice()).id;
+
   /// Returns the fingerprints for all devices of [jid] that we have a session with.
   /// If there are not sessions with [jid], then returns null.
   Future<List<DeviceFingerprint>?> getFingerprintsForJid(String jid) async {
