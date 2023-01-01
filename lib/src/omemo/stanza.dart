@@ -23,7 +23,7 @@ class OmemoIncomingStanza {
   final List<EncryptedKey> keys;
 
   /// The string payload included in the <encrypted /> element.
-  final String payload;
+  final String? payload;
 }
 
 /// Describes a stanza that is to be sent out

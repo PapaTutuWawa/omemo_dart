@@ -14,7 +14,7 @@ void main() {
 
   test('Test replacing a onetime prekey', () async {
     const aliceJid = 'alice@server.example';
-    final device = await Device.generateNewDevice(aliceJid, opkAmount: 1);
+    final device = await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
 
     final newDevice = await device.replaceOnetimePrekey(0);
 
@@ -327,7 +327,7 @@ void main() {
 
     // Setup an event listener
     final oldDevice = await aliceSession.getDevice();
-    Device? newDevice;
+    OmemoDevice? newDevice;
     aliceSession.eventStream.listen((event) {
       if (event is DeviceModifiedEvent) {
         newDevice = event.device;

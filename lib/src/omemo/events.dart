@@ -31,5 +31,5 @@ class DeviceListModifiedEvent extends OmemoEvent {
 /// and thus should be republished.
 class DeviceModifiedEvent extends OmemoEvent {
   DeviceModifiedEvent(this.device);
-  final Device device;
+  final OmemoDevice device;
 }

@@ -18,7 +18,7 @@ void main() {
     final oldDevice = await oldSession.getDevice();
     final serialised = jsonify(await oldDevice.toJson());
 
-    final newDevice = Device.fromJson(serialised);
+    final newDevice = OmemoDevice.fromJson(serialised);
     expect(await oldDevice.equals(newDevice), true);
   });
 
@@ -32,7 +32,7 @@ void main() {
     final oldDevice = await (await oldSession.getDevice()).replaceSignedPrekey();
     final serialised = jsonify(await oldDevice.toJson());
 
-    final newDevice = Device.fromJson(serialised);
+    final newDevice = OmemoDevice.fromJson(serialised);
     expect(await oldDevice.equals(newDevice), true);
   });
   

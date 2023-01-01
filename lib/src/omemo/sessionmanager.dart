@@ -45,7 +45,7 @@ class OmemoSessionManager {
     // NOTE: Dart has some issues with just casting a List<dynamic> to List<Map<...>>, as
     //       such we need to convert the items by hand.
     return OmemoSessionManager(
-      Device.fromJson(data['device']! as Map<String, dynamic>),
+      OmemoDevice.fromJson(data['device']! as Map<String, dynamic>),
       (data['devices']! as Map<String, dynamic>).map<String, List<int>>(
         (key, value) {
           return MapEntry(
@@ -62,7 +62,7 @@ class OmemoSessionManager {
   /// Generate a new cryptographic identity.
   static Future<OmemoSessionManager> generateNewIdentity(String jid, TrustManager trustManager, { int opkAmount = 100 }) async {
     assert(opkAmount > 0, 'opkAmount must be bigger than 0.');
-    final device = await Device.generateNewDevice(jid, opkAmount: opkAmount);
+    final device = await OmemoDevice.generateNewDevice(jid, opkAmount: opkAmount);
 
     return OmemoSessionManager(device, {}, {}, trustManager);
   }
@@ -84,7 +84,7 @@ class OmemoSessionManager {
   
   /// Our own keys...
   // ignore: prefer_final_fields
-  Device _device;
+  OmemoDevice _device;
   /// and its lock
   final Lock _deviceLock;
 
@@ -96,7 +96,7 @@ class OmemoSessionManager {
   Stream<OmemoEvent> get eventStream => _eventStreamController.stream;
 
   /// Returns our own device.
-  Future<Device> getDevice() async {
+  Future<OmemoDevice> getDevice() async {
     return _deviceLock.synchronized(() => _device);
   }
 
@@ -625,7 +625,7 @@ class OmemoSessionManager {
   /// identity. Triggers an event to commit it to storage.
   Future<void> regenerateDevice({ int opkAmount = 100 }) async {
     await _deviceLock.synchronized(() async {
-      _device = await Device.generateNewDevice(_device.jid, opkAmount: opkAmount);
+      _device = await OmemoDevice.generateNewDevice(_device.jid, opkAmount: opkAmount);
 
       // Commit it
       _eventStreamController.add(DeviceModifiedEvent(_device));

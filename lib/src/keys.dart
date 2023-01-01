@@ -9,7 +9,6 @@ const privateKeyLength = 32;
 const publicKeyLength = 32;
 
 class OmemoPublicKey {
-
   const OmemoPublicKey(this._pubkey);
 
   factory OmemoPublicKey.fromBytes(List<int> bytes, KeyPairType type) {
@@ -55,7 +54,6 @@ class OmemoPublicKey {
 }
 
 class OmemoPrivateKey {
-
   const OmemoPrivateKey(this._privkey, this.type);
   final List<int> _privkey;
   final KeyPairType type;
@@ -85,7 +83,6 @@ class OmemoPrivateKey {
 
 /// A generic wrapper class for both Ed25519 and X25519 keypairs
 class OmemoKeyPair {
-
   const OmemoKeyPair(this.pk, this.sk, this.type);
 
   /// Create an OmemoKeyPair just from a [type] and the bytes of the private and public

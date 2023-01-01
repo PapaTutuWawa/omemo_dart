@@ -38,9 +38,10 @@ class OmemoManager {
   OmemoManager(
     this._device,
     this._trustManager,
-    this.sendEmptyOmemoMessage,
-    this.fetchDeviceList,
-    this.fetchDeviceBundle,
+    this.sendEmptyOmemoMessageImpl,
+    this.fetchDeviceListImpl,
+    this.fetchDeviceBundleImpl,
+    this.subscribeToDeviceListNodeImpl,
   );
 
   final Logger _log = Logger('OmemoManager');
@@ -49,14 +50,17 @@ class OmemoManager {
 
   /// Send an empty OMEMO:2 message using the encrypted payload @result to
   /// @recipientJid.
-  final Future<void> Function(EncryptionResult result, String recipientJid) sendEmptyOmemoMessage;
+  final Future<void> Function(EncryptionResult result, String recipientJid) sendEmptyOmemoMessageImpl;
 
   /// Fetch the list of device ids associated with @jid. If the device list cannot be
   /// fetched, return null.
-  final Future<List<int>?> Function(String jid) fetchDeviceList;
+  final Future<List<int>?> Function(String jid) fetchDeviceListImpl;
 
   /// Fetch the device bundle for the device with id @id of jid. If it cannot be fetched, return null.
-  final Future<OmemoBundle?> Function(String jid, int id) fetchDeviceBundle;
+  final Future<OmemoBundle?> Function(String jid, int id) fetchDeviceBundleImpl;
+
+  /// Subscribe to the device list PEP node of @jid.
+  final Future<void> Function(String jid) subscribeToDeviceListNodeImpl;
   
   /// Map bare JID to its known devices
   Map<String, List<int>> _deviceList = {};
@@ -65,6 +69,8 @@ class OmemoManager {
   /// Map bare a ratchet key to its ratchet. Note that this is also locked by
   /// _ratchetCriticalSectionLock.
   Map<RatchetMapKey, OmemoDoubleRatchet> _ratchetMap = {};
+  /// Map bare JID to whether we already tried to subscribe to the device list node.
+  final Map<String, bool> _subscriptionMap = {};
   /// For preventing a race condition in encryption/decryption
   final Map<String, Queue<Completer<void>>> _ratchetCriticalSectionQueue = {};
   final Lock _ratchetCriticalSectionLock = Lock();
@@ -76,10 +82,11 @@ class OmemoManager {
   /// Our own keys...
   final Lock _deviceLock = Lock();
   // ignore: prefer_final_fields
-  Device _device;
+  OmemoDevice _device;
   
   /// The event bus of the session manager
   final StreamController<OmemoEvent> _eventStreamController = StreamController<OmemoEvent>.broadcast();
+  Stream<OmemoEvent> get eventStream => _eventStreamController.stream;
 
   /// Enter the critical section for performing cryptographic operations on the ratchets
   Future<void> _enterRatchetCriticalSection(String jid) async {
@@ -379,7 +386,7 @@ class OmemoManager {
     List<int> bundlesToFetch;
     if (!_deviceListRequested.containsKey(jid) || !_deviceList.containsKey(jid)) {
       // We don't have an up-to-date version of the device list
-      final newDeviceList = await fetchDeviceList(jid);
+      final newDeviceList = await fetchDeviceListImpl(jid);
       if (newDeviceList == null) return [];
 
       _deviceList[jid] = newDeviceList;
@@ -404,7 +411,7 @@ class OmemoManager {
     
     final newBundles = List<OmemoBundle>.empty(growable: true);
     for (final id in bundlesToFetch) {
-      final bundle = await fetchDeviceBundle(jid, id);
+      final bundle = await fetchDeviceBundleImpl(jid, id);
       if (bundle != null) newBundles.add(bundle);
     }
 
@@ -458,6 +465,11 @@ class OmemoManager {
         _log.severe('Device list does not exist for $jid.');
         jidEncryptionErrors[jid] = NoKeyMaterialAvailableException();
         continue;
+      }
+
+      if (!_subscriptionMap.containsKey(jid)) {
+        unawaited(subscribeToDeviceListNodeImpl(jid));
+        _subscriptionMap[jid] = true;
       }
 
       for (final deviceId in devices) {
@@ -553,11 +565,18 @@ class OmemoManager {
   Future<DecryptionResult> onIncomingStanza(OmemoIncomingStanza stanza) async {
     await _enterRatchetCriticalSection(stanza.bareSenderJid);
 
+    if (!_subscriptionMap.containsKey(stanza.bareSenderJid)) {
+      unawaited(subscribeToDeviceListNodeImpl(stanza.bareSenderJid));
+      _subscriptionMap[stanza.bareSenderJid] = true;
+    }
+    
     final ratchetKey = RatchetMapKey(stanza.bareSenderJid, stanza.senderDeviceId);
     final _InternalDecryptionResult result;
     try {
       result = await _decryptMessage(
-        base64.decode(stanza.payload),
+        stanza.payload != null ?
+          base64.decode(stanza.payload!) :
+          null,
         stanza.bareSenderJid,
         stanza.senderDeviceId,
         stanza.keys,
@@ -578,7 +597,7 @@ class OmemoManager {
     if (ratchet!.acknowledged) {
       // Ratchet is acknowledged
       if (ratchet.nr > 53 || result.ratchetCreated) {
-        await sendEmptyOmemoMessage(
+        await sendEmptyOmemoMessageImpl(
           await _encryptToJids(
             [stanza.bareSenderJid],
             null,
@@ -601,7 +620,7 @@ class OmemoManager {
         stanza.senderDeviceId,
         enterCriticalSection: false,
       );
-      await sendEmptyOmemoMessage(
+      await sendEmptyOmemoMessageImpl(
         await _encryptToJids(
           [stanza.bareSenderJid],
           null,
@@ -619,11 +638,29 @@ class OmemoManager {
 
   /// Call when sending out an encrypted stanza. Will handle everything and
   /// encrypt it.
-  Future<EncryptionResult?> onOutgoingStanza(OmemoOutgoingStanza stanza) async {
-    return _encryptToJids(
+  Future<EncryptionResult> onOutgoingStanza(OmemoOutgoingStanza stanza) async {
+    _log.finest('Waiting to enter critical section');
+    await _enterRatchetCriticalSection(stanza.recipientJids.first);
+    _log.finest('Entered critical section');
+
+    final result = _encryptToJids(
       stanza.recipientJids,
       stanza.payload,
     );
+
+    await _leaveRatchetCriticalSection(stanza.recipientJids.first);
+
+    return result;
+  }
+
+  // Sends a hearbeat message as specified by XEP-0384 to [jid].
+  Future<void> sendOmemoHeartbeat(String jid) async {
+    // TODO(Unknown): Include some error handling
+    final result = await _encryptToJids(
+      [jid],
+      null,
+    );
+    await sendEmptyOmemoMessageImpl(result, jid);
   }
   
   /// Mark the ratchet for device [deviceId] from [jid] as acked.
@@ -646,9 +683,9 @@ class OmemoManager {
 
   /// Generates an entirely new device. May be useful when the user wants to reset their cryptographic
   /// identity. Triggers an event to commit it to storage.
-  Future<void> regenerateDevice({ int opkAmount = 100 }) async {
+  Future<void> regenerateDevice() async {
     await _deviceLock.synchronized(() async {
-      _device = await Device.generateNewDevice(_device.jid, opkAmount: opkAmount);
+      _device = await OmemoDevice.generateNewDevice(_device.jid);
 
       // Commit it
       _eventStreamController.add(DeviceModifiedEvent(_device));
@@ -656,11 +693,17 @@ class OmemoManager {
   }
   
   /// Returns the device used for encryption and decryption.
-  Future<Device> getDevice() => _deviceLock.synchronized(() => _device);
+  Future<OmemoDevice> getDevice() => _deviceLock.synchronized(() => _device);
 
   /// Returns the id of the device used for encryption and decryption.
   Future<int> getDeviceId() async => (await getDevice()).id;
 
+  /// Directly aquire the current device as a OMEMO device bundle.
+  Future<OmemoBundle> getDeviceBundle() async => (await getDevice()).toBundle();
+
+  /// Directly aquire the current device's fingerprint.
+  Future<String> getDeviceFingerprint() async => (await getDevice()).getFingerprint();
+  
   /// Returns the fingerprints for all devices of [jid] that we have a session with.
   /// If there are not sessions with [jid], then returns null.
   Future<List<DeviceFingerprint>?> getFingerprintsForJid(String jid) async {
@@ -674,10 +717,11 @@ class OmemoManager {
 
     final fingerprints = List<DeviceFingerprint>.empty(growable: true);
     for (final key in fingerprintKeys) {
+      final curveKey = await _ratchetMap[key]!.ik.toCurve25519();
       fingerprints.add(
         DeviceFingerprint(
           key.deviceId,
-          HEX.encode(await _ratchetMap[key]!.ik.getBytes()),
+          HEX.encode(await curveKey.getBytes()),
         ),
       );
     }
@@ -689,6 +733,7 @@ class OmemoManager {
   /// Ensures that the device list is fetched again on the next message sending.
   void onNewConnection() {
     _deviceListRequested.clear();
+    _subscriptionMap.clear();
   }
 
   /// Sets the device list for [jid] to [devices]. Triggers a DeviceListModifiedEvent.
@@ -703,5 +748,36 @@ class OmemoManager {
   void initialize(Map<RatchetMapKey, OmemoDoubleRatchet> ratchetMap, Map<String, List<int>> deviceList) {
     _deviceList = deviceList;
     _ratchetMap = ratchetMap;
+  }
+
+  /// Removes all ratchets for JID [jid]. This also removes all trust decisions for
+  /// [jid] from the trust manager. This function triggers a RatchetRemovedEvent for
+  /// every removed ratchet and a DeviceListModifiedEvent afterwards. Behaviour for
+  /// the trust manager is dependent on its implementation.
+  Future<void> removeAllRatchets(String jid) async {
+    await _enterRatchetCriticalSection(jid);
+
+    for (final deviceId in _deviceList[jid]!) {
+      // Remove the ratchet and commit it
+      _ratchetMap.remove(jid);
+      _eventStreamController.add(RatchetRemovedEvent(jid, deviceId));
+    }
+
+    // Remove the devices from the device list cache and commit it
+    _deviceList.remove(jid);
+    _deviceListRequested.remove(jid);
+    _eventStreamController.add(DeviceListModifiedEvent(_deviceList));
+
+    // Remove trust decisions
+    await _trustManager.removeTrustDecisionsForJid(jid);
+    
+    await _leaveRatchetCriticalSection(jid);
+  }
+
+  /// Replaces the internal device with [newDevice]. Does not trigger an event.
+  Future<void> replaceDevice(OmemoDevice newDevice) async {
+    await _deviceLock.synchronized(() {
+      _device = newDevice;
+    });
   }
 }
