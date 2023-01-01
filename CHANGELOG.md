@@ -9,7 +9,6 @@
 
 - Fix bug with the Double Ratchet causing only the initial message to be decryptable
 - Expose `getDeviceMap` as a developer usable function
-
 ## 0.2.0
 
 - Add convenience functions `getDeviceId` and `getDeviceBundle`
@@ -42,3 +41,4 @@
 - Deprecate `OmemoSessionManager`. Use `OmemoManager` instead.
 - Implement queued access to the ratchets inside the `OmemoManager`.
 - Implement heartbeat messages.
+- [BREAKING] Rename `Device` to `OmemoDevice`.
