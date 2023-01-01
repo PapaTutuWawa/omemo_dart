@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:cryptography/cryptography.dart';
+import 'package:hex/hex.dart';
 import 'package:meta/meta.dart';
 import 'package:omemo_dart/src/helpers.dart';
 import 'package:omemo_dart/src/keys.dart';
@@ -8,9 +9,8 @@ import 'package:omemo_dart/src/x3dh/x3dh.dart';
 
 /// This class represents an OmemoBundle but with all keypairs belonging to the keys
 @immutable
-class Device {
-
-  const Device(
+class OmemoDevice {
+  const OmemoDevice(
     this.jid,
     this.id,
     this.ik,
@@ -23,7 +23,7 @@ class Device {
   );
 
   /// Deserialize the Device
-  factory Device.fromJson(Map<String, dynamic> data) {
+  factory OmemoDevice.fromJson(Map<String, dynamic> data) {
     // NOTE: We use the way OpenSSH names their keys, meaning that ik is the Identity
     //       Keypair's private key, while ik_pub refers to the Identity Keypair's public
     //       key.
@@ -67,7 +67,7 @@ class Device {
       ),
     );
 
-    return Device(
+    return OmemoDevice(
       data['jid']! as String,
       data['id']! as int,
       OmemoKeyPair.fromBytes(
@@ -93,7 +93,7 @@ class Device {
   }
   
   /// Generate a completely new device, i.e. cryptographic identity.
-  static Future<Device> generateNewDevice(String jid, { int opkAmount = 100 }) async {
+  static Future<OmemoDevice> generateNewDevice(String jid, { int opkAmount = 100 }) async {
     final id = generateRandom32BitNumber();
     final ik = await OmemoKeyPair.generateNewPair(KeyPairType.ed25519);
     final spk = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
@@ -105,7 +105,7 @@ class Device {
       opks[i] = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     }
 
-    return Device(jid, id, ik, spk, spkId, signature, null, null, opks);
+    return OmemoDevice(jid, id, ik, spk, spkId, signature, null, null, opks);
   }
 
   /// Our bare Jid
@@ -135,10 +135,10 @@ class Device {
   /// This replaces the Onetime-Prekey with id [id] with a completely new one. Returns
   /// a new Device object that copies over everything but replaces said key.
   @internal
-  Future<Device> replaceOnetimePrekey(int id) async {
+  Future<OmemoDevice> replaceOnetimePrekey(int id) async {
     opks[id] = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     
-    return Device(
+    return OmemoDevice(
       jid,
       this.id,
       ik,
@@ -154,12 +154,12 @@ class Device {
   /// This replaces the Signed-Prekey with a completely new one. Returns a new Device object
   /// that copies over everything but replaces the Signed-Prekey and its signature.
   @internal
-  Future<Device> replaceSignedPrekey() async {
+  Future<OmemoDevice> replaceSignedPrekey() async {
     final newSpk = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     final newSpkId = generateRandom32BitNumber();
     final newSignature = await sig(ik, await newSpk.pk.getBytes());
 
-    return Device(
+    return OmemoDevice(
       jid,
       id,
       ik,
@@ -175,8 +175,8 @@ class Device {
   /// Returns a new device that is equal to this one with the exception that the new
   /// device's id is a new number between 0 and 2**32 - 1.
   @internal
-  Device withNewId() {
-    return Device(
+  OmemoDevice withNewId() {
+    return OmemoDevice(
       jid,
       generateRandom32BitNumber(),
       ik,
@@ -208,6 +208,13 @@ class Device {
     );
   }
 
+  /// Returns the fingerprint of the current device
+  Future<String> getFingerprint() async {
+    // Since the local key is Ed25519, we must convert it to Curve25519 first
+    final curveKey = await ik.pk.toCurve25519();
+    return HEX.encode(await curveKey.getBytes());
+  }
+  
   /// Serialise the device information.
   Future<Map<String, dynamic>> toJson() async {
     /// Serialise the OPKs
@@ -237,7 +244,7 @@ class Device {
   }
 
   @visibleForTesting
-  Future<bool> equals(Device other) async {
+  Future<bool> equals(OmemoDevice other) async {
     var opksMatch = true;
     if (opks.length != other.opks.length) {
       opksMatch = false;

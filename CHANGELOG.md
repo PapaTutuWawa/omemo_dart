@@ -9,7 +9,6 @@
 
 - Fix bug with the Double Ratchet causing only the initial message to be decryptable
 - Expose `getDeviceMap` as a developer usable function
-
 ## 0.2.0
 
 - Add convenience functions `getDeviceId` and `getDeviceBundle`
@@ -36,3 +35,10 @@
 - Fix a bug that caused the device's id to change when replacing a OPK
 - Every decryption failure now causes the ratchet to be restored to a pre-decryption state
 - Add method to get the device's fingerprint
+
+## 0.4.0
+
+- Deprecate `OmemoSessionManager`. Use `OmemoManager` instead.
+- Implement queued access to the ratchets inside the `OmemoManager`.
+- Implement heartbeat messages.
+- [BREAKING] Rename `Device` to `OmemoDevice`.

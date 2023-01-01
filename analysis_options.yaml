@@ -10,3 +10,7 @@ linter:
 analyzer:
   exclude:
     - "lib/protobuf/*.dart"
+    # TODO: Remove once OmemoSessionManager is gone
+    - "test/omemo_test.dart"
+    - "example/omemo_dart_example.dart"
+    - "test/serialisation_test.dart"

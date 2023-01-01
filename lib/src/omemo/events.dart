@@ -22,14 +22,14 @@ class RatchetRemovedEvent extends OmemoEvent {
 }
 
 /// Triggered when the device map has been modified
-class DeviceMapModifiedEvent extends OmemoEvent {
-  DeviceMapModifiedEvent(this.map);
-  final Map<String, List<int>> map;
+class DeviceListModifiedEvent extends OmemoEvent {
+  DeviceListModifiedEvent(this.list);
+  final Map<String, List<int>> list;
 }
 
 /// Triggered by the OmemoSessionManager when our own device bundle was modified
 /// and thus should be republished.
 class DeviceModifiedEvent extends OmemoEvent {
   DeviceModifiedEvent(this.device);
-  final Device device;
+  final OmemoDevice device;
 }

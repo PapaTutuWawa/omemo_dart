@@ -211,6 +211,14 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
       ),
     );
   }
+
+  @override 
+  Future<void> removeTrustDecisionsForJid(String jid) async {
+    await _lock.synchronized(() async {
+      devices.remove(jid);
+      await commitState();
+    });
+  }
   
   /// Called when the state of the trust manager has been changed. Allows the user to
   /// commit the trust state to persistent storage.

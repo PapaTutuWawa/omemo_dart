@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:cryptography/cryptography.dart';
+import 'package:hex/hex.dart';
 import 'package:meta/meta.dart';
 import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/double_ratchet/crypto.dart';
@@ -13,7 +14,6 @@ import 'package:omemo_dart/src/protobuf/omemo_message.dart';
 const maxSkip = 1000;
 
 class RatchetStep {
-
   const RatchetStep(this.header, this.ciphertext);
   final OmemoMessage header;
   final List<int> ciphertext;
@@ -21,7 +21,6 @@ class RatchetStep {
 
 @immutable
 class SkippedKey {
-
   const SkippedKey(this.dh, this.n);
 
   factory SkippedKey.fromJson(Map<String, dynamic> data) {
@@ -54,7 +53,6 @@ class SkippedKey {
 }
 
 class OmemoDoubleRatchet {
-
   OmemoDoubleRatchet(
     this.dhs, // DHs
     this.dhr, // DHr
@@ -221,7 +219,7 @@ class OmemoDoubleRatchet {
       ik,
       ad,
       {},
-      false,
+      true,
       kexTimestamp,
       null,
     );
@@ -253,6 +251,12 @@ class OmemoDoubleRatchet {
       'kex_timestamp': kexTimestamp,
       'kex': kex,
     };
+  }
+
+  /// Returns the OMEMO compatible fingerprint of the ratchet session.
+  Future<String> getOmemoFingerprint() async {
+    final curveKey = await ik.toCurve25519();
+    return HEX.encode(await curveKey.getBytes());
   }
   
   Future<List<int>?> _trySkippedMessageKeys(OmemoMessage header, List<int> ciphertext) async {

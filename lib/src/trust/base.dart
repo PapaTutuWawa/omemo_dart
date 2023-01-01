@@ -19,4 +19,7 @@ abstract class TrustManager {
 
   /// Serialize the trust manager to JSON.
   Future<Map<String, dynamic>> toJson();
+
+  /// Removes all trust decisions for [jid].
+  Future<void> removeTrustDecisionsForJid(String jid);
 }

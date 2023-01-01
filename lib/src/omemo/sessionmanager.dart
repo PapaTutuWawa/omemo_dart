@@ -11,6 +11,7 @@ import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/helpers.dart';
 import 'package:omemo_dart/src/keys.dart';
 import 'package:omemo_dart/src/omemo/bundle.dart';
+import 'package:omemo_dart/src/omemo/constants.dart';
 import 'package:omemo_dart/src/omemo/device.dart';
 import 'package:omemo_dart/src/omemo/encrypted_key.dart';
 import 'package:omemo_dart/src/omemo/encryption_result.dart';
@@ -24,10 +25,9 @@ import 'package:omemo_dart/src/trust/base.dart';
 import 'package:omemo_dart/src/x3dh/x3dh.dart';
 import 'package:synchronized/synchronized.dart';
 
-/// The info used for when encrypting the AES key for the actual payload.
-const omemoPayloadInfoString = 'OMEMO Payload';
-
+@Deprecated('Use OmemoManager instead')
 class OmemoSessionManager {
+  @Deprecated('Use OmemoManager instead')
   OmemoSessionManager(this._device, this._deviceMap, this._ratchetMap, this._trustManager)
     : _lock = Lock(),
       _deviceLock = Lock(),
@@ -36,6 +36,7 @@ class OmemoSessionManager {
 
   /// Deserialise the OmemoSessionManager from JSON data [data] that does not contain
   /// the ratchet sessions.
+  @Deprecated('Use OmemoManager instead')
   factory OmemoSessionManager.fromJsonWithoutSessions(
     Map<String, dynamic> data,
     Map<RatchetMapKey, OmemoDoubleRatchet> ratchetMap,
@@ -44,7 +45,7 @@ class OmemoSessionManager {
     // NOTE: Dart has some issues with just casting a List<dynamic> to List<Map<...>>, as
     //       such we need to convert the items by hand.
     return OmemoSessionManager(
-      Device.fromJson(data['device']! as Map<String, dynamic>),
+      OmemoDevice.fromJson(data['device']! as Map<String, dynamic>),
       (data['devices']! as Map<String, dynamic>).map<String, List<int>>(
         (key, value) {
           return MapEntry(
@@ -61,7 +62,7 @@ class OmemoSessionManager {
   /// Generate a new cryptographic identity.
   static Future<OmemoSessionManager> generateNewIdentity(String jid, TrustManager trustManager, { int opkAmount = 100 }) async {
     assert(opkAmount > 0, 'opkAmount must be bigger than 0.');
-    final device = await Device.generateNewDevice(jid, opkAmount: opkAmount);
+    final device = await OmemoDevice.generateNewDevice(jid, opkAmount: opkAmount);
 
     return OmemoSessionManager(device, {}, {}, trustManager);
   }
@@ -83,7 +84,7 @@ class OmemoSessionManager {
   
   /// Our own keys...
   // ignore: prefer_final_fields
-  Device _device;
+  OmemoDevice _device;
   /// and its lock
   final Lock _deviceLock;
 
@@ -95,7 +96,7 @@ class OmemoSessionManager {
   Stream<OmemoEvent> get eventStream => _eventStreamController.stream;
 
   /// Returns our own device.
-  Future<Device> getDevice() async {
+  Future<OmemoDevice> getDevice() async {
     return _deviceLock.synchronized(() => _device);
   }
 
@@ -119,14 +120,14 @@ class OmemoSessionManager {
         _deviceMap[jid] = [deviceId];
 
         // Commit the device map
-        _eventStreamController.add(DeviceMapModifiedEvent(_deviceMap));
+        _eventStreamController.add(DeviceListModifiedEvent(_deviceMap));
       } else {
         // Prevent having the same device multiple times in the list
         if (!_deviceMap[jid]!.contains(deviceId)) {
           _deviceMap[jid]!.add(deviceId);
 
           // Commit the device map
-          _eventStreamController.add(DeviceMapModifiedEvent(_deviceMap));
+          _eventStreamController.add(DeviceListModifiedEvent(_deviceMap));
         }
       }
 
@@ -328,6 +329,8 @@ class OmemoSessionManager {
     return EncryptionResult(
       plaintext != null ? ciphertext : null,
       encryptedKeys,
+      const <RatchetMapKey, OmemoException>{},
+      const <String, OmemoException>{},
     );
   }
 
@@ -562,7 +565,7 @@ class OmemoSessionManager {
         _deviceMap.remove(jid);
       }
       // Commit it
-      _eventStreamController.add(DeviceMapModifiedEvent(_deviceMap));
+      _eventStreamController.add(DeviceListModifiedEvent(_deviceMap));
     });
   }
 
@@ -580,7 +583,7 @@ class OmemoSessionManager {
       // Remove the device from jid
       _deviceMap.remove(jid);
       // Commit it
-      _eventStreamController.add(DeviceMapModifiedEvent(_deviceMap));
+      _eventStreamController.add(DeviceListModifiedEvent(_deviceMap));
     });
   }
   
@@ -622,7 +625,7 @@ class OmemoSessionManager {
   /// identity. Triggers an event to commit it to storage.
   Future<void> regenerateDevice({ int opkAmount = 100 }) async {
     await _deviceLock.synchronized(() async {
-      _device = await Device.generateNewDevice(_device.jid, opkAmount: opkAmount);
+      _device = await OmemoDevice.generateNewDevice(_device.jid, opkAmount: opkAmount);
 
       // Commit it
       _eventStreamController.add(DeviceModifiedEvent(_device));

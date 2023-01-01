@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:cryptography/cryptography.dart';
+import 'package:hex/hex.dart';
 import 'package:omemo_dart/src/keys.dart';
 
 class OmemoBundle {
@@ -43,4 +44,10 @@ class OmemoBundle {
   }
 
   List<int> get spkSignature => base64Decode(spkSignatureEncoded);
+
+  /// Calculates the fingerprint of the bundle (See
+  /// https://xmpp.org/extensions/xep-0384.html#security § 2).
+  Future<String> getFingerprint() async {
+    return HEX.encode(await ik.getBytes());
+  }
 }
