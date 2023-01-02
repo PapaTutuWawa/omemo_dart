@@ -42,3 +42,7 @@
 - Implement queued access to the ratchets inside the `OmemoManager`.
 - Implement heartbeat messages.
 - [BREAKING] Rename `Device` to `OmemoDevice`.
+
+## 0.4.1
+
+- Fix fetching the current device and building a ratchet session with it when encrypting for our own JID
