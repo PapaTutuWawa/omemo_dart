@@ -46,3 +46,7 @@
 ## 0.4.1
 
 - Fix fetching the current device and building a ratchet session with it when encrypting for our own JID
+
+## 0.4.2
+
+- Fix removeAllRatchets not removing, well, all ratchets. In fact, it did not remove any ratchet.
