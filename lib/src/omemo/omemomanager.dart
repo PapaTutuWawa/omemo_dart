@@ -277,7 +277,7 @@ class OmemoManager {
     if (rawKey.kex) {
       // If the ratchet already existed, we store it. If it didn't, oldRatchet will stay
       // null.
-      final oldRatchet = _getRatchet(ratchetKey)?.clone();
+      final oldRatchet = getRatchet(ratchetKey)?.clone();
       final kex = OmemoKeyExchange.fromBuffer(decodedRawKey);
       authMessage = kex.message!;
       message = OmemoMessage.fromBuffer(authMessage.message!);
@@ -341,7 +341,7 @@ class OmemoManager {
     }
 
     // We can guarantee that the ratchet exists at this point in time
-    final ratchet = _getRatchet(ratchetKey)!;
+    final ratchet = getRatchet(ratchetKey)!;
     oldRatchet ??= ratchet.clone();
 
     try {
@@ -378,7 +378,8 @@ class OmemoManager {
 
   /// Returns, if it exists, the ratchet associated with [key].
   /// NOTE: Must be called from within the ratchet critical section.
-  OmemoDoubleRatchet? _getRatchet(RatchetMapKey key) => _ratchetMap[key];
+  @visibleForTesting
+  OmemoDoubleRatchet? getRatchet(RatchetMapKey key) => _ratchetMap[key];
 
   /// Figure out what bundles we have to still build a session with.
   Future<List<OmemoBundle>> _fetchNewBundles(String jid) async {
@@ -594,7 +595,7 @@ class OmemoManager {
     }
 
     // Check if the ratchet is acked
-    final ratchet = _getRatchet(ratchetKey);
+    final ratchet = getRatchet(ratchetKey);
     assert(ratchet != null, 'We decrypted the message, so the ratchet must exist');
 
     if (ratchet!.acknowledged) {
@@ -762,7 +763,7 @@ class OmemoManager {
 
     for (final deviceId in _deviceList[jid]!) {
       // Remove the ratchet and commit it
-      _ratchetMap.remove(jid);
+      _ratchetMap.remove(RatchetMapKey(jid, deviceId));
       _eventStreamController.add(RatchetRemovedEvent(jid, deviceId));
     }
 

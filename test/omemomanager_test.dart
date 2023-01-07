@@ -942,4 +942,87 @@ void main() {
       expect(aliceReceivedMessage.payload, messageText);
     }
   });
+
+  test('Test removing all ratchets and sending a message', () async {
+     const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+
+    final aliceDevice = await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+
+    final aliceManager = OmemoManager(
+      aliceDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, bobJid);
+
+        return [bobDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+
+        return bobDevice.toBundle();
+      },
+      (jid) async {},
+    );
+    final bobManager = OmemoManager(
+      bobDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async => null,
+      (jid, id) async => null,
+      (jid) async {},
+    );
+
+    // Alice encrypts a message for Bob
+    final aliceResult1 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello Bob!',
+      ),
+    );
+
+    // And Bob decrypts it
+    await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        DateTime.now().millisecondsSinceEpoch,
+        aliceResult1.encryptedKeys,
+        base64.encode(aliceResult1.ciphertext!),
+      ),
+    );
+
+    // Ratchets are acked
+    await aliceManager.ratchetAcknowledged(
+      bobJid,
+      bobDevice.id,
+    );
+
+    // Alice now removes all ratchets for Bob and sends another new message
+    await aliceManager.removeAllRatchets(bobJid);
+
+    expect(aliceManager.getRatchet(RatchetMapKey(bobJid, bobDevice.id)), null);
+
+    final aliceResult2 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'I did not trust your last device, Bob!',
+      ),
+    );
+
+    // Bob decrypts it
+    final bobResult2 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        DateTime.now().millisecondsSinceEpoch,
+        aliceResult2.encryptedKeys,
+        base64.encode(aliceResult2.ciphertext!),
+      ),
+    );
+
+    expect(bobResult2.payload, 'I did not trust your last device, Bob!');
+  });
 }
