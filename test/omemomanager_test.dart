@@ -1054,7 +1054,7 @@ void main() {
 
     // Bob responds
     final bobResult4 = await bobManager.onOutgoingStanza(
-      OmemoOutgoingStanza(
+      const OmemoOutgoingStanza(
         [aliceJid],
         "That's okay.",
       ),
@@ -1182,7 +1182,7 @@ void main() {
 
     // Bob responds
     final bobResult4 = await bobManager.onOutgoingStanza(
-      OmemoOutgoingStanza(
+      const OmemoOutgoingStanza(
         [aliceJid],
         "That's okay.",
       ),
@@ -1241,7 +1241,7 @@ void main() {
     
     // Alice sends Bob a message
     final aliceResult1 = await aliceManager.onOutgoingStanza(
-      OmemoOutgoingStanza(
+      const OmemoOutgoingStanza(
         [bobJid],
         'Hello World!',
       ),
@@ -1265,7 +1265,7 @@ void main() {
 
     // Alice immediately sends another message 
     final aliceResult2 = await aliceManager.onOutgoingStanza(
-      OmemoOutgoingStanza(
+      const OmemoOutgoingStanza(
         [bobJid],
         'Hello Bob',
       ),
@@ -1301,7 +1301,7 @@ void main() {
 
     // Bob also sends a message
     final bobResult3 = await bobManager.onOutgoingStanza(
-      OmemoOutgoingStanza(
+      const OmemoOutgoingStanza(
         [aliceJid],
         'Hello Alice!',
       ),
@@ -1328,7 +1328,7 @@ void main() {
 
     // Alice replies
     final aliceResult4 = await aliceManager.onOutgoingStanza(
-      OmemoOutgoingStanza(
+      const OmemoOutgoingStanza(
         [bobJid],
         'Hi Bob',
       ),

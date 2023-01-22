@@ -277,7 +277,6 @@ class OmemoManager {
     List<int>? keyAndHmac;
     OmemoAuthenticatedMessage authMessage;
     OmemoMessage? message;
-    var ratchetCreated = false;
 
     // If the ratchet already existed, we store it. If it didn't, oldRatchet will stay
     // null.
@@ -372,7 +371,7 @@ class OmemoManager {
 
     try {
       return _InternalDecryptionResult(
-        ratchetCreated,
+        false,
         false,
         await _decryptAndVerifyHmac(ciphertext, keyAndHmac),
       );
