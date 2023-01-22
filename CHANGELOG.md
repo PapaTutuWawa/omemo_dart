@@ -50,3 +50,7 @@
 ## 0.4.2
 
 - Fix removeAllRatchets not removing, well, all ratchets. In fact, it did not remove any ratchet.
+
+## 0.4.3
+
+- Fix bug that causes ratchets to be unable to decrypt anything after receiving a heartbeat with a completely new session
