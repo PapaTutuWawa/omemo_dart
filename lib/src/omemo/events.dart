@@ -5,13 +5,16 @@ abstract class OmemoEvent {}
 
 /// Triggered when a ratchet has been modified
 class RatchetModifiedEvent extends OmemoEvent {
-  RatchetModifiedEvent(this.jid, this.deviceId, this.ratchet, this.added);
+  RatchetModifiedEvent(this.jid, this.deviceId, this.ratchet, this.added, this.replaced);
   final String jid;
   final int deviceId;
   final OmemoDoubleRatchet ratchet;
 
   /// Indicates whether the ratchet has just been created (true) or just modified (false).
   final bool added;
+
+  /// Indicates whether the ratchet has been replaced (true) or not.
+  final bool replaced;
 }
 
 /// Triggered when a ratchet has been removed and should be removed from storage.

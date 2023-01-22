@@ -136,7 +136,7 @@ class OmemoSessionManager {
       _ratchetMap[key] = ratchet;
 
       // Commit the ratchet
-      _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet, true));
+      _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet, true, false));
     });
   }
 
@@ -321,7 +321,7 @@ class OmemoSessionManager {
           }
 
           // Commit the ratchet
-          _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet, false));
+          _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet, false, false));
         }
       }
     });
@@ -348,6 +348,7 @@ class OmemoSessionManager {
           mapKey.jid,
           mapKey.deviceId,
           oldRatchet,
+          false,
           false,
         ),
       );
@@ -425,6 +426,7 @@ class OmemoSessionManager {
               senderDeviceId,
               oldRatchet,
               false,
+              false,
             ),
           );
           
@@ -485,6 +487,7 @@ class OmemoSessionManager {
         senderJid,
         senderDeviceId,
         ratchet,
+        false,
         false,
       ),
     );
@@ -617,7 +620,7 @@ class OmemoSessionManager {
         ..acknowledged = true;
 
       // Commit it
-      _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet, false));
+      _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet, false, false));
     });
   }
 

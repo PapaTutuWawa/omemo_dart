@@ -29,8 +29,13 @@ import 'package:omemo_dart/src/x3dh/x3dh.dart';
 import 'package:synchronized/synchronized.dart';
 
 class _InternalDecryptionResult {
-  const _InternalDecryptionResult(this.ratchetCreated, this.payload);
+  const _InternalDecryptionResult(
+    this.ratchetCreated,
+    this.ratchetReplaced,
+    this.payload,
+  ) : assert(!ratchetCreated || !ratchetReplaced, 'Ratchet must be either replaced or created');
   final bool ratchetCreated;
+  final bool ratchetReplaced;
   final String? payload;
 }
 
@@ -162,7 +167,7 @@ class OmemoManager {
     _ratchetMap[key] = ratchet;
 
     // Commit the ratchet
-    _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet, true));
+    _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet, true, false));
   }
 
   /// Build a new session with the user at [jid] with the device [deviceId] using data
@@ -243,6 +248,7 @@ class OmemoManager {
         mapKey.deviceId,
         oldRatchet,
         false,
+        false,
       ),
     );
   }
@@ -266,18 +272,18 @@ class OmemoManager {
     if (rawKey == null) {
       throw NotEncryptedForDeviceException();
     }
-
-    final ratchetKey = RatchetMapKey(senderJid, senderDeviceId);
+ 
     final decodedRawKey = base64.decode(rawKey.value);
     List<int>? keyAndHmac;
     OmemoAuthenticatedMessage authMessage;
-    OmemoDoubleRatchet? oldRatchet;
     OmemoMessage? message;
     var ratchetCreated = false;
+
+    // If the ratchet already existed, we store it. If it didn't, oldRatchet will stay
+    // null.
+    final ratchetKey = RatchetMapKey(senderJid, senderDeviceId);
+    final oldRatchet = getRatchet(ratchetKey)?.clone();
     if (rawKey.kex) {
-      // If the ratchet already existed, we store it. If it didn't, oldRatchet will stay
-      // null.
-      final oldRatchet = getRatchet(ratchetKey)?.clone();
       final kex = OmemoKeyExchange.fromBuffer(decodedRawKey);
       authMessage = kex.message!;
       message = OmemoMessage.fromBuffer(authMessage.message!);
@@ -288,48 +294,45 @@ class OmemoManager {
         if (oldRatchet.kexTimestamp > timestamp) {
           throw InvalidKeyExchangeException();
         }
-        
-        // Try to decrypt it
-        try {
-          final decrypted = await oldRatchet.ratchetDecrypt(message, authMessage.writeToBuffer());
-
-          // Commit the ratchet
-          _eventStreamController.add(
-            RatchetModifiedEvent(
-              senderJid,
-              senderDeviceId,
-              oldRatchet,
-              false,
-            ),
-          );
-          
-          final plaintext = await _decryptAndVerifyHmac(
-            ciphertext,
-            decrypted,
-          );
-          _addSession(senderJid, senderDeviceId, oldRatchet);
-          return _InternalDecryptionResult(
-            true,
-            plaintext,
-          );
-        } catch (_) {
-          _log.finest('Failed to use old ratchet with KEX for existing ratchet');
-        }
       }
 
       final r = await _addSessionFromKeyExchange(senderJid, senderDeviceId, kex);
-      await _trustManager.onNewSession(senderJid, senderDeviceId);
-      _addSession(senderJid, senderDeviceId, r);
-      ratchetCreated = true;
 
-      // Replace the OPK
-      // TODO(PapaTutuWawa): Replace the OPK when we know that the KEX worked
-      await _deviceLock.synchronized(() async {
-        device = await device.replaceOnetimePrekey(kex.pkId!);
+      // Try to decrypt with the new ratchet r
+      try {
+        keyAndHmac = await r.ratchetDecrypt(message, authMessage.writeToBuffer());
+        final result = await _decryptAndVerifyHmac(ciphertext, keyAndHmac);
 
-        // Commit the device
-        _eventStreamController.add(DeviceModifiedEvent(device));
-      });
+        // Add the new ratchet
+        _addSession(senderJid, senderDeviceId, r);
+
+        // Replace the OPK
+        await _deviceLock.synchronized(() async {
+          device = await device.replaceOnetimePrekey(kex.pkId!);
+
+          // Commit the device
+          _eventStreamController.add(DeviceModifiedEvent(device));
+        });
+
+        // Commit the ratchet
+        _eventStreamController.add(
+          RatchetModifiedEvent(
+            senderJid,
+            senderDeviceId,
+            r,
+            oldRatchet == null,
+            oldRatchet != null,
+          ),
+        );
+
+        return _InternalDecryptionResult(
+          oldRatchet == null,
+          oldRatchet != null,
+          result,
+        );
+      } catch (ex) {
+        _log.finest('Kex failed due to $ex. Not proceeding with kex.');
+      }
     } else {
       authMessage = OmemoAuthenticatedMessage.fromBuffer(decodedRawKey);
       message = OmemoMessage.fromBuffer(authMessage.message!);
@@ -340,9 +343,10 @@ class OmemoManager {
       throw NoDecryptionKeyException();
     }
 
+    // TODO(PapaTutuWawa): When receiving a message that is not an OMEMOKeyExchange from a device there is no session with, clients SHOULD create a session with that device and notify it about the new session by responding with an empty OMEMO message as per Sending a message.
+    
     // We can guarantee that the ratchet exists at this point in time
     final ratchet = getRatchet(ratchetKey)!;
-    oldRatchet ??= ratchet.clone();
 
     try {
       if (rawKey.kex) {
@@ -351,7 +355,7 @@ class OmemoManager {
         keyAndHmac = await ratchet.ratchetDecrypt(message, decodedRawKey);
       }
     } catch (_) {
-      _restoreRatchet(ratchetKey, oldRatchet);
+      _restoreRatchet(ratchetKey, oldRatchet!);
       rethrow;
     }
 
@@ -362,16 +366,18 @@ class OmemoManager {
         senderDeviceId,
         ratchet,
         false,
+        false,
       ),
     );
 
     try {
       return _InternalDecryptionResult(
         ratchetCreated,
+        false,
         await _decryptAndVerifyHmac(ciphertext, keyAndHmac),
       );
     } catch (_) { 
-      _restoreRatchet(ratchetKey, oldRatchet);
+      _restoreRatchet(ratchetKey, oldRatchet!);
       rethrow;
     }
   }
@@ -551,7 +557,7 @@ class OmemoManager {
         }
 
         // Commit the ratchet
-        _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet, false));
+        _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet, false, false));
       }
     }
 
@@ -600,7 +606,7 @@ class OmemoManager {
 
     if (ratchet!.acknowledged) {
       // Ratchet is acknowledged
-      if (ratchet.nr > 53 || result.ratchetCreated) {
+      if (ratchet.nr > 53 || result.ratchetCreated || result.ratchetReplaced) {
         await sendEmptyOmemoMessageImpl(
           await _encryptToJids(
             [stanza.bareSenderJid],
@@ -677,7 +683,7 @@ class OmemoManager {
         ..acknowledged = true;
 
       // Commit it
-      _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet, false));
+      _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet, false, false));
     } else {
       _log.severe('Attempted to acknowledge ratchet ${key.toJsonKey()}, even though it does not exist');
     }
