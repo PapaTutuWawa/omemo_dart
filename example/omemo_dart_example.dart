@@ -53,7 +53,7 @@ void main() async {
   <time stamp='1969-07-20T21:56:15-05:00' />
 </envelope>
 ''';
- 
+
   // Since Alice has no open session with Bob, we need to tell the session manager to build
   // it when sending the message.
   final message = await aliceSession.encryptToJid(
@@ -123,7 +123,7 @@ void main() async {
     DateTime.now().millisecondsSinceEpoch,
   );
 
-  // All Bob has to do now is replace the OMEMO wrapper element 
+  // All Bob has to do now is replace the OMEMO wrapper element
   // <encrypted xmlns='urn:xmpp:omemo:2' />) with the content of the <content /> element
   // of the envelope we just decrypted.
 

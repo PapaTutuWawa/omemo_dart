@@ -12,7 +12,6 @@ export 'src/omemo/events.dart';
 export 'src/omemo/fingerprint.dart';
 export 'src/omemo/omemomanager.dart';
 export 'src/omemo/ratchet_map_key.dart';
-export 'src/omemo/sessionmanager.dart';
 export 'src/omemo/stanza.dart';
 export 'src/trust/base.dart';
 export 'src/trust/btbv.dart';

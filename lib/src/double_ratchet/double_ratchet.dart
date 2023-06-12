@@ -42,7 +42,7 @@ class SkippedKey {
       'n': n,
     };
   }
-  
+
   @override
   bool operator ==(Object other) {
     return other is SkippedKey && other.dh == dh && other.n == n;
@@ -56,12 +56,12 @@ class OmemoDoubleRatchet {
   OmemoDoubleRatchet(
     this.dhs, // DHs
     this.dhr, // DHr
-    this.rk,  // RK
+    this.rk, // RK
     this.cks, // CKs
     this.ckr, // CKr
-    this.ns,  // Ns
-    this.nr,  // Nr
-    this.pn,  // Pn
+    this.ns, // Ns
+    this.nr, // Nr
+    this.pn, // Pn
     this.ik,
     this.sessionAd,
     this.mkSkipped, // MKSKIPPED
@@ -69,7 +69,7 @@ class OmemoDoubleRatchet {
     this.kexTimestamp,
     this.kex,
   );
-  
+
   factory OmemoDoubleRatchet.fromJson(Map<String, dynamic> data) {
     /*
     {
@@ -99,7 +99,8 @@ class OmemoDoubleRatchet {
     // NOTE: Dart has some issues with just casting a List<dynamic> to List<Map<...>>, as
     //       such we need to convert the items by hand.
     final mkSkipped = Map<SkippedKey, List<int>>.fromEntries(
-      (data['mkskipped']! as List<dynamic>).map<MapEntry<SkippedKey, List<int>>>(
+      (data['mkskipped']! as List<dynamic>)
+          .map<MapEntry<SkippedKey, List<int>>>(
         (entry) {
           final map = entry as Map<String, dynamic>;
           final key = SkippedKey.fromJson(map);
@@ -110,7 +111,7 @@ class OmemoDoubleRatchet {
         },
       ),
     );
-    
+
     return OmemoDoubleRatchet(
       OmemoKeyPair.fromBytes(
         base64.decode(data['dhs_pub']! as String),
@@ -135,7 +136,7 @@ class OmemoDoubleRatchet {
       data['kex'] as String?,
     );
   }
-  
+
   /// Sending DH keypair
   OmemoKeyPair dhs;
 
@@ -159,7 +160,7 @@ class OmemoDoubleRatchet {
   /// The IK public key from the chat partner. Not used for the actual encryption but
   /// for verification purposes
   final OmemoPublicKey ik;
-  
+
   final List<int> sessionAd;
 
   final Map<SkippedKey, List<int>> mkSkipped;
@@ -170,18 +171,19 @@ class OmemoDoubleRatchet {
 
   /// The key exchange that was used for initiating the session.
   final String? kex;
-  
+
   /// Indicates whether we received an empty OMEMO message after building a session with
-  /// the device. 
+  /// the device.
   bool acknowledged;
 
   /// Create an OMEMO session using the Signed Pre Key [spk], the shared secret [sk] that
   /// was obtained using a X3DH and the associated data [ad] that was also obtained through
   /// a X3DH. [ik] refers to Bob's (the receiver's) IK public key.
-  static Future<OmemoDoubleRatchet> initiateNewSession(OmemoPublicKey spk, OmemoPublicKey ik, List<int> sk, List<int> ad, int timestamp) async {
+  static Future<OmemoDoubleRatchet> initiateNewSession(OmemoPublicKey spk,
+      OmemoPublicKey ik, List<int> sk, List<int> ad, int timestamp,) async {
     final dhs = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     final dhr = spk;
-    final rk  = await kdfRk(sk, await omemoDH(dhs, dhr, 0));
+    final rk = await kdfRk(sk, await omemoDH(dhs, dhr, 0));
     final cks = rk;
 
     return OmemoDoubleRatchet(
@@ -206,7 +208,8 @@ class OmemoDoubleRatchet {
   /// Pre Key keypair [spk], the shared secret [sk] that was obtained through a X3DH and
   /// the associated data [ad] that was also obtained through a X3DH. [ik] refers to
   /// Alice's (the initiator's) IK public key.
-  static Future<OmemoDoubleRatchet> acceptNewSession(OmemoKeyPair spk, OmemoPublicKey ik, List<int> sk, List<int> ad, int kexTimestamp) async {
+  static Future<OmemoDoubleRatchet> acceptNewSession(OmemoKeyPair spk,
+      OmemoPublicKey ik, List<int> sk, List<int> ad, int kexTimestamp,) async {
     return OmemoDoubleRatchet(
       spk,
       null,
@@ -226,14 +229,15 @@ class OmemoDoubleRatchet {
   }
 
   Future<Map<String, dynamic>> toJson() async {
-    final mkSkippedSerialised = List<Map<String, dynamic>>.empty(growable: true);
+    final mkSkippedSerialised =
+        List<Map<String, dynamic>>.empty(growable: true);
     for (final entry in mkSkipped.entries) {
       final result = await entry.key.toJson();
       result['key'] = base64.encode(entry.value);
 
       mkSkippedSerialised.add(result);
     }
-    
+
     return {
       'dhs': base64.encode(await dhs.sk.getBytes()),
       'dhs_pub': base64.encode(await dhs.pk.getBytes()),
@@ -258,8 +262,9 @@ class OmemoDoubleRatchet {
     final curveKey = await ik.toCurve25519();
     return HEX.encode(await curveKey.getBytes());
   }
-  
-  Future<List<int>?> _trySkippedMessageKeys(OmemoMessage header, List<int> ciphertext) async {
+
+  Future<List<int>?> _trySkippedMessageKeys(
+      OmemoMessage header, List<int> ciphertext,) async {
     final key = SkippedKey(
       OmemoPublicKey.fromBytes(header.dhPub!, KeyPairType.x25519),
       header.n!,
@@ -268,7 +273,8 @@ class OmemoDoubleRatchet {
       final mk = mkSkipped[key]!;
       mkSkipped.remove(key);
 
-      return decrypt(mk, ciphertext, concat([sessionAd, header.writeToBuffer()]), sessionAd);
+      return decrypt(mk, ciphertext,
+          concat([sessionAd, header.writeToBuffer()]), sessionAd,);
     }
 
     return null;
@@ -320,7 +326,8 @@ class OmemoDoubleRatchet {
 
     return RatchetStep(
       header,
-      await encrypt(mk, plaintext, concat([sessionAd, header.writeToBuffer()]), sessionAd),
+      await encrypt(mk, plaintext, concat([sessionAd, header.writeToBuffer()]),
+          sessionAd,),
     );
   }
 
@@ -328,7 +335,8 @@ class OmemoDoubleRatchet {
   /// Ratchet. Returns the decrypted (raw) plaintext.
   ///
   /// Throws an SkippingTooManyMessagesException if too many messages were to be skipped.
-  Future<List<int>> ratchetDecrypt(OmemoMessage header, List<int> ciphertext) async {
+  Future<List<int>> ratchetDecrypt(
+      OmemoMessage header, List<int> ciphertext,) async {
     // Check if we skipped too many messages
     final plaintext = await _trySkippedMessageKeys(header, ciphertext);
     if (plaintext != null) {
@@ -343,14 +351,15 @@ class OmemoDoubleRatchet {
       await _skipMessageKeys(header.pn!);
       await _dhRatchet(header);
     }
-    
+
     await _skipMessageKeys(header.n!);
     final newCkr = await kdfCk(ckr!, kdfCkNextChainKey);
     final mk = await kdfCk(ckr!, kdfCkNextMessageKey);
     ckr = newCkr;
     nr++;
 
-    return decrypt(mk, ciphertext, concat([sessionAd, header.writeToBuffer()]), sessionAd);
+    return decrypt(
+        mk, ciphertext, concat([sessionAd, header.writeToBuffer()]), sessionAd,);
   }
 
   OmemoDoubleRatchet clone() {
@@ -358,12 +367,8 @@ class OmemoDoubleRatchet {
       dhs,
       dhr,
       rk,
-      cks != null ?
-        List<int>.from(cks!) :
-        null,
-      ckr != null ?
-        List<int>.from(ckr!) :
-        null,
+      cks != null ? List<int>.from(cks!) : null,
+      ckr != null ? List<int>.from(ckr!) : null,
       ns,
       nr,
       pn,
@@ -381,12 +386,8 @@ class OmemoDoubleRatchet {
       dhs,
       dhr,
       rk,
-      cks != null ?
-        List<int>.from(cks!) :
-        null,
-      ckr != null ?
-        List<int>.from(ckr!) :
-        null,
+      cks != null ? List<int>.from(cks!) : null,
+      ckr != null ? List<int>.from(ckr!) : null,
       ns,
       nr,
       pn,
@@ -398,35 +399,36 @@ class OmemoDoubleRatchet {
       kex,
     );
   }
-  
+
   @visibleForTesting
   Future<bool> equals(OmemoDoubleRatchet other) async {
-    final dhrMatch = dhr == null ?
-      other.dhr == null :
-      // ignore: invalid_use_of_visible_for_testing_member
-      other.dhr != null && await dhr!.equals(other.dhr!);
-    final ckrMatch = ckr == null ?
-      other.ckr == null :
-      other.ckr != null && listsEqual(ckr!, other.ckr!);
-    final cksMatch = cks == null ?
-      other.cks == null :
-      other.cks != null && listsEqual(cks!, other.cks!);
- 
+    final dhrMatch = dhr == null
+        ? other.dhr == null
+        :
+        // ignore: invalid_use_of_visible_for_testing_member
+        other.dhr != null && await dhr!.equals(other.dhr!);
+    final ckrMatch = ckr == null
+        ? other.ckr == null
+        : other.ckr != null && listsEqual(ckr!, other.ckr!);
+    final cksMatch = cks == null
+        ? other.cks == null
+        : other.cks != null && listsEqual(cks!, other.cks!);
+
     // ignore: invalid_use_of_visible_for_testing_member
     final dhsMatch = await dhs.equals(other.dhs);
     // ignore: invalid_use_of_visible_for_testing_member
     final ikMatch = await ik.equals(other.ik);
 
     return dhsMatch &&
-      ikMatch &&
-      dhrMatch &&
-      listsEqual(rk, other.rk) &&
-      cksMatch &&
-      ckrMatch &&
-      ns == other.ns &&
-      nr == other.nr &&
-      pn == other.pn &&
-      listsEqual(sessionAd, other.sessionAd) &&
-      kexTimestamp == other.kexTimestamp;
+        ikMatch &&
+        dhrMatch &&
+        listsEqual(rk, other.rk) &&
+        cksMatch &&
+        ckrMatch &&
+        ns == other.ns &&
+        nr == other.nr &&
+        pn == other.pn &&
+        listsEqual(sessionAd, other.sessionAd) &&
+        kexTimestamp == other.kexTimestamp;
   }
 }

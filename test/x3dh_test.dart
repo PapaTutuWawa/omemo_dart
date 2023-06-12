@@ -24,13 +24,13 @@ void main() {
         2: await opkBob.pk.asBase64(),
       },
     );
-    
+
     // Alice does X3DH
     final resultAlice = await x3dhFromBundle(bundleBob, ikAlice);
 
     // Alice sends the inital message to Bob
     // ...
-    
+
     // Bob does X3DH
     final resultBob = await x3dhFromInitialMessage(
       X3DHMessage(
@@ -42,7 +42,7 @@ void main() {
       opkBob,
       ikBob,
     );
-    
+
     expect(resultAlice.sk, resultBob.sk);
     expect(resultAlice.ad, resultBob.ad);
   });
@@ -66,14 +66,15 @@ void main() {
         2: await opkBob.pk.asBase64(),
       },
     );
-    
+
     // Alice does X3DH
     var exception = false;
     try {
       await x3dhFromBundle(bundleBob, ikAlice);
-    } catch(e) {
+    } catch (e) {
       exception = true;
-      expect(e is InvalidSignatureException, true, reason: 'Expected InvalidSignatureException, but got $e');
+      expect(e is InvalidSignatureException, true,
+          reason: 'Expected InvalidSignatureException, but got $e',);
     }
 
     expect(exception, true, reason: 'Expected test failure');

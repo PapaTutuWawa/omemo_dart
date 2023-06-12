@@ -5,7 +5,8 @@ abstract class OmemoEvent {}
 
 /// Triggered when a ratchet has been modified
 class RatchetModifiedEvent extends OmemoEvent {
-  RatchetModifiedEvent(this.jid, this.deviceId, this.ratchet, this.added, this.replaced);
+  RatchetModifiedEvent(
+      this.jid, this.deviceId, this.ratchet, this.added, this.replaced,);
   final String jid;
   final int deviceId;
   final OmemoDoubleRatchet ratchet;

@@ -16,7 +16,7 @@ void main() {
       ..pn = 0
       ..dhPub = List<int>.empty();
     final asd = concat([sessionAd, header.writeToBuffer()]);
-      
+
     final ciphertext = await encrypt(
       mk,
       plaintext,
@@ -55,13 +55,13 @@ void main() {
         2: await opkBob.pk.asBase64(),
       },
     );
-    
+
     // Alice does X3DH
     final resultAlice = await x3dhFromBundle(bundleBob, ikAlice);
 
     // Alice sends the inital message to Bob
     // ...
-    
+
     // Bob does X3DH
     final resultBob = await x3dhFromInitialMessage(
       X3DHMessage(
@@ -75,7 +75,6 @@ void main() {
     );
 
     print('X3DH key exchange done');
-
 
     // Alice and Bob now share sk as a common secret and ad
     // Build a session
@@ -98,10 +97,11 @@ void main() {
 
     for (var i = 0; i < 100; i++) {
       final messageText = 'Hello, dear $i';
-      
+
       if (i.isEven) {
         // Alice encrypts a message
-        final aliceRatchetResult = await alicesRatchet.ratchetEncrypt(utf8.encode(messageText));
+        final aliceRatchetResult =
+            await alicesRatchet.ratchetEncrypt(utf8.encode(messageText));
         print('Alice sent the message');
 
         // Alice sends it to Bob
@@ -117,7 +117,8 @@ void main() {
         expect(utf8.encode(messageText), bobRatchetResult);
       } else {
         // Bob sends a message to Alice
-        final bobRatchetResult = await bobsRatchet.ratchetEncrypt(utf8.encode(messageText));
+        final bobRatchetResult =
+            await bobsRatchet.ratchetEncrypt(utf8.encode(messageText));
         print('Bob sent the message');
 
         // Bobs sends it to Alice

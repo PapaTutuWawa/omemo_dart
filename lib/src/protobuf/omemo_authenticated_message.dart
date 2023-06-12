@@ -2,12 +2,11 @@ import 'package:omemo_dart/src/helpers.dart';
 import 'package:omemo_dart/src/protobuf/protobuf.dart';
 
 class OmemoAuthenticatedMessage {
-
   OmemoAuthenticatedMessage();
 
   factory OmemoAuthenticatedMessage.fromBuffer(List<int> data) {
     var i = 0;
-    
+
     // required bytes mac     = 1;
     if (data[0] != fieldId(1, fieldTypeByteArray)) {
       throw Exception();
@@ -24,7 +23,7 @@ class OmemoAuthenticatedMessage {
       ..mac = mac
       ..message = message;
   }
-  
+
   List<int>? mac;
   List<int>? message;
 

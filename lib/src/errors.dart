@@ -2,8 +2,10 @@ abstract class OmemoException {}
 
 /// Triggered during X3DH if the signature if the SPK does verify to the actual SPK.
 class InvalidSignatureException extends OmemoException implements Exception {
-  String errMsg() => 'The signature of the SPK does not match the provided signature';
+  String errMsg() =>
+      'The signature of the SPK does not match the provided signature';
 }
+
 /// Triggered by the Double Ratchet if the computed HMAC does not match the attached HMAC.
 /// Triggered by the Session Manager if the computed HMAC does not match the attached HMAC.
 class InvalidMessageHMACException extends OmemoException implements Exception {
@@ -12,12 +14,14 @@ class InvalidMessageHMACException extends OmemoException implements Exception {
 
 /// Triggered by the Double Ratchet if skipping messages would cause skipping more than
 /// MAXSKIP messages
-class SkippingTooManyMessagesException extends OmemoException implements Exception {
+class SkippingTooManyMessagesException extends OmemoException
+    implements Exception {
   String errMsg() => 'Skipping messages would cause a skip bigger than MAXSKIP';
 }
 
 /// Triggered by the Session Manager if the message key is not encrypted for the device.
-class NotEncryptedForDeviceException extends OmemoException implements Exception {
+class NotEncryptedForDeviceException extends OmemoException
+    implements Exception {
   String errMsg() => 'Not encrypted for this device';
 }
 
@@ -41,7 +45,8 @@ class InvalidKeyExchangeException extends OmemoException implements Exception {
 
 /// Triggered by the Session Manager when a message's sequence number is smaller than we
 /// expect it to be.
-class MessageAlreadyDecryptedException extends OmemoException implements Exception {
+class MessageAlreadyDecryptedException extends OmemoException
+    implements Exception {
   String errMsg() => 'The message has already been decrypted';
 }
 
@@ -49,6 +54,8 @@ class MessageAlreadyDecryptedException extends OmemoException implements Excepti
 /// no key material available. That happens, for example, when we want to create a
 /// ratchet session with a JID we had no session with but fetching the device bundle
 /// failed.
-class NoKeyMaterialAvailableException extends OmemoException implements Exception {
-  String errMsg() => 'No key material available to create a ratchet session with';
+class NoKeyMaterialAvailableException extends OmemoException
+    implements Exception {
+  String errMsg() =>
+      'No key material available to create a ratchet session with';
 }

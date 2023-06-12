@@ -28,7 +28,8 @@ void main() {
     var aliceEmptyMessageSent = 0;
     var bobEmptyMessageSent = 0;
 
-    final aliceDevice = await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
     final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
 
     final aliceManager = OmemoManager(
@@ -39,7 +40,7 @@ void main() {
       },
       (jid) async {
         expect(jid, bobJid);
-        return [ bobDevice.id ];
+        return [bobDevice.id];
       },
       (jid, id) async {
         expect(jid, bobJid);
@@ -93,7 +94,7 @@ void main() {
       bobJid,
       bobDevice.id,
     );
-    
+
     // Bob now responds
     final bobResult2 = await bobManager.onOutgoingStanza(
       const OmemoOutgoingStanza(
@@ -123,7 +124,8 @@ void main() {
     var aliceEmptyMessageSent = 0;
     var bobEmptyMessageSent = 0;
 
-    final aliceDevice = await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
     final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
 
     final aliceManager = OmemoManager(
@@ -134,7 +136,7 @@ void main() {
       },
       (jid) async {
         expect(jid, bobJid);
-        return [ bobDevice.id ];
+        return [bobDevice.id];
       },
       (jid, id) async {
         expect(jid, bobJid);
@@ -184,7 +186,7 @@ void main() {
 
     // Bob acknowledges the message
     await aliceManager.ratchetAcknowledged(bobJid, bobDevice.id);
-    
+
     // Alice now sends 52 messages that Bob decrypts
     for (var i = 0; i <= 51; i++) {
       final aliceResultLoop = await aliceManager.onOutgoingStanza(
@@ -235,7 +237,8 @@ void main() {
   test('Test accessing data without it existing', () async {
     const aliceJid = 'alice@server1';
     const bobJid = 'bob@server2';
-    final aliceDevice = await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
 
     final aliceManager = OmemoManager(
       aliceDevice,
@@ -264,9 +267,12 @@ void main() {
     const bobJid = 'bob@server2';
     var oldDevice = true;
 
-    final aliceDevice = await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
-    final bobOldDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
-    final bobCurrentDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobOldDevice =
+        await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+    final bobCurrentDevice =
+        await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
 
     final aliceManager = OmemoManager(
       aliceDevice,
@@ -275,15 +281,13 @@ void main() {
       (jid) async {
         expect(jid, bobJid);
 
-        return oldDevice ?
-          [ bobOldDevice.id ] :
-          [ bobCurrentDevice.id ];
+        return oldDevice ? [bobOldDevice.id] : [bobCurrentDevice.id];
       },
       (jid, id) async {
         expect(jid, bobJid);
-        return oldDevice ?
-          bobOldDevice.toBundle() :
-          bobCurrentDevice.toBundle();
+        return oldDevice
+            ? bobOldDevice.toBundle()
+            : bobCurrentDevice.toBundle();
       },
       (jid) async {},
     );
@@ -348,9 +352,12 @@ void main() {
     const bobJid = 'bob@server2';
     var bothDevices = false;
 
-    final aliceDevice = await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
-    final bobDevice1 = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
-    final bobDevice2 = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice1 =
+        await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+    final bobDevice2 =
+        await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
 
     final aliceManager = OmemoManager(
       aliceDevice,
@@ -361,9 +368,7 @@ void main() {
 
         return [
           bobDevice1.id,
-
-          if (bothDevices)
-            bobDevice2.id,
+          if (bothDevices) bobDevice2.id,
         ];
       },
       (jid, id) async {
@@ -456,9 +461,12 @@ void main() {
     const bobJid = 'bob@server2';
     var bothDevices = false;
 
-    final aliceDevice = await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
-    final bobDevice1 = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
-    final bobDevice2 = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice1 =
+        await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+    final bobDevice2 =
+        await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
 
     final aliceManager = OmemoManager(
       aliceDevice,
@@ -469,9 +477,7 @@ void main() {
 
         return [
           bobDevice1.id,
-
-          if (bothDevices)
-            bobDevice2.id,
+          if (bothDevices) bobDevice2.id,
         ];
       },
       (jid, id) async {
@@ -532,7 +538,7 @@ void main() {
 
     // Bob acks the ratchet session
     await aliceManager.ratchetAcknowledged(bobJid, bobDevice1.id);
-    
+
     // Bob now publishes a new device
     bothDevices = true;
     aliceManager.onDeviceListUpdate(
@@ -542,7 +548,7 @@ void main() {
         bobDevice2.id,
       ],
     );
-    
+
     // Now Alice encrypts another message
     final aliceResult2 = await aliceManager.onOutgoingStanza(
       const OmemoOutgoingStanza(
@@ -603,9 +609,11 @@ void main() {
     const bobJid = 'bob@server2';
     const cocoJid = 'coco@server3';
 
-    final aliceDevice = await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
     final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
-    final cocoDevice = await OmemoDevice.generateNewDevice(cocoJid, opkAmount: 1);
+    final cocoDevice =
+        await OmemoDevice.generateNewDevice(cocoJid, opkAmount: 1);
 
     final aliceManager = OmemoManager(
       aliceDevice,
@@ -687,7 +695,8 @@ void main() {
     const bobJid = 'bob@server2';
     var failure = false;
 
-    final aliceDevice = await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
     final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
 
     final aliceManager = OmemoManager(
@@ -697,16 +706,12 @@ void main() {
       (jid) async {
         expect(jid, bobJid);
 
-        return failure ?
-          null :
-          [bobDevice.id];
+        return failure ? null : [bobDevice.id];
       },
       (jid, id) async {
         expect(jid, bobJid);
 
-        return failure ?
-          null :
-          bobDevice.toBundle();
+        return failure ? null : bobDevice.toBundle();
       },
       (jid) async {},
     );
@@ -778,7 +783,8 @@ void main() {
     const aliceJid = 'alice@server1';
     const bobJid = 'bob@server2';
 
-    final aliceDevice = await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
 
     final aliceManager = OmemoManager(
       aliceDevice,
@@ -806,7 +812,10 @@ void main() {
     );
 
     expect(aliceResult.isSuccess(1), false);
-    expect(aliceResult.jidEncryptionErrors[bobJid] is NoKeyMaterialAvailableException, true);
+    expect(
+        aliceResult.jidEncryptionErrors[bobJid]
+            is NoKeyMaterialAvailableException,
+        true,);
   });
 
   test('Test sending a message two two JIDs with failed lookups', () async {
@@ -814,7 +823,8 @@ void main() {
     const bobJid = 'bob@server2';
     const cocoJid = 'coco@server3';
 
-    final aliceDevice = await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
     final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
 
     final aliceManager = OmemoManager(
@@ -855,7 +865,10 @@ void main() {
     );
 
     expect(aliceResult.isSuccess(2), true);
-    expect(aliceResult.jidEncryptionErrors[cocoJid] is NoKeyMaterialAvailableException, true);
+    expect(
+        aliceResult.jidEncryptionErrors[cocoJid]
+            is NoKeyMaterialAvailableException,
+        true,);
 
     // Bob decrypts it
     final bobResult = await bobManager.onIncomingStanza(
@@ -875,7 +888,8 @@ void main() {
     const aliceJid = 'alice@server1';
     const bobJid = 'bob@server2';
 
-    final aliceDevice = await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
     final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
 
     final aliceManager = OmemoManager(
@@ -920,7 +934,6 @@ void main() {
         aliceMessage.encryptedKeys,
         base64.encode(aliceMessage.ciphertext!),
       ),
-
     );
 
     // Ratchets are acked
@@ -928,7 +941,7 @@ void main() {
       bobJid,
       bobDevice.id,
     );
-    
+
     for (var i = 0; i < 100; i++) {
       final messageText = 'Test Message #$i';
       // Bob responds to Alice
@@ -939,7 +952,7 @@ void main() {
         ),
       );
       expect(bobResponseMessage.isSuccess(1), true);
-      
+
       final aliceReceivedMessage = await aliceManager.onIncomingStanza(
         OmemoIncomingStanza(
           bobJid,
@@ -954,10 +967,11 @@ void main() {
   });
 
   test('Test removing all ratchets and sending a message', () async {
-     const aliceJid = 'alice@server1';
+    const aliceJid = 'alice@server1';
     const bobJid = 'bob@server2';
 
-    final aliceDevice = await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
     final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
 
     EncryptionResult? aliceEmptyMessage;
@@ -1038,7 +1052,7 @@ void main() {
       bobJid,
       await bobManager.getDeviceId(),
     );
-    
+
     // Alice sends another message
     final aliceResult3 = await aliceManager.onOutgoingStanza(
       const OmemoOutgoingStanza(
@@ -1084,14 +1098,17 @@ void main() {
     expect(aliceResult4.payload, "That's okay.");
   });
 
-  test('Test removing all ratchets and sending a message without post-heartbeat ack', () async {
+  test(
+      'Test removing all ratchets and sending a message without post-heartbeat ack',
+      () async {
     // This test is the same as "Test removing all ratchets and sending a message" except
     // that bob does not ack the ratchet after Alice's heartbeat after she recreated
     // all ratchets.
     const aliceJid = 'alice@server1';
     const bobJid = 'bob@server2';
 
-    final aliceDevice = await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
     final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
 
     EncryptionResult? aliceEmptyMessage;
@@ -1216,7 +1233,8 @@ void main() {
     const aliceJid = 'alice@server1';
     const bobJid = 'bob@server2';
 
-    final aliceDevice = await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
     final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
 
     final aliceManager = OmemoManager(
@@ -1225,7 +1243,7 @@ void main() {
       (result, recipientJid) async {},
       (jid) async {
         expect(jid, bobJid);
-        return [ bobDevice.id ];
+        return [bobDevice.id];
       },
       (jid, id) async {
         expect(jid, bobJid);
@@ -1247,7 +1265,7 @@ void main() {
       },
       (jid) async {},
     );
-    
+
     // Alice sends Bob a message
     final aliceResult1 = await aliceManager.onOutgoingStanza(
       const OmemoOutgoingStanza(
@@ -1272,7 +1290,7 @@ void main() {
     expect(bobResult1.error, null);
     expect(bobResult1.payload, 'Hello World!');
 
-    // Alice immediately sends another message 
+    // Alice immediately sends another message
     final aliceResult2 = await aliceManager.onOutgoingStanza(
       const OmemoOutgoingStanza(
         [bobJid],
@@ -1327,8 +1345,8 @@ void main() {
       ),
     );
     expect(aliceResult3.error, null);
-    expect(aliceResult3.payload, 'Hello Alice!'); 
-    
+    expect(aliceResult3.payload, 'Hello Alice!');
+
     // Bob now acks the ratchet
     await aliceManager.ratchetAcknowledged(
       bobJid,

@@ -46,7 +46,7 @@ class OmemoKeyExchange {
       ..ek = ek
       ..message = message;
   }
-  
+
   int? pkId;
   int? spkId;
   List<int>? ik;

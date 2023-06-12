@@ -33,7 +33,8 @@ class _InternalDecryptionResult {
     this.ratchetCreated,
     this.ratchetReplaced,
     this.payload,
-  ) : assert(!ratchetCreated || !ratchetReplaced, 'Ratchet must be either replaced or created');
+  ) : assert(!ratchetCreated || !ratchetReplaced,
+            'Ratchet must be either replaced or created',);
   final bool ratchetCreated;
   final bool ratchetReplaced;
   final String? payload;
@@ -55,7 +56,8 @@ class OmemoManager {
 
   /// Send an empty OMEMO:2 message using the encrypted payload @result to
   /// @recipientJid.
-  final Future<void> Function(EncryptionResult result, String recipientJid) sendEmptyOmemoMessageImpl;
+  final Future<void> Function(EncryptionResult result, String recipientJid)
+      sendEmptyOmemoMessageImpl;
 
   /// Fetch the list of device ids associated with @jid. If the device list cannot be
   /// fetched, return null.
@@ -66,16 +68,20 @@ class OmemoManager {
 
   /// Subscribe to the device list PEP node of @jid.
   final Future<void> Function(String jid) subscribeToDeviceListNodeImpl;
-  
+
   /// Map bare JID to its known devices
   Map<String, List<int>> _deviceList = {};
+
   /// Map bare JIDs to whether we already requested the device list once
   final Map<String, bool> _deviceListRequested = {};
+
   /// Map bare a ratchet key to its ratchet. Note that this is also locked by
   /// _ratchetCriticalSectionLock.
   Map<RatchetMapKey, OmemoDoubleRatchet> _ratchetMap = {};
+
   /// Map bare JID to whether we already tried to subscribe to the device list node.
   final Map<String, bool> _subscriptionMap = {};
+
   /// For preventing a race condition in encryption/decryption
   final Map<String, Queue<Completer<void>>> _ratchetCriticalSectionQueue = {};
   final Lock _ratchetCriticalSectionLock = Lock();
@@ -83,14 +89,15 @@ class OmemoManager {
   /// The OmemoManager's trust management
   final TrustManager _trustManager;
   TrustManager get trustManager => _trustManager;
-  
+
   /// Our own keys...
   final Lock _deviceLock = Lock();
   // ignore: prefer_final_fields
   OmemoDevice _device;
-  
+
   /// The event bus of the session manager
-  final StreamController<OmemoEvent> _eventStreamController = StreamController<OmemoEvent>.broadcast();
+  final StreamController<OmemoEvent> _eventStreamController =
+      StreamController<OmemoEvent>.broadcast();
   Stream<OmemoEvent> get eventStream => _eventStreamController.stream;
 
   /// Enter the critical section for performing cryptographic operations on the ratchets
@@ -110,7 +117,7 @@ class OmemoManager {
       await completer.future;
     }
   }
-  
+
   /// Leave the critical section for the ratchets.
   Future<void> _leaveRatchetCriticalSection(String jid) async {
     await _ratchetCriticalSectionLock.synchronized(() {
@@ -124,22 +131,25 @@ class OmemoManager {
     });
   }
 
-  Future<String?> _decryptAndVerifyHmac(List<int>? ciphertext, List<int> keyAndHmac) async {
+  Future<String?> _decryptAndVerifyHmac(
+      List<int>? ciphertext, List<int> keyAndHmac,) async {
     // Empty OMEMO messages should just have the key decrypted and/or session set up.
     if (ciphertext == null) {
       return null;
     }
-    
+
     final key = keyAndHmac.sublist(0, 32);
     final hmac = keyAndHmac.sublist(32, 48);
     final derivedKeys = await deriveEncryptionKeys(key, omemoPayloadInfoString);
-    final computedHmac = await truncatedHmac(ciphertext, derivedKeys.authenticationKey);
+    final computedHmac =
+        await truncatedHmac(ciphertext, derivedKeys.authenticationKey);
     if (!listsEqual(hmac, computedHmac)) {
       throw InvalidMessageHMACException();
     }
-    
+
     return utf8.decode(
-      await aes256CbcDecrypt(ciphertext, derivedKeys.encryptionKey, derivedKeys.iv),
+      await aes256CbcDecrypt(
+          ciphertext, derivedKeys.encryptionKey, derivedKeys.iv,),
     );
   }
 
@@ -167,13 +177,15 @@ class OmemoManager {
     _ratchetMap[key] = ratchet;
 
     // Commit the ratchet
-    _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet, true, false));
+    _eventStreamController
+        .add(RatchetModifiedEvent(jid, deviceId, ratchet, true, false));
   }
 
   /// Build a new session with the user at [jid] with the device [deviceId] using data
   /// from the key exchange [kex]. In case [kex] contains an unknown Signed Prekey
   /// identifier an UnknownSignedPrekeyException will be thrown.
-  Future<OmemoDoubleRatchet> _addSessionFromKeyExchange(String jid, int deviceId, OmemoKeyExchange kex) async {
+  Future<OmemoDoubleRatchet> _addSessionFromKeyExchange(
+      String jid, int deviceId, OmemoKeyExchange kex,) async {
     // Pick the correct SPK
     final device = await getDevice();
     OmemoKeyPair spk;
@@ -212,7 +224,8 @@ class OmemoManager {
   /// Create a ratchet session initiated by Alice to the user with Jid [jid] and the device
   /// [deviceId] from the bundle [bundle].
   @visibleForTesting
-  Future<OmemoKeyExchange> addSessionFromBundle(String jid, int deviceId, OmemoBundle bundle) async {
+  Future<OmemoKeyExchange> addSessionFromBundle(
+      String jid, int deviceId, OmemoBundle bundle,) async {
     final device = await getDevice();
     final kexResult = await x3dhFromBundle(
       bundle,
@@ -235,13 +248,14 @@ class OmemoManager {
       ..ik = await device.ik.pk.getBytes()
       ..ek = await kexResult.ek.pk.getBytes();
   }
-  
+
   /// In case a decryption error occurs, the Double Ratchet spec says to just restore
   /// the ratchet to its old state. As such, this function restores the ratchet at
   /// [mapKey] with [oldRatchet].
   /// NOTE: Must be called from within the ratchet critical section
   void _restoreRatchet(RatchetMapKey mapKey, OmemoDoubleRatchet oldRatchet) {
-    _log.finest('Restoring ratchet ${mapKey.jid}:${mapKey.deviceId} to ${oldRatchet.nr}');
+    _log.finest(
+        'Restoring ratchet ${mapKey.jid}:${mapKey.deviceId} to ${oldRatchet.nr}',);
     _ratchetMap[mapKey] = oldRatchet;
 
     // Commit the ratchet
@@ -255,7 +269,7 @@ class OmemoManager {
       ),
     );
   }
-  
+
   /// Attempt to decrypt [ciphertext]. [keys] refers to the <key /> elements inside the
   /// <keys /> element with a "jid" attribute matching our own. [senderJid] refers to the
   /// bare Jid of the sender. [senderDeviceId] refers to the "sid" attribute of the
@@ -268,14 +282,19 @@ class OmemoManager {
   /// element, then [ciphertext] must be set to null. In this case, this function
   /// will return null as there is no message to be decrypted. This, however, is used
   /// to set up sessions or advance the ratchets.
-  Future<_InternalDecryptionResult> _decryptMessage(List<int>? ciphertext, String senderJid, int senderDeviceId, List<EncryptedKey> keys, int timestamp) async {
+  Future<_InternalDecryptionResult> _decryptMessage(
+      List<int>? ciphertext,
+      String senderJid,
+      int senderDeviceId,
+      List<EncryptedKey> keys,
+      int timestamp,) async {
     // Try to find a session we can decrypt with.
     var device = await getDevice();
     final rawKey = keys.firstWhereOrNull((key) => key.rid == device.id);
     if (rawKey == null) {
       throw NotEncryptedForDeviceException();
     }
- 
+
     final decodedRawKey = base64.decode(rawKey.value);
     List<int>? keyAndHmac;
     OmemoAuthenticatedMessage authMessage;
@@ -292,17 +311,20 @@ class OmemoManager {
 
       // Guard against old key exchanges
       if (oldRatchet != null) {
-        _log.finest('KEX for existent ratchet ${ratchetKey.toJsonKey()}. ${oldRatchet.kexTimestamp} > $timestamp: ${oldRatchet.kexTimestamp > timestamp}');
+        _log.finest(
+            'KEX for existent ratchet ${ratchetKey.toJsonKey()}. ${oldRatchet.kexTimestamp} > $timestamp: ${oldRatchet.kexTimestamp > timestamp}',);
         if (oldRatchet.kexTimestamp > timestamp) {
           throw InvalidKeyExchangeException();
         }
       }
 
-      final r = await _addSessionFromKeyExchange(senderJid, senderDeviceId, kex);
+      final r =
+          await _addSessionFromKeyExchange(senderJid, senderDeviceId, kex);
 
       // Try to decrypt with the new ratchet r
       try {
-        keyAndHmac = await r.ratchetDecrypt(message, authMessage.writeToBuffer());
+        keyAndHmac =
+            await r.ratchetDecrypt(message, authMessage.writeToBuffer());
         final result = await _decryptAndVerifyHmac(ciphertext, keyAndHmac);
 
         // Add the new ratchet
@@ -339,20 +361,21 @@ class OmemoManager {
       authMessage = OmemoAuthenticatedMessage.fromBuffer(decodedRawKey);
       message = OmemoMessage.fromBuffer(authMessage.message!);
     }
-    
+
     final devices = _deviceList[senderJid];
     if (devices?.contains(senderDeviceId) != true) {
       throw NoDecryptionKeyException();
     }
 
     // TODO(PapaTutuWawa): When receiving a message that is not an OMEMOKeyExchange from a device there is no session with, clients SHOULD create a session with that device and notify it about the new session by responding with an empty OMEMO message as per Sending a message.
-    
+
     // We can guarantee that the ratchet exists at this point in time
     final ratchet = getRatchet(ratchetKey)!;
 
     try {
       if (rawKey.kex) {
-        keyAndHmac = await ratchet.ratchetDecrypt(message, authMessage.writeToBuffer());
+        keyAndHmac =
+            await ratchet.ratchetDecrypt(message, authMessage.writeToBuffer());
       } else {
         keyAndHmac = await ratchet.ratchetDecrypt(message, decodedRawKey);
       }
@@ -378,7 +401,7 @@ class OmemoManager {
         false,
         await _decryptAndVerifyHmac(ciphertext, keyAndHmac),
       );
-    } catch (_) { 
+    } catch (_) {
       _restoreRatchet(ratchetKey, oldRatchet!);
       rethrow;
     }
@@ -393,25 +416,25 @@ class OmemoManager {
   Future<List<OmemoBundle>> _fetchNewBundles(String jid) async {
     // Check if we already requested the device list for [jid]
     List<int> bundlesToFetch;
-    if (!_deviceListRequested.containsKey(jid) || !_deviceList.containsKey(jid)) {
+    if (!_deviceListRequested.containsKey(jid) ||
+        !_deviceList.containsKey(jid)) {
       // We don't have an up-to-date version of the device list
       final newDeviceList = await fetchDeviceListImpl(jid);
       if (newDeviceList == null) return [];
 
       _deviceList[jid] = newDeviceList;
-      bundlesToFetch = newDeviceList
-        .where((id) {
-          return !_ratchetMap.containsKey(RatchetMapKey(jid, id)) ||
-                 _deviceList[jid]?.contains(id) == false;
-        }).toList();
+      bundlesToFetch = newDeviceList.where((id) {
+        return !_ratchetMap.containsKey(RatchetMapKey(jid, id)) ||
+            _deviceList[jid]?.contains(id) == false;
+      }).toList();
 
       // Trigger an event with the new device list
       _eventStreamController.add(DeviceListModifiedEvent(_deviceList));
     } else {
       // We already have an up-to-date version of the device list
       bundlesToFetch = _deviceList[jid]!
-        .where((id) => !_ratchetMap.containsKey(RatchetMapKey(jid, id)))
-        .toList();
+          .where((id) => !_ratchetMap.containsKey(RatchetMapKey(jid, id)))
+          .toList();
     }
 
     if (bundlesToFetch.isNotEmpty) {
@@ -429,7 +452,7 @@ class OmemoManager {
 
     return newBundles;
   }
-  
+
   /// Encrypt the key [plaintext] for all known bundles of the Jids in [jids]. Returns a
   /// map that maps the device Id to the ciphertext of [plaintext].
   ///
@@ -437,7 +460,8 @@ class OmemoManager {
   /// does not contain a <payload /> element. This means that the ciphertext attribute of
   /// the result will be null as well.
   /// NOTE: Must be called within the ratchet critical section
-  Future<EncryptionResult> _encryptToJids(List<String> jids, String? plaintext) async {
+  Future<EncryptionResult> _encryptToJids(
+      List<String> jids, String? plaintext,) async {
     final encryptedKeys = List<EncryptedKey>.empty(growable: true);
 
     var ciphertext = const <int>[];
@@ -498,12 +522,14 @@ class OmemoManager {
         var ratchet = _ratchetMap[ratchetKey];
         if (ratchet == null) {
           _log.severe('Ratchet ${ratchetKey.toJsonKey()} does not exist.');
-          deviceEncryptionErrors[ratchetKey] = NoKeyMaterialAvailableException();
+          deviceEncryptionErrors[ratchetKey] =
+              NoKeyMaterialAvailableException();
           continue;
         }
 
-        final ciphertext = (await ratchet.ratchetEncrypt(keyPayload)).ciphertext;
- 
+        final ciphertext =
+            (await ratchet.ratchetEncrypt(keyPayload)).ciphertext;
+
         if (kex.containsKey(ratchetKey)) {
           // The ratchet did not exist
           final k = kex[ratchetKey]!
@@ -523,9 +549,10 @@ class OmemoManager {
         } else if (!ratchet.acknowledged) {
           // The ratchet exists but is not acked
           if (ratchet.kex != null) {
-            final oldKex = OmemoKeyExchange.fromBuffer(base64.decode(ratchet.kex!))
-              ..message = OmemoAuthenticatedMessage.fromBuffer(ciphertext);
-            
+            final oldKex =
+                OmemoKeyExchange.fromBuffer(base64.decode(ratchet.kex!))
+                  ..message = OmemoAuthenticatedMessage.fromBuffer(ciphertext);
+
             encryptedKeys.add(
               EncryptedKey(
                 jid,
@@ -536,7 +563,8 @@ class OmemoManager {
             );
           } else {
             // The ratchet is not acked but we don't have the old key exchange
-            _log.warning('Ratchet for $jid:$deviceId is not acked but the kex attribute is null');
+            _log.warning(
+                'Ratchet for $jid:$deviceId is not acked but the kex attribute is null',);
             encryptedKeys.add(
               EncryptedKey(
                 jid,
@@ -559,13 +587,13 @@ class OmemoManager {
         }
 
         // Commit the ratchet
-        _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet, false, false));
+        _eventStreamController
+            .add(RatchetModifiedEvent(jid, deviceId, ratchet, false, false));
       }
     }
 
     return EncryptionResult(
-      plaintext != null ?
-        ciphertext : null,
+      plaintext != null ? ciphertext : null,
       encryptedKeys,
       deviceEncryptionErrors,
       jidEncryptionErrors,
@@ -581,14 +609,13 @@ class OmemoManager {
       unawaited(subscribeToDeviceListNodeImpl(stanza.bareSenderJid));
       _subscriptionMap[stanza.bareSenderJid] = true;
     }
-    
-    final ratchetKey = RatchetMapKey(stanza.bareSenderJid, stanza.senderDeviceId);
+
+    final ratchetKey =
+        RatchetMapKey(stanza.bareSenderJid, stanza.senderDeviceId);
     final _InternalDecryptionResult result;
     try {
       result = await _decryptMessage(
-        stanza.payload != null ?
-          base64.decode(stanza.payload!) :
-          null,
+        stanza.payload != null ? base64.decode(stanza.payload!) : null,
         stanza.bareSenderJid,
         stanza.senderDeviceId,
         stanza.keys,
@@ -604,7 +631,8 @@ class OmemoManager {
 
     // Check if the ratchet is acked
     final ratchet = getRatchet(ratchetKey);
-    assert(ratchet != null, 'We decrypted the message, so the ratchet must exist');
+    assert(
+        ratchet != null, 'We decrypted the message, so the ratchet must exist',);
 
     if (ratchet!.acknowledged) {
       // Ratchet is acknowledged
@@ -674,20 +702,22 @@ class OmemoManager {
     );
     await sendEmptyOmemoMessageImpl(result, jid);
   }
-  
+
   /// Mark the ratchet for device [deviceId] from [jid] as acked.
-  Future<void> ratchetAcknowledged(String jid, int deviceId, { bool enterCriticalSection = true }) async {
+  Future<void> ratchetAcknowledged(String jid, int deviceId,
+      {bool enterCriticalSection = true,}) async {
     if (enterCriticalSection) await _enterRatchetCriticalSection(jid);
 
     final key = RatchetMapKey(jid, deviceId);
     if (_ratchetMap.containsKey(key)) {
-      final ratchet = _ratchetMap[key]!
-        ..acknowledged = true;
+      final ratchet = _ratchetMap[key]!..acknowledged = true;
 
       // Commit it
-      _eventStreamController.add(RatchetModifiedEvent(jid, deviceId, ratchet, false, false));
+      _eventStreamController
+          .add(RatchetModifiedEvent(jid, deviceId, ratchet, false, false));
     } else {
-      _log.severe('Attempted to acknowledge ratchet ${key.toJsonKey()}, even though it does not exist');
+      _log.severe(
+          'Attempted to acknowledge ratchet ${key.toJsonKey()}, even though it does not exist',);
     }
 
     if (enterCriticalSection) await _leaveRatchetCriticalSection(jid);
@@ -703,7 +733,7 @@ class OmemoManager {
       _eventStreamController.add(DeviceModifiedEvent(_device));
     });
   }
-  
+
   /// Returns the device used for encryption and decryption.
   Future<OmemoDevice> getDevice() => _deviceLock.synchronized(() => _device);
 
@@ -714,18 +744,19 @@ class OmemoManager {
   Future<OmemoBundle> getDeviceBundle() async => (await getDevice()).toBundle();
 
   /// Directly aquire the current device's fingerprint.
-  Future<String> getDeviceFingerprint() async => (await getDevice()).getFingerprint();
-  
+  Future<String> getDeviceFingerprint() async =>
+      (await getDevice()).getFingerprint();
+
   /// Returns the fingerprints for all devices of [jid] that we have a session with.
   /// If there are not sessions with [jid], then returns null.
   Future<List<DeviceFingerprint>?> getFingerprintsForJid(String jid) async {
     if (!_deviceList.containsKey(jid)) return null;
 
     await _enterRatchetCriticalSection(jid);
-    
+
     final fingerprintKeys = _deviceList[jid]!
-      .map((id) => RatchetMapKey(jid, id))
-      .where((key) => _ratchetMap.containsKey(key));
+        .map((id) => RatchetMapKey(jid, id))
+        .where((key) => _ratchetMap.containsKey(key));
 
     final fingerprints = List<DeviceFingerprint>.empty(growable: true);
     for (final key in fingerprintKeys) {
@@ -741,7 +772,7 @@ class OmemoManager {
     await _leaveRatchetCriticalSection(jid);
     return fingerprints;
   }
-  
+
   /// Ensures that the device list is fetched again on the next message sending.
   void onNewConnection() {
     _deviceListRequested.clear();
@@ -757,7 +788,8 @@ class OmemoManager {
     _eventStreamController.add(DeviceListModifiedEvent(_deviceList));
   }
 
-  void initialize(Map<RatchetMapKey, OmemoDoubleRatchet> ratchetMap, Map<String, List<int>> deviceList) {
+  void initialize(Map<RatchetMapKey, OmemoDoubleRatchet> ratchetMap,
+      Map<String, List<int>> deviceList,) {
     _deviceList = deviceList;
     _ratchetMap = ratchetMap;
   }
@@ -782,7 +814,7 @@ class OmemoManager {
 
     // Remove trust decisions
     await _trustManager.removeTrustDecisionsForJid(jid);
-    
+
     await _leaveRatchetCriticalSection(jid);
   }
 

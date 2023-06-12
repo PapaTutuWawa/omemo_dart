@@ -13,7 +13,6 @@ int fieldId(int number, int type) {
 }
 
 class VarintDecode {
-
   const VarintDecode(this.n, this.length);
   final int n;
   final int length;

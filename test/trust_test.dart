@@ -8,7 +8,7 @@ void main() {
     // Example data
     const aliceJid = 'alice@some.server';
     const bobJid = 'bob@other.server';
-    
+
     // Caroline starts a chat a device from Alice
     await btbv.onNewSession(aliceJid, 1);
     expect(await btbv.isTrusted(aliceJid, 1), true);

@@ -10,12 +10,35 @@ import 'dart:core' as $core;
 import 'package:protobuf/protobuf.dart' as $pb;
 
 class OMEMOMessage extends $pb.GeneratedMessage {
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(const $core.bool.fromEnvironment('protobuf.omit_message_names') ? '' : 'OMEMOMessage', createEmptyInstance: create)
-    ..a<$core.int>(1, const $core.bool.fromEnvironment('protobuf.omit_field_names') ? '' : 'n', $pb.PbFieldType.QU3)
-    ..a<$core.int>(2, const $core.bool.fromEnvironment('protobuf.omit_field_names') ? '' : 'pn', $pb.PbFieldType.QU3)
-    ..a<$core.List<$core.int>>(3, const $core.bool.fromEnvironment('protobuf.omit_field_names') ? '' : 'dhPub', $pb.PbFieldType.QY)
-    ..a<$core.List<$core.int>>(4, const $core.bool.fromEnvironment('protobuf.omit_field_names') ? '' : 'ciphertext', $pb.PbFieldType.OY)
-  ;
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      const $core.bool.fromEnvironment('protobuf.omit_message_names')
+          ? ''
+          : 'OMEMOMessage',
+      createEmptyInstance: create)
+    ..a<$core.int>(
+        1,
+        const $core.bool.fromEnvironment('protobuf.omit_field_names')
+            ? ''
+            : 'n',
+        $pb.PbFieldType.QU3)
+    ..a<$core.int>(
+        2,
+        const $core.bool.fromEnvironment('protobuf.omit_field_names')
+            ? ''
+            : 'pn',
+        $pb.PbFieldType.QU3)
+    ..a<$core.List<$core.int>>(
+        3,
+        const $core.bool.fromEnvironment('protobuf.omit_field_names')
+            ? ''
+            : 'dhPub',
+        $pb.PbFieldType.QY)
+    ..a<$core.List<$core.int>>(
+        4,
+        const $core.bool.fromEnvironment('protobuf.omit_field_names')
+            ? ''
+            : 'ciphertext',
+        $pb.PbFieldType.OY);
 
   OMEMOMessage._() : super();
   factory OMEMOMessage({
@@ -39,31 +62,40 @@ class OMEMOMessage extends $pb.GeneratedMessage {
     }
     return _result;
   }
-  factory OMEMOMessage.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory OMEMOMessage.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
+  factory OMEMOMessage.fromBuffer($core.List<$core.int> i,
+          [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(i, r);
+  factory OMEMOMessage.fromJson($core.String i,
+          [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(i, r);
+  @$core.Deprecated('Using this can add significant overhead to your binary. '
+      'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+      'Will be removed in next major version')
   OMEMOMessage clone() => OMEMOMessage()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  OMEMOMessage copyWith(void Function(OMEMOMessage) updates) => super.copyWith((message) => updates(message as OMEMOMessage)) as OMEMOMessage; // ignore: deprecated_member_use
+  @$core.Deprecated('Using this can add significant overhead to your binary. '
+      'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+      'Will be removed in next major version')
+  OMEMOMessage copyWith(void Function(OMEMOMessage) updates) =>
+      super.copyWith((message) => updates(message as OMEMOMessage))
+          as OMEMOMessage; // ignore: deprecated_member_use
   $pb.BuilderInfo get info_ => _i;
   @$core.pragma('dart2js:noInline')
   static OMEMOMessage create() => OMEMOMessage._();
   OMEMOMessage createEmptyInstance() => create();
-  static $pb.PbList<OMEMOMessage> createRepeated() => $pb.PbList<OMEMOMessage>();
+  static $pb.PbList<OMEMOMessage> createRepeated() =>
+      $pb.PbList<OMEMOMessage>();
   @$core.pragma('dart2js:noInline')
-  static OMEMOMessage getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<OMEMOMessage>(create);
+  static OMEMOMessage getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<OMEMOMessage>(create);
   static OMEMOMessage? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.int get n => $_getIZ(0);
   @$pb.TagNumber(1)
-  set n($core.int v) { $_setUnsignedInt32(0, v); }
+  set n($core.int v) {
+    $_setUnsignedInt32(0, v);
+  }
+
   @$pb.TagNumber(1)
   $core.bool hasN() => $_has(0);
   @$pb.TagNumber(1)
@@ -72,7 +104,10 @@ class OMEMOMessage extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   $core.int get pn => $_getIZ(1);
   @$pb.TagNumber(2)
-  set pn($core.int v) { $_setUnsignedInt32(1, v); }
+  set pn($core.int v) {
+    $_setUnsignedInt32(1, v);
+  }
+
   @$pb.TagNumber(2)
   $core.bool hasPn() => $_has(1);
   @$pb.TagNumber(2)
@@ -81,7 +116,10 @@ class OMEMOMessage extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   $core.List<$core.int> get dhPub => $_getN(2);
   @$pb.TagNumber(3)
-  set dhPub($core.List<$core.int> v) { $_setBytes(2, v); }
+  set dhPub($core.List<$core.int> v) {
+    $_setBytes(2, v);
+  }
+
   @$pb.TagNumber(3)
   $core.bool hasDhPub() => $_has(2);
   @$pb.TagNumber(3)
@@ -90,7 +128,10 @@ class OMEMOMessage extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   $core.List<$core.int> get ciphertext => $_getN(3);
   @$pb.TagNumber(4)
-  set ciphertext($core.List<$core.int> v) { $_setBytes(3, v); }
+  set ciphertext($core.List<$core.int> v) {
+    $_setBytes(3, v);
+  }
+
   @$pb.TagNumber(4)
   $core.bool hasCiphertext() => $_has(3);
   @$pb.TagNumber(4)
@@ -98,10 +139,23 @@ class OMEMOMessage extends $pb.GeneratedMessage {
 }
 
 class OMEMOAuthenticatedMessage extends $pb.GeneratedMessage {
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(const $core.bool.fromEnvironment('protobuf.omit_message_names') ? '' : 'OMEMOAuthenticatedMessage', createEmptyInstance: create)
-    ..a<$core.List<$core.int>>(1, const $core.bool.fromEnvironment('protobuf.omit_field_names') ? '' : 'mac', $pb.PbFieldType.QY)
-    ..a<$core.List<$core.int>>(2, const $core.bool.fromEnvironment('protobuf.omit_field_names') ? '' : 'message', $pb.PbFieldType.QY)
-  ;
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      const $core.bool.fromEnvironment('protobuf.omit_message_names')
+          ? ''
+          : 'OMEMOAuthenticatedMessage',
+      createEmptyInstance: create)
+    ..a<$core.List<$core.int>>(
+        1,
+        const $core.bool.fromEnvironment('protobuf.omit_field_names')
+            ? ''
+            : 'mac',
+        $pb.PbFieldType.QY)
+    ..a<$core.List<$core.int>>(
+        2,
+        const $core.bool.fromEnvironment('protobuf.omit_field_names')
+            ? ''
+            : 'message',
+        $pb.PbFieldType.QY);
 
   OMEMOAuthenticatedMessage._() : super();
   factory OMEMOAuthenticatedMessage({
@@ -117,31 +171,42 @@ class OMEMOAuthenticatedMessage extends $pb.GeneratedMessage {
     }
     return _result;
   }
-  factory OMEMOAuthenticatedMessage.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory OMEMOAuthenticatedMessage.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  OMEMOAuthenticatedMessage clone() => OMEMOAuthenticatedMessage()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  OMEMOAuthenticatedMessage copyWith(void Function(OMEMOAuthenticatedMessage) updates) => super.copyWith((message) => updates(message as OMEMOAuthenticatedMessage)) as OMEMOAuthenticatedMessage; // ignore: deprecated_member_use
+  factory OMEMOAuthenticatedMessage.fromBuffer($core.List<$core.int> i,
+          [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(i, r);
+  factory OMEMOAuthenticatedMessage.fromJson($core.String i,
+          [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(i, r);
+  @$core.Deprecated('Using this can add significant overhead to your binary. '
+      'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+      'Will be removed in next major version')
+  OMEMOAuthenticatedMessage clone() =>
+      OMEMOAuthenticatedMessage()..mergeFromMessage(this);
+  @$core.Deprecated('Using this can add significant overhead to your binary. '
+      'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+      'Will be removed in next major version')
+  OMEMOAuthenticatedMessage copyWith(
+          void Function(OMEMOAuthenticatedMessage) updates) =>
+      super.copyWith((message) => updates(message as OMEMOAuthenticatedMessage))
+          as OMEMOAuthenticatedMessage; // ignore: deprecated_member_use
   $pb.BuilderInfo get info_ => _i;
   @$core.pragma('dart2js:noInline')
   static OMEMOAuthenticatedMessage create() => OMEMOAuthenticatedMessage._();
   OMEMOAuthenticatedMessage createEmptyInstance() => create();
-  static $pb.PbList<OMEMOAuthenticatedMessage> createRepeated() => $pb.PbList<OMEMOAuthenticatedMessage>();
+  static $pb.PbList<OMEMOAuthenticatedMessage> createRepeated() =>
+      $pb.PbList<OMEMOAuthenticatedMessage>();
   @$core.pragma('dart2js:noInline')
-  static OMEMOAuthenticatedMessage getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<OMEMOAuthenticatedMessage>(create);
+  static OMEMOAuthenticatedMessage getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<OMEMOAuthenticatedMessage>(create);
   static OMEMOAuthenticatedMessage? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.List<$core.int> get mac => $_getN(0);
   @$pb.TagNumber(1)
-  set mac($core.List<$core.int> v) { $_setBytes(0, v); }
+  set mac($core.List<$core.int> v) {
+    $_setBytes(0, v);
+  }
+
   @$pb.TagNumber(1)
   $core.bool hasMac() => $_has(0);
   @$pb.TagNumber(1)
@@ -150,7 +215,10 @@ class OMEMOAuthenticatedMessage extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   $core.List<$core.int> get message => $_getN(1);
   @$pb.TagNumber(2)
-  set message($core.List<$core.int> v) { $_setBytes(1, v); }
+  set message($core.List<$core.int> v) {
+    $_setBytes(1, v);
+  }
+
   @$pb.TagNumber(2)
   $core.bool hasMessage() => $_has(1);
   @$pb.TagNumber(2)
@@ -158,13 +226,41 @@ class OMEMOAuthenticatedMessage extends $pb.GeneratedMessage {
 }
 
 class OMEMOKeyExchange extends $pb.GeneratedMessage {
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(const $core.bool.fromEnvironment('protobuf.omit_message_names') ? '' : 'OMEMOKeyExchange', createEmptyInstance: create)
-    ..a<$core.int>(1, const $core.bool.fromEnvironment('protobuf.omit_field_names') ? '' : 'pkId', $pb.PbFieldType.QU3)
-    ..a<$core.int>(2, const $core.bool.fromEnvironment('protobuf.omit_field_names') ? '' : 'spkId', $pb.PbFieldType.QU3)
-    ..a<$core.List<$core.int>>(3, const $core.bool.fromEnvironment('protobuf.omit_field_names') ? '' : 'ik', $pb.PbFieldType.QY)
-    ..a<$core.List<$core.int>>(4, const $core.bool.fromEnvironment('protobuf.omit_field_names') ? '' : 'ek', $pb.PbFieldType.QY)
-    ..aQM<OMEMOAuthenticatedMessage>(5, const $core.bool.fromEnvironment('protobuf.omit_field_names') ? '' : 'message', subBuilder: OMEMOAuthenticatedMessage.create)
-  ;
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      const $core.bool.fromEnvironment('protobuf.omit_message_names')
+          ? ''
+          : 'OMEMOKeyExchange',
+      createEmptyInstance: create)
+    ..a<$core.int>(
+        1,
+        const $core.bool.fromEnvironment('protobuf.omit_field_names')
+            ? ''
+            : 'pkId',
+        $pb.PbFieldType.QU3)
+    ..a<$core.int>(
+        2,
+        const $core.bool.fromEnvironment('protobuf.omit_field_names')
+            ? ''
+            : 'spkId',
+        $pb.PbFieldType.QU3)
+    ..a<$core.List<$core.int>>(
+        3,
+        const $core.bool.fromEnvironment('protobuf.omit_field_names')
+            ? ''
+            : 'ik',
+        $pb.PbFieldType.QY)
+    ..a<$core.List<$core.int>>(
+        4,
+        const $core.bool.fromEnvironment('protobuf.omit_field_names')
+            ? ''
+            : 'ek',
+        $pb.PbFieldType.QY)
+    ..aQM<OMEMOAuthenticatedMessage>(
+        5,
+        const $core.bool.fromEnvironment('protobuf.omit_field_names')
+            ? ''
+            : 'message',
+        subBuilder: OMEMOAuthenticatedMessage.create);
 
   OMEMOKeyExchange._() : super();
   factory OMEMOKeyExchange({
@@ -192,31 +288,40 @@ class OMEMOKeyExchange extends $pb.GeneratedMessage {
     }
     return _result;
   }
-  factory OMEMOKeyExchange.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory OMEMOKeyExchange.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
+  factory OMEMOKeyExchange.fromBuffer($core.List<$core.int> i,
+          [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(i, r);
+  factory OMEMOKeyExchange.fromJson($core.String i,
+          [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(i, r);
+  @$core.Deprecated('Using this can add significant overhead to your binary. '
+      'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+      'Will be removed in next major version')
   OMEMOKeyExchange clone() => OMEMOKeyExchange()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  OMEMOKeyExchange copyWith(void Function(OMEMOKeyExchange) updates) => super.copyWith((message) => updates(message as OMEMOKeyExchange)) as OMEMOKeyExchange; // ignore: deprecated_member_use
+  @$core.Deprecated('Using this can add significant overhead to your binary. '
+      'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+      'Will be removed in next major version')
+  OMEMOKeyExchange copyWith(void Function(OMEMOKeyExchange) updates) =>
+      super.copyWith((message) => updates(message as OMEMOKeyExchange))
+          as OMEMOKeyExchange; // ignore: deprecated_member_use
   $pb.BuilderInfo get info_ => _i;
   @$core.pragma('dart2js:noInline')
   static OMEMOKeyExchange create() => OMEMOKeyExchange._();
   OMEMOKeyExchange createEmptyInstance() => create();
-  static $pb.PbList<OMEMOKeyExchange> createRepeated() => $pb.PbList<OMEMOKeyExchange>();
+  static $pb.PbList<OMEMOKeyExchange> createRepeated() =>
+      $pb.PbList<OMEMOKeyExchange>();
   @$core.pragma('dart2js:noInline')
-  static OMEMOKeyExchange getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<OMEMOKeyExchange>(create);
+  static OMEMOKeyExchange getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<OMEMOKeyExchange>(create);
   static OMEMOKeyExchange? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.int get pkId => $_getIZ(0);
   @$pb.TagNumber(1)
-  set pkId($core.int v) { $_setUnsignedInt32(0, v); }
+  set pkId($core.int v) {
+    $_setUnsignedInt32(0, v);
+  }
+
   @$pb.TagNumber(1)
   $core.bool hasPkId() => $_has(0);
   @$pb.TagNumber(1)
@@ -225,7 +330,10 @@ class OMEMOKeyExchange extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   $core.int get spkId => $_getIZ(1);
   @$pb.TagNumber(2)
-  set spkId($core.int v) { $_setUnsignedInt32(1, v); }
+  set spkId($core.int v) {
+    $_setUnsignedInt32(1, v);
+  }
+
   @$pb.TagNumber(2)
   $core.bool hasSpkId() => $_has(1);
   @$pb.TagNumber(2)
@@ -234,7 +342,10 @@ class OMEMOKeyExchange extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   $core.List<$core.int> get ik => $_getN(2);
   @$pb.TagNumber(3)
-  set ik($core.List<$core.int> v) { $_setBytes(2, v); }
+  set ik($core.List<$core.int> v) {
+    $_setBytes(2, v);
+  }
+
   @$pb.TagNumber(3)
   $core.bool hasIk() => $_has(2);
   @$pb.TagNumber(3)
@@ -243,7 +354,10 @@ class OMEMOKeyExchange extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   $core.List<$core.int> get ek => $_getN(3);
   @$pb.TagNumber(4)
-  set ek($core.List<$core.int> v) { $_setBytes(3, v); }
+  set ek($core.List<$core.int> v) {
+    $_setBytes(3, v);
+  }
+
   @$pb.TagNumber(4)
   $core.bool hasEk() => $_has(3);
   @$pb.TagNumber(4)
@@ -252,7 +366,10 @@ class OMEMOKeyExchange extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   OMEMOAuthenticatedMessage get message => $_getN(4);
   @$pb.TagNumber(5)
-  set message(OMEMOAuthenticatedMessage v) { setField(5, v); }
+  set message(OMEMOAuthenticatedMessage v) {
+    setField(5, v);
+  }
+
   @$pb.TagNumber(5)
   $core.bool hasMessage() => $_has(4);
   @$pb.TagNumber(5)
@@ -260,4 +377,3 @@ class OMEMOKeyExchange extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   OMEMOAuthenticatedMessage ensureMessage() => $_ensure(4);
 }
-

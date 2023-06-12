@@ -10,23 +10,30 @@ import 'package:synchronized/synchronized.dart';
 enum BTBVTrustState {
   notTrusted, // = 1
   blindTrust, // = 2
-  verified,   // = 3
+  verified, // = 3
 }
 
 int _trustToInt(BTBVTrustState state) {
   switch (state) {
-    case BTBVTrustState.notTrusted: return 1;
-    case BTBVTrustState.blindTrust: return 2;
-    case BTBVTrustState.verified:   return 3;
+    case BTBVTrustState.notTrusted:
+      return 1;
+    case BTBVTrustState.blindTrust:
+      return 2;
+    case BTBVTrustState.verified:
+      return 3;
   }
 }
 
 BTBVTrustState _trustFromInt(int i) {
   switch (i) {
-    case 1: return BTBVTrustState.notTrusted;
-    case 2: return BTBVTrustState.blindTrust;
-    case 3: return BTBVTrustState.verified;
-    default: return BTBVTrustState.notTrusted;
+    case 1:
+      return BTBVTrustState.notTrusted;
+    case 2:
+      return BTBVTrustState.blindTrust;
+    case 3:
+      return BTBVTrustState.verified;
+    default:
+      return BTBVTrustState.notTrusted;
   }
 }
 
@@ -37,10 +44,10 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
     Map<RatchetMapKey, BTBVTrustState>? trustCache,
     Map<RatchetMapKey, bool>? enablementCache,
     Map<String, List<int>>? devices,
-  }) : trustCache = trustCache ?? {},
-       enablementCache = enablementCache ?? {},
-       devices = devices ?? {},
-       _lock = Lock();
+  })  : trustCache = trustCache ?? {},
+        enablementCache = enablementCache ?? {},
+        devices = devices ?? {},
+        _lock = Lock();
 
   /// The cache for mapping a RatchetMapKey to its trust state
   @visibleForTesting
@@ -51,7 +58,7 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
   @visibleForTesting
   @protected
   final Map<RatchetMapKey, bool> enablementCache;
-  
+
   /// Mapping of Jids to their device identifiers
   @visibleForTesting
   @protected
@@ -70,7 +77,7 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
       return trustCache[RatchetMapKey(jid, id)]! == BTBVTrustState.verified;
     });
   }
-  
+
   @override
   Future<bool> isTrusted(String jid, int deviceId) async {
     var returnValue = false;
@@ -116,12 +123,12 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
       } else {
         devices[jid] = List<int>.from([deviceId]);
       }
-      
+
       // Commit the state
       await commitState();
     });
   }
-  
+
   /// Returns a mapping from the device identifiers of [jid] to their trust state. If
   /// there are no devices known for [jid], then an empty map is returned.
   Future<Map<int, BTBVTrustState>> getDevicesTrust(String jid) async {
@@ -129,7 +136,7 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
       final map = <int, BTBVTrustState>{};
 
       if (!devices.containsKey(jid)) return map;
-      
+
       for (final deviceId in devices[jid]!) {
         map[deviceId] = trustCache[RatchetMapKey(jid, deviceId)]!;
       }
@@ -139,7 +146,8 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
   }
 
   /// Sets the trust of [jid]'s device with identifier [deviceId] to [state].
-  Future<void> setDeviceTrust(String jid, int deviceId, BTBVTrustState state) async {
+  Future<void> setDeviceTrust(
+      String jid, int deviceId, BTBVTrustState state,) async {
     await _lock.synchronized(() async {
       trustCache[RatchetMapKey(jid, deviceId)] = state;
 
@@ -172,10 +180,14 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
   Future<Map<String, dynamic>> toJson() async {
     return {
       'devices': devices,
-      'trust': trustCache.map((key, value) => MapEntry(
-        key.toJsonKey(), _trustToInt(value),
-      ),),
-      'enable': enablementCache.map((key, value) => MapEntry(key.toJsonKey(), value)),
+      'trust': trustCache.map(
+        (key, value) => MapEntry(
+          key.toJsonKey(),
+          _trustToInt(value),
+        ),
+      ),
+      'enable':
+          enablementCache.map((key, value) => MapEntry(key.toJsonKey(), value)),
     };
   }
 
@@ -192,8 +204,10 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
 
   /// From a serialized version of a BTBV trust manager, extract the trust cache.
   /// NOTE: This is needed as Dart cannot just cast a List<dynamic> to List<int> and so on.
-  static Map<RatchetMapKey, BTBVTrustState> trustCacheFromJson(Map<String, dynamic> json) {
-    return (json['trust']! as Map<String, dynamic>).map<RatchetMapKey, BTBVTrustState>(
+  static Map<RatchetMapKey, BTBVTrustState> trustCacheFromJson(
+      Map<String, dynamic> json,) {
+    return (json['trust']! as Map<String, dynamic>)
+        .map<RatchetMapKey, BTBVTrustState>(
       (key, value) => MapEntry(
         RatchetMapKey.fromJsonKey(key),
         _trustFromInt(value as int),
@@ -203,7 +217,8 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
 
   /// From a serialized version of a BTBV trust manager, extract the enable cache.
   /// NOTE: This is needed as Dart cannot just cast a List<dynamic> to List<int> and so on.
-  static Map<RatchetMapKey, bool> enableCacheFromJson(Map<String, dynamic> json) {
+  static Map<RatchetMapKey, bool> enableCacheFromJson(
+      Map<String, dynamic> json,) {
     return (json['enable']! as Map<String, dynamic>).map<RatchetMapKey, bool>(
       (key, value) => MapEntry(
         RatchetMapKey.fromJsonKey(key),
@@ -212,21 +227,22 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
     );
   }
 
-  @override 
+  @override
   Future<void> removeTrustDecisionsForJid(String jid) async {
     await _lock.synchronized(() async {
       devices.remove(jid);
       await commitState();
     });
   }
-  
+
   /// Called when the state of the trust manager has been changed. Allows the user to
   /// commit the trust state to persistent storage.
   @visibleForOverriding
   Future<void> commitState();
 
   @visibleForTesting
-  BTBVTrustState getDeviceTrust(String jid, int deviceId) => trustCache[RatchetMapKey(jid, deviceId)]!;
+  BTBVTrustState getDeviceTrust(String jid, int deviceId) =>
+      trustCache[RatchetMapKey(jid, deviceId)]!;
 }
 
 /// A BTBV TrustManager that does not commit its state to persistent storage. Well suited

@@ -10,13 +10,16 @@ const encryptHkdfInfoString = 'OMEMO Message Key Material';
 /// Signals ENCRYPT function as specified by OMEMO 0.8.3.
 /// Encrypt [plaintext] using the message key [mk], given associated_data [associatedData]
 /// and the AD output from the X3DH [sessionAd].
-Future<List<int>> encrypt(List<int> mk, List<int> plaintext, List<int> associatedData, List<int> sessionAd) async {
+Future<List<int>> encrypt(List<int> mk, List<int> plaintext,
+    List<int> associatedData, List<int> sessionAd,) async {
   // Generate encryption, authentication key and IV
   final keys = await deriveEncryptionKeys(mk, encryptHkdfInfoString);
-  final ciphertext = await aes256CbcEncrypt(plaintext, keys.encryptionKey, keys.iv);
-  
-  final header = OmemoMessage.fromBuffer(associatedData.sublist(sessionAd.length))
-    ..ciphertext = ciphertext;
+  final ciphertext =
+      await aes256CbcEncrypt(plaintext, keys.encryptionKey, keys.iv);
+
+  final header =
+      OmemoMessage.fromBuffer(associatedData.sublist(sessionAd.length))
+        ..ciphertext = ciphertext;
   final headerBytes = header.writeToBuffer();
   final hmacInput = concat([sessionAd, headerBytes]);
   final hmacResult = await truncatedHmac(hmacInput, keys.authenticationKey);
@@ -29,10 +32,11 @@ Future<List<int>> encrypt(List<int> mk, List<int> plaintext, List<int> associate
 /// Signals DECRYPT function as specified by OMEMO 0.8.3.
 /// Decrypt [ciphertext] with the message key [mk], given the associated_data [associatedData]
 /// and the AD output from the X3DH.
-Future<List<int>> decrypt(List<int> mk, List<int> ciphertext, List<int> associatedData, List<int> sessionAd) async {
+Future<List<int>> decrypt(List<int> mk, List<int> ciphertext,
+    List<int> associatedData, List<int> sessionAd,) async {
   // Generate encryption, authentication key and IV
   final keys = await deriveEncryptionKeys(mk, encryptHkdfInfoString);
-  
+
   // Assumption ciphertext is a OMEMOAuthenticatedMessage
   final message = OmemoAuthenticatedMessage.fromBuffer(ciphertext);
   final header = OmemoMessage.fromBuffer(message.message!);

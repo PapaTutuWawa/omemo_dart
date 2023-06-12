@@ -9,8 +9,8 @@ class DeviceFingerprint {
   @override
   bool operator ==(Object other) {
     return other is DeviceFingerprint &&
-      fingerprint == other.fingerprint &&
-      deviceId == other.deviceId;
+        fingerprint == other.fingerprint &&
+        deviceId == other.deviceId;
   }
 
   @override

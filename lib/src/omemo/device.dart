@@ -91,9 +91,10 @@ class OmemoDevice {
       opks,
     );
   }
-  
+
   /// Generate a completely new device, i.e. cryptographic identity.
-  static Future<OmemoDevice> generateNewDevice(String jid, { int opkAmount = 100 }) async {
+  static Future<OmemoDevice> generateNewDevice(String jid,
+      {int opkAmount = 100,}) async {
     final id = generateRandom32BitNumber();
     final ik = await OmemoKeyPair.generateNewPair(KeyPairType.ed25519);
     final spk = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
@@ -110,7 +111,7 @@ class OmemoDevice {
 
   /// Our bare Jid
   final String jid;
-  
+
   /// The device Id
   final int id;
 
@@ -119,13 +120,16 @@ class OmemoDevice {
 
   /// The signed prekey...
   final OmemoKeyPair spk;
+
   /// ...its Id, ...
   final int spkId;
+
   /// ...and its signature
   final List<int> spkSignature;
 
   /// The old Signed Prekey...
   final OmemoKeyPair? oldSpk;
+
   /// ...and its Id
   final int? oldSpkId;
 
@@ -137,7 +141,7 @@ class OmemoDevice {
   @internal
   Future<OmemoDevice> replaceOnetimePrekey(int id) async {
     opks[id] = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
-    
+
     return OmemoDevice(
       jid,
       this.id,
@@ -188,7 +192,7 @@ class OmemoDevice {
       opks,
     );
   }
-  
+
   /// Converts this device into an OmemoBundle that could be used for publishing.
   Future<OmemoBundle> toBundle() async {
     final encodedOpks = <int, String>{};
@@ -214,7 +218,7 @@ class OmemoDevice {
     final curveKey = await ik.pk.toCurve25519();
     return HEX.encode(await curveKey.getBytes());
   }
-  
+
   /// Serialise the device information.
   Future<Map<String, dynamic>> toJson() async {
     /// Serialise the OPKs
@@ -226,7 +230,7 @@ class OmemoDevice {
         'private': base64.encode(await entry.value.sk.getBytes()),
       });
     }
-    
+
     return {
       'jid': jid,
       'id': id,
@@ -251,7 +255,9 @@ class OmemoDevice {
     } else {
       for (final entry in opks.entries) {
         // ignore: invalid_use_of_visible_for_testing_member
-        final matches = await other.opks[entry.key]?.equals(entry.value) ?? false;
+        final matches =
+            // ignore: invalid_use_of_visible_for_testing_member
+            await other.opks[entry.key]?.equals(entry.value) ?? false;
         if (!matches) {
           opksMatch = false;
         }
@@ -263,15 +269,18 @@ class OmemoDevice {
     // ignore: invalid_use_of_visible_for_testing_member
     final spkMatch = await spk.equals(other.spk);
     // ignore: invalid_use_of_visible_for_testing_member
-    final oldSpkMatch = oldSpk != null ? await oldSpk!.equals(other.oldSpk!) : other.oldSpk == null;
+    final oldSpkMatch = oldSpk != null
+        // ignore: invalid_use_of_visible_for_testing_member
+        ? await oldSpk!.equals(other.oldSpk!)
+        : other.oldSpk == null;
     return id == other.id &&
-      ikMatch &&
-      spkMatch &&
-      oldSpkMatch &&
-      jid == other.jid &&
-      listsEqual(spkSignature, other.spkSignature) &&
-      spkId == other.spkId &&
-      oldSpkId == other.oldSpkId &&
-      opksMatch;
+        ikMatch &&
+        spkMatch &&
+        oldSpkMatch &&
+        jid == other.jid &&
+        listsEqual(spkSignature, other.spkSignature) &&
+        spkId == other.spkId &&
+        oldSpkId == other.oldSpkId &&
+        opksMatch;
   }
 }

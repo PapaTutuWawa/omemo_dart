@@ -18,7 +18,7 @@ class NeverTrustingTrustManager extends TrustManager {
   @override
   Future<void> setEnabled(String jid, int deviceId, bool enabled) async {}
 
-  @override 
+  @override
   Future<void> removeTrustDecisionsForJid(String jid) async {}
 
   @override

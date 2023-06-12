@@ -76,7 +76,7 @@ void main() {
         ..dhPub = <int>[1, 2, 3];
       final serial = pbMessage.writeToBuffer();
       final msg = OmemoMessage.fromBuffer(serial);
-      
+
       expect(msg.n, 1);
       expect(msg.pn, 5);
       expect(msg.dhPub, <int>[1, 2, 3]);
@@ -90,7 +90,7 @@ void main() {
         ..ciphertext = <int>[4, 5, 6];
       final serial = m.writeToBuffer();
       final msg = OMEMOMessage.fromBuffer(serial);
-      
+
       expect(msg.n, 1);
       expect(msg.pn, 5);
       expect(msg.dhPub, <int>[1, 2, 3]);
@@ -169,7 +169,7 @@ void main() {
       expect(decoded.pkId, 698);
       expect(decoded.spkId, 245);
       expect(decoded.ik, <int>[1, 4, 6]);
-      expect(decoded.ek, <int>[4 ,6 ,7 , 80]);
+      expect(decoded.ek, <int>[4, 6, 7, 80]);
 
       expect(decoded.message!.mac, <int>[5, 6, 8, 0]);
       expect(decoded.message!.message, <int>[4, 5, 7, 3, 2]);

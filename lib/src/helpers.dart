@@ -43,7 +43,8 @@ int generateRandom32BitNumber() {
   return Random.secure().nextInt(4294967295 /*pow(2, 32) - 1*/);
 }
 
-OmemoPublicKey? decodeKeyIfNotNull(Map<String, dynamic> map, String key, KeyPairType type) {
+OmemoPublicKey? decodeKeyIfNotNull(
+    Map<String, dynamic> map, String key, KeyPairType type,) {
   if (map[key] == null) return null;
 
   return OmemoPublicKey.fromBytes(

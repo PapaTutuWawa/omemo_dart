@@ -20,10 +20,12 @@ class RatchetMapKey {
   String toJsonKey() {
     return '$deviceId:$jid';
   }
-  
+
   @override
   bool operator ==(Object other) {
-    return other is RatchetMapKey && jid == other.jid && deviceId == other.deviceId;
+    return other is RatchetMapKey &&
+        jid == other.jid &&
+        deviceId == other.deviceId;
   }
 
   @override

@@ -2,12 +2,11 @@ import 'package:omemo_dart/src/helpers.dart';
 import 'package:omemo_dart/src/protobuf/protobuf.dart';
 
 class OmemoMessage {
-
   OmemoMessage();
 
   factory OmemoMessage.fromBuffer(List<int> data) {
     var i = 0;
-    
+
     // required uint32 n          = 1;
     if (data[0] != fieldId(1, fieldTypeUint32)) {
       throw Exception();

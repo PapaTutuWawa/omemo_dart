@@ -30,18 +30,18 @@ void main() {
         if (!m) opksMatch = false;
       }
     }
-    
+
     expect(opksMatch, true);
     expect(await device.ik.equals(newDevice.ik), true);
     expect(await device.spk.equals(newDevice.spk), true);
 
-    final oldSpkMatch = device.oldSpk != null ?
-      await device.oldSpk!.equals(newDevice.oldSpk!) :
-      newDevice.oldSpk == null;
+    final oldSpkMatch = device.oldSpk != null
+        ? await device.oldSpk!.equals(newDevice.oldSpk!)
+        : newDevice.oldSpk == null;
     expect(oldSpkMatch, true);
     expect(listsEqual(device.spkSignature, newDevice.spkSignature), true);
   });
-    
+
   test('Test using OMEMO sessions with only one device per user', () async {
     const aliceJid = 'alice@server.example';
     const bobJid = 'bob@other.server.example';
@@ -80,7 +80,7 @@ void main() {
       ],
     );
     expect(aliceMessage.encryptedKeys.length, 1);
-    
+
     // Alice sends the message to Bob
     // ...
 
@@ -107,9 +107,11 @@ void main() {
     );
 
     // Ratchets are acked
-    await aliceSession.ratchetAcknowledged(bobJid, await bobSession.getDeviceId());
-    await bobSession.ratchetAcknowledged(aliceJid, await aliceSession.getDeviceId());
-    
+    await aliceSession.ratchetAcknowledged(
+        bobJid, await bobSession.getDeviceId());
+    await bobSession.ratchetAcknowledged(
+        aliceJid, await aliceSession.getDeviceId());
+
     // Bob responds to Alice
     const bobResponseText = 'Oh, hello Alice!';
     final bobResponseMessage = await bobSession.encryptToJid(
@@ -131,10 +133,11 @@ void main() {
     expect(bobResponseText, aliceReceivedMessage);
   });
 
-  test('Test using OMEMO sessions with only two devices for the receiver', () async {
+  test('Test using OMEMO sessions with only two devices for the receiver',
+      () async {
     const aliceJid = 'alice@server.example';
     const bobJid = 'bob@other.server.example';
-      
+
     // Alice and Bob generate their sessions
     final aliceSession = await OmemoSessionManager.generateNewIdentity(
       aliceJid,
@@ -181,9 +184,11 @@ void main() {
     expect(messagePlaintext, bobMessage);
 
     // Ratchets are acked
-    await aliceSession.ratchetAcknowledged(bobJid, await bobSession.getDeviceId());
-    await bobSession.ratchetAcknowledged(aliceJid, await aliceSession.getDeviceId());
-    
+    await aliceSession.ratchetAcknowledged(
+        bobJid, await bobSession.getDeviceId());
+    await bobSession.ratchetAcknowledged(
+        aliceJid, await aliceSession.getDeviceId());
+
     // Bob responds to Alice
     const bobResponseText = 'Oh, hello Alice!';
     final bobResponseMessage = await bobSession.encryptToJid(
@@ -218,7 +223,7 @@ void main() {
   test('Test using OMEMO sessions with encrypt to self', () async {
     const aliceJid = 'alice@server.example';
     const bobJid = 'bob@other.server.example';
-      
+
     // Alice and Bob generate their sessions
     final aliceSession1 = await OmemoSessionManager.generateNewIdentity(
       aliceJid,
@@ -275,7 +280,7 @@ void main() {
   test('Test sending empty OMEMO messages', () async {
     const aliceJid = 'alice@server.example';
     const bobJid = 'bob@other.server.example';
-      
+
     // Alice and Bob generate their sessions
     final aliceSession = await OmemoSessionManager.generateNewIdentity(
       aliceJid,
@@ -350,7 +355,7 @@ void main() {
   test('Test accepting a session with an old SPK', () async {
     const aliceJid = 'alice@server.example';
     const bobJid = 'bob@other.server.example';
-      
+
     // Alice and Bob generate their sessions
     final aliceSession = await OmemoSessionManager.generateNewIdentity(
       aliceJid,
@@ -376,7 +381,7 @@ void main() {
 
     // Alice loses her Internet connection. Bob rotates his SPK.
     await bobSession.rotateSignedPrekey();
-    
+
     // Alice regains her Internet connection and sends the message to Bob
     // ...
 
@@ -394,7 +399,7 @@ void main() {
   test('Test trust bypassing with empty OMEMO messages', () async {
     const aliceJid = 'alice@server.example';
     const bobJid = 'bob@other.server.example';
-      
+
     // Alice and Bob generate their sessions
     final aliceSession = await OmemoSessionManager.generateNewIdentity(
       aliceJid,
@@ -457,9 +462,11 @@ void main() {
     );
 
     // Ratchets are acked
-    await aliceSession.ratchetAcknowledged(bobJid, await bobSession.getDeviceId());
-    await bobSession.ratchetAcknowledged(aliceJid, await aliceSession.getDeviceId());
-    
+    await aliceSession.ratchetAcknowledged(
+        bobJid, await bobSession.getDeviceId());
+    await bobSession.ratchetAcknowledged(
+        aliceJid, await aliceSession.getDeviceId());
+
     for (var i = 0; i < 100; i++) {
       final messageText = 'Test Message #$i';
       // Bob responds to Alice
@@ -597,7 +604,8 @@ void main() {
     // ...
 
     // Alice marks the ratchet as acknowledged
-    await aliceSession.ratchetAcknowledged(bobJid, await bobSession.getDeviceId());
+    await aliceSession.ratchetAcknowledged(
+        bobJid, await bobSession.getDeviceId());
     expect(
       (await aliceSession.getUnacknowledgedRatchets(bobJid))!.isEmpty,
       true,
@@ -671,7 +679,7 @@ void main() {
     // Both should only have one ratchet
     expect(aliceSession.getRatchetMap().length, 1);
     expect(bobSession.getRatchetMap().length, 1);
-    
+
     // The ratchets should both be different
     expect(await aliceRatchet1.equals(aliceRatchet2), false);
     expect(await bobRatchet1.equals(bobRatchet2), false);
@@ -726,9 +734,8 @@ void main() {
       msg2.encryptedKeys,
       getTimestamp(),
     );
-
   });
-  
+
   test('Test receiving old messages including a KEX', () async {
     const aliceJid = 'alice@server.example';
     const bobJid = 'bob@other.server.example';
@@ -746,7 +753,7 @@ void main() {
 
     final bobsReceivedMessages = List<EncryptionResult>.empty(growable: true);
     final bobsReceivedMessagesTimestamps = List<int>.empty(growable: true);
-    
+
     // Alice sends Bob a message
     final msg1 = await aliceSession.encryptToJid(
       bobJid,
@@ -768,9 +775,11 @@ void main() {
     );
 
     // Ratchets are acked
-    await aliceSession.ratchetAcknowledged(bobJid, await bobSession.getDeviceId());
-    await bobSession.ratchetAcknowledged(aliceJid, await aliceSession.getDeviceId());
-    
+    await aliceSession.ratchetAcknowledged(
+        bobJid, await bobSession.getDeviceId());
+    await bobSession.ratchetAcknowledged(
+        aliceJid, await aliceSession.getDeviceId());
+
     // Bob responds
     final msg2 = await bobSession.encryptToJid(
       aliceJid,
@@ -784,7 +793,7 @@ void main() {
       msg2.encryptedKeys,
       getTimestamp(),
     );
-    
+
     // Send some messages between the two
     for (var i = 0; i < 100; i++) {
       final msg = await aliceSession.encryptToJid(
@@ -808,8 +817,8 @@ void main() {
     // Due to some issue with the transport protocol, the messages to Bob are received
     // again.
     final ratchetPreError = bobSession
-      .getRatchet(aliceJid, await aliceSession.getDeviceId())
-      .clone();
+        .getRatchet(aliceJid, await aliceSession.getDeviceId())
+        .clone();
     var invalidKex = 0;
     var errorCounter = 0;
     for (var i = 0; i < bobsReceivedMessages.length; i++) {
@@ -830,15 +839,14 @@ void main() {
       }
     }
     final ratchetPostError = bobSession
-      .getRatchet(aliceJid, await aliceSession.getDeviceId())
-      .clone();
+        .getRatchet(aliceJid, await aliceSession.getDeviceId())
+        .clone();
 
     // The 100 messages including the initial KEX message
     expect(invalidKex, 1);
     expect(errorCounter, 100);
     expect(await ratchetPreError.equals(ratchetPostError), true);
 
-    
     final msg3 = await aliceSession.encryptToJid(
       bobJid,
       'Are you okay?',
@@ -903,8 +911,10 @@ void main() {
     );
 
     // Now the acks reach us
-    await aliceSession.ratchetAcknowledged(bobJid, await bobSession.getDeviceId());
-    await bobSession.ratchetAcknowledged(aliceJid, await aliceSession.getDeviceId());
+    await aliceSession.ratchetAcknowledged(
+        bobJid, await bobSession.getDeviceId());
+    await bobSession.ratchetAcknowledged(
+        aliceJid, await aliceSession.getDeviceId());
 
     // Alice sends another message
     final msg3 = await aliceSession.encryptToJid(

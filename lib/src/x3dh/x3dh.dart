@@ -12,7 +12,6 @@ const omemoX3DHInfoString = 'OMEMO X3DH';
 
 /// Performed by Alice
 class X3DHAliceResult {
-
   const X3DHAliceResult(this.ek, this.sk, this.opkId, this.ad);
   final OmemoKeyPair ek;
   final List<int> sk;
@@ -22,7 +21,6 @@ class X3DHAliceResult {
 
 /// Received by Bob
 class X3DHMessage {
-
   const X3DHMessage(this.ik, this.ek, this.opkId);
   final OmemoPublicKey ik;
   final OmemoPublicKey ek;
@@ -30,7 +28,6 @@ class X3DHMessage {
 }
 
 class X3DHBobResult {
-
   const X3DHBobResult(this.sk, this.ad);
   final List<int> sk;
   final List<int> ad;
@@ -39,7 +36,8 @@ class X3DHBobResult {
 /// Sign [message] using the keypair [keyPair]. Note that [keyPair] must be
 /// a Ed25519 keypair.
 Future<List<int>> sig(OmemoKeyPair keyPair, List<int> message) async {
-  assert(keyPair.type == KeyPairType.ed25519, 'Signature keypair must be Ed25519');
+  assert(
+      keyPair.type == KeyPairType.ed25519, 'Signature keypair must be Ed25519',);
   final signature = await Ed25519().sign(
     message,
     keyPair: await keyPair.asKeyPair(),
@@ -70,7 +68,8 @@ Future<List<int>> kdf(List<int> km) async {
 
 /// Alice builds a session with Bob using his bundle [bundle] and Alice's identity key
 /// pair [ik].
-Future<X3DHAliceResult> x3dhFromBundle(OmemoBundle bundle, OmemoKeyPair ik) async {
+Future<X3DHAliceResult> x3dhFromBundle(
+    OmemoBundle bundle, OmemoKeyPair ik,) async {
   // Check the signature first
   final signatureValue = await Ed25519().verify(
     await bundle.spk.getBytes(),
@@ -91,9 +90,9 @@ Future<X3DHAliceResult> x3dhFromBundle(OmemoBundle bundle, OmemoKeyPair ik) asyn
   final opkIndex = random.nextInt(bundle.opksEncoded.length);
   final opkId = bundle.opksEncoded.keys.elementAt(opkIndex);
   final opk = bundle.getOpk(opkId);
-  
+
   final dh1 = await omemoDH(ik, bundle.spk, 1);
-  final dh2 = await omemoDH(ek, bundle.ik,  2);
+  final dh2 = await omemoDH(ek, bundle.ik, 2);
   final dh3 = await omemoDH(ek, bundle.spk, 0);
   final dh4 = await omemoDH(ek, opk, 0);
 
@@ -108,9 +107,10 @@ Future<X3DHAliceResult> x3dhFromBundle(OmemoBundle bundle, OmemoKeyPair ik) asyn
 
 /// Bob builds the X3DH shared secret from the inital message [msg], the SPK [spk], the
 /// OPK [opk] that was selected by Alice and our IK [ik]. Returns the shared secret.
-Future<X3DHBobResult> x3dhFromInitialMessage(X3DHMessage msg, OmemoKeyPair spk, OmemoKeyPair opk, OmemoKeyPair ik) async {
+Future<X3DHBobResult> x3dhFromInitialMessage(X3DHMessage msg, OmemoKeyPair spk,
+    OmemoKeyPair opk, OmemoKeyPair ik,) async {
   final dh1 = await omemoDH(spk, msg.ik, 2);
-  final dh2 = await omemoDH(ik,  msg.ek, 1);
+  final dh2 = await omemoDH(ik, msg.ek, 1);
   final dh3 = await omemoDH(spk, msg.ek, 0);
   final dh4 = await omemoDH(opk, msg.ek, 0);
 

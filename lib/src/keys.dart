@@ -21,7 +21,7 @@ class OmemoPublicKey {
   }
 
   final SimplePublicKey _pubkey;
-  
+
   KeyPairType get type => _pubkey.type;
 
   /// Return the bytes that comprise the public key.
@@ -31,7 +31,8 @@ class OmemoPublicKey {
   Future<String> asBase64() async => base64Encode(_pubkey.bytes);
 
   Future<OmemoPublicKey> toCurve25519() async {
-    assert(type == KeyPairType.ed25519, 'Cannot convert non-Ed25519 public key to X25519');
+    assert(type == KeyPairType.ed25519,
+        'Cannot convert non-Ed25519 public key to X25519',);
 
     final pkc = Uint8List(publicKeyLength);
     TweetNaClExt.crypto_sign_ed25519_pk_to_x25519_pk(
@@ -39,17 +40,19 @@ class OmemoPublicKey {
       Uint8List.fromList(await getBytes()),
     );
 
-    return OmemoPublicKey(SimplePublicKey(List<int>.from(pkc), type: KeyPairType.x25519));
+    return OmemoPublicKey(
+        SimplePublicKey(List<int>.from(pkc), type: KeyPairType.x25519),);
   }
 
   SimplePublicKey asPublicKey() => _pubkey;
 
   @visibleForTesting
   Future<bool> equals(OmemoPublicKey key) async {
-    return type == key.type && listsEqual(
-      await getBytes(),
-      await key.getBytes(),
-    );
+    return type == key.type &&
+        listsEqual(
+          await getBytes(),
+          await key.getBytes(),
+        );
   }
 }
 
@@ -59,9 +62,10 @@ class OmemoPrivateKey {
   final KeyPairType type;
 
   Future<List<int>> getBytes() async => _privkey;
-  
+
   Future<OmemoPrivateKey> toCurve25519() async {
-    assert(type == KeyPairType.ed25519, 'Cannot convert non-Ed25519 private key to X25519');
+    assert(type == KeyPairType.ed25519,
+        'Cannot convert non-Ed25519 private key to X25519',);
 
     final skc = Uint8List(privateKeyLength);
     TweetNaClExt.crypto_sign_ed25519_sk_to_x25519_sk(
@@ -74,10 +78,11 @@ class OmemoPrivateKey {
 
   @visibleForTesting
   Future<bool> equals(OmemoPrivateKey key) async {
-    return type == key.type && listsEqual(
-      await getBytes(),
-      await key.getBytes(),
-    );
+    return type == key.type &&
+        listsEqual(
+          await getBytes(),
+          await key.getBytes(),
+        );
   }
 }
 
@@ -87,7 +92,8 @@ class OmemoKeyPair {
 
   /// Create an OmemoKeyPair just from a [type] and the bytes of the private and public
   /// key.
-  factory OmemoKeyPair.fromBytes(List<int> publicKey, List<int> privateKey, KeyPairType type) {
+  factory OmemoKeyPair.fromBytes(
+      List<int> publicKey, List<int> privateKey, KeyPairType type,) {
     return OmemoKeyPair(
       OmemoPublicKey.fromBytes(
         publicKey,
@@ -104,7 +110,8 @@ class OmemoKeyPair {
   /// Generate a completely new random OmemoKeyPair of type [type]. [type] must be either
   /// KeyPairType.ed25519 or KeyPairType.x25519.
   static Future<OmemoKeyPair> generateNewPair(KeyPairType type) async {
-    assert(type == KeyPairType.ed25519 || type == KeyPairType.x25519, 'Keypair must be either Ed25519 or X25519');
+    assert(type == KeyPairType.ed25519 || type == KeyPairType.x25519,
+        'Keypair must be either Ed25519 or X25519',);
 
     SimpleKeyPair kp;
     if (type == KeyPairType.ed25519) {
@@ -119,7 +126,7 @@ class OmemoKeyPair {
     }
 
     final kpd = await kp.extract();
-    
+
     return OmemoKeyPair(
       OmemoPublicKey(await kp.extractPublicKey()),
       OmemoPrivateKey(await kpd.extractPrivateKeyBytes(), type),
@@ -130,10 +137,11 @@ class OmemoKeyPair {
   final KeyPairType type;
   final OmemoPublicKey pk;
   final OmemoPrivateKey sk;
-  
+
   /// Return the bytes that comprise the public key.
   Future<OmemoKeyPair> toCurve25519() async {
-    assert(type == KeyPairType.ed25519, 'Cannot convert non-Ed25519 keypair to X25519');
+    assert(type == KeyPairType.ed25519,
+        'Cannot convert non-Ed25519 keypair to X25519',);
 
     return OmemoKeyPair(
       await pk.toCurve25519(),
@@ -153,7 +161,7 @@ class OmemoKeyPair {
   @visibleForTesting
   Future<bool> equals(OmemoKeyPair pair) async {
     return type == pair.type &&
-      await pk.equals(pair.pk) &&
-      await sk.equals(pair.sk);
+        await pk.equals(pair.pk) &&
+        await sk.equals(pair.sk);
   }
 }

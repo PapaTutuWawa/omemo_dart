@@ -6,7 +6,8 @@ import 'package:omemo_dart/src/keys.dart';
 /// it indicates which of [kp] ([identityKey] == 1) or [pk] ([identityKey] == 2)
 /// is the identity key. This is needed since the identity key pair/public key is
 /// an Ed25519 key, but we need them as X25519 keys for DH.
-Future<List<int>> omemoDH(OmemoKeyPair kp, OmemoPublicKey pk, int identityKey) async {
+Future<List<int>> omemoDH(
+    OmemoKeyPair kp, OmemoPublicKey pk, int identityKey,) async {
   var ckp = kp;
   var cpk = pk;
 
@@ -17,15 +18,14 @@ Future<List<int>> omemoDH(OmemoKeyPair kp, OmemoPublicKey pk, int identityKey) a
   }
 
   final shared = await Cryptography.instance.x25519().sharedSecretKey(
-    keyPair: await ckp.asKeyPair(),
-    remotePublicKey: cpk.asPublicKey(),
-  );
+        keyPair: await ckp.asKeyPair(),
+        remotePublicKey: cpk.asPublicKey(),
+      );
 
   return shared.extractBytes();
 }
 
 class HkdfKeyResult {
-
   const HkdfKeyResult(this.encryptionKey, this.authenticationKey, this.iv);
   final List<int> encryptionKey;
   final List<int> authenticationKey;
@@ -35,7 +35,8 @@ class HkdfKeyResult {
 /// cryptography _really_ wants to check the MAC output from AES-256-CBC. Since
 /// we don't have it, we need the MAC check to always "pass".
 class NoMacSecretBox extends SecretBox {
-  NoMacSecretBox(super.cipherText, { required super.nonce }) : super(mac: Mac.empty);
+  NoMacSecretBox(super.cipherText, {required super.nonce})
+      : super(mac: Mac.empty);
 
   @override
   Future<void> checkMac({
@@ -59,13 +60,15 @@ Future<HkdfKeyResult> deriveEncryptionKeys(List<int> input, String info) async {
     info: utf8.encode(info),
   );
   final bytes = await result.extractBytes();
-  
-  return HkdfKeyResult(bytes.sublist(0, 32), bytes.sublist(32, 64), bytes.sublist(64, 80));
+
+  return HkdfKeyResult(
+      bytes.sublist(0, 32), bytes.sublist(32, 64), bytes.sublist(64, 80),);
 }
 
 /// A small helper function to make AES-256-CBC easier. Encrypt [plaintext] using [key] as
 /// the encryption key and [iv] as the IV. Returns the ciphertext.
-Future<List<int>> aes256CbcEncrypt(List<int> plaintext, List<int> key, List<int> iv) async {
+Future<List<int>> aes256CbcEncrypt(
+    List<int> plaintext, List<int> key, List<int> iv,) async {
   final algorithm = AesCbc.with256bits(
     macAlgorithm: MacAlgorithm.empty,
   );
@@ -80,7 +83,8 @@ Future<List<int>> aes256CbcEncrypt(List<int> plaintext, List<int> key, List<int>
 
 /// A small helper function to make AES-256-CBC easier. Decrypt [ciphertext] using [key] as
 /// the encryption key and [iv] as the IV. Returns the ciphertext.
-Future<List<int>> aes256CbcDecrypt(List<int> ciphertext, List<int> key, List<int> iv) async {
+Future<List<int>> aes256CbcDecrypt(
+    List<int> ciphertext, List<int> key, List<int> iv,) async {
   final algorithm = AesCbc.with256bits(
     macAlgorithm: MacAlgorithm.empty,
   );

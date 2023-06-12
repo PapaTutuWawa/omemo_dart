@@ -22,20 +22,22 @@ void main() {
     expect(await oldDevice.equals(newDevice), true);
   });
 
-  test('Test serialising and deserialising the Device after rotating the SPK', () async {
+  test('Test serialising and deserialising the Device after rotating the SPK',
+      () async {
     // Generate a random session
     final oldSession = await OmemoSessionManager.generateNewIdentity(
       'user@test.server',
       AlwaysTrustingTrustManager(),
       opkAmount: 1,
     );
-    final oldDevice = await (await oldSession.getDevice()).replaceSignedPrekey();
+    final oldDevice =
+        await (await oldSession.getDevice()).replaceSignedPrekey();
     final serialised = jsonify(await oldDevice.toJson());
 
     final newDevice = OmemoDevice.fromJson(serialised);
     expect(await oldDevice.equals(newDevice), true);
   });
-  
+
   test('Test serialising and deserialising the OmemoDoubleRatchet', () async {
     // Generate a random ratchet
     const aliceJid = 'alice@server.example';
@@ -64,7 +66,8 @@ void main() {
       aliceMessage.encryptedKeys,
       getTimestamp(),
     );
-    final aliceOld = aliceSession.getRatchet(bobJid, await bobSession.getDeviceId());
+    final aliceOld =
+        aliceSession.getRatchet(bobJid, await bobSession.getDeviceId());
     final aliceSerialised = jsonify(await aliceOld.toJson());
     final aliceNew = OmemoDoubleRatchet.fromJson(aliceSerialised);
 
@@ -116,13 +119,14 @@ void main() {
     expect(result2.deviceId, test2.deviceId);
   });
 
-  test('Test serializing and deserializing the components of the BTBV manager', () async {
+  test('Test serializing and deserializing the components of the BTBV manager',
+      () async {
     // Caroline's BTBV manager
     final btbv = MemoryBTBVTrustManager();
     // Example data
     const aliceJid = 'alice@some.server';
     const bobJid = 'bob@other.server';
-    
+
     await btbv.onNewSession(aliceJid, 1);
     await btbv.setDeviceTrust(aliceJid, 1, BTBVTrustState.verified);
     await btbv.onNewSession(aliceJid, 2);
@@ -130,17 +134,20 @@ void main() {
     await btbv.onNewSession(bobJid, 4);
 
     final serialized = jsonify(await btbv.toJson());
-    final deviceList = BlindTrustBeforeVerificationTrustManager.deviceListFromJson(
+    final deviceList =
+        BlindTrustBeforeVerificationTrustManager.deviceListFromJson(
       serialized,
     );
     expect(btbv.devices, deviceList);
 
-    final trustCache = BlindTrustBeforeVerificationTrustManager.trustCacheFromJson(
+    final trustCache =
+        BlindTrustBeforeVerificationTrustManager.trustCacheFromJson(
       serialized,
     );
     expect(btbv.trustCache, trustCache);
 
-    final enableCache = BlindTrustBeforeVerificationTrustManager.enableCacheFromJson(
+    final enableCache =
+        BlindTrustBeforeVerificationTrustManager.enableCacheFromJson(
       serialized,
     );
     expect(btbv.enablementCache, enableCache);
