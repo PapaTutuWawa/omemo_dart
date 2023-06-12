@@ -8,28 +8,45 @@ void main() async {
   const aliceJid = 'alice@some.server';
   const bobJid = 'bob@other.serve';
 
-  // You are Alice and want to begin using OMEMO, so you first create a SessionManager
-  final aliceSession = await OmemoSessionManager.generateNewIdentity(
-    // The bare Jid of Alice as a String
-    aliceJid,
+  // You are Alice and want to begin using OMEMO, so you first create an OmemoManager.
+  final aliceManager = OmemoManager(
+    // Generate Alice's OMEMO device bundle. We can specify how many One-time Prekeys we want, but
+    // per default, omemo_dart generates 100 (recommended by XEP-0384).
+    await OmemoDevice.generateNewDevice(aliceJid),
     // The trust manager we want to use. In this case, we use the provided one that
     // implements "Blind Trust Before Verification". To make things simpler, we keep
     // no persistent data and can thus use the MemoryBTBVTrustManager. If we wanted to keep
     // the state, we would have to override BlindTrustBeforeVerificationTrustManager.
     MemoryBTBVTrustManager(),
-    // Here we specify how many Onetime Prekeys we want to have. XEP-0384 recommends around
-    // 100 OPKs, so let's generate 100. The parameter defaults to 100.
-    //opkAmount: 100,
+    // This function is called whenever we need to send an OMEMO heartbeat to [recipient].
+    // [result] is the encryted data to include. This needs to be wired into your XMPP library's
+    // OMEMO implementation.
+    // For simplicity, we use an empty function and imagine it works.
+    (result, recipient) async => {},
+    // This function is called whenever we need to fetch the device list for [jid].
+    // This needs to be wired into your XMPP library's OMEMO implementation.
+    // For simplicity, we use an empty function and imagine it works.
+    (jid) async => [],
+    // This function is called whenever we need to fetch the device bundle with id [id] from [jid].
+    // This needs to be wired into your XMPP library's OMEMO implementation.
+    // For simplicity, we use an empty function and imagine it works.
+    (jid, id) async => null,
+    // This function is called whenever we need to subscribe to [jid]'s device list PubSub node.
+    // This needs to be wired into your XMPP library's OMEMO implementation.
+    // For simplicity, we use an empty function and imagine it works.
+    (jid) async {},
   );
 
   // Alice now wants to chat with Bob at his bare Jid "bob@other.server". To make things
   // simple, we just generate the identity bundle ourselves. In the real world, we would
   // request it using PEP and then convert the device bundle into a OmemoBundle object.
-  final bobSession = await OmemoSessionManager.generateNewIdentity(
-    bobJid,
+  final bobManager = OmemoManager(
+    await OmemoDevice.generateNewDevice(bobJid),
     MemoryBTBVTrustManager(),
-    // Just for illustrative purposes
-    opkAmount: 1,
+    (result, recipient) async => {},
+    (jid) async => [],
+    (jid, id) async => null,
+    (jid) async {},
   );
 
   // Alice prepares to send the message to Bob, so she builds the message stanza and
@@ -56,18 +73,17 @@ void main() async {
 
   // Since Alice has no open session with Bob, we need to tell the session manager to build
   // it when sending the message.
-  final message = await aliceSession.encryptToJid(
-    // The bare receiver Jid
-    bobJid,
-    // The envelope we want to encrypt
-    envelope,
-    // Since this is the first time Alice contacts Bob from this device, we need to create
-    // a new session. Let's also assume that Bob only has one device. We may, however,
-    // add more bundles to newSessions, if we know of more.
-    newSessions: [
-      await bobSession.getDeviceBundle(),
-    ],
+  final message = await aliceSession.onOutgoingStanza(
+    OmemoOutgoingStanza(
+      // The bare receiver Jid
+      [bobJid],
+
+      // The payload we want to encrypt, i.e. the envelope.
+      envelope,
+    ),
   );
+
+  // In a proper implementation, we should also do some error checking here.
 
   // Alice now builds the actual message stanza for Bob
   final payload = base64.encode(message.ciphertext!);
@@ -110,17 +126,26 @@ void main() async {
 
   // Bob extracts the payload and attempts to decrypt it.
   // ignore: unused_local_variable
-  final bobMessage = await bobSession.decryptMessage(
-    // base64 decode the payload
-    base64.decode(payload),
-    // Specify the Jid of the sender
-    aliceJid,
-    // Specify the device identifier of the sender (the "sid" attribute of <header />)
-    aliceDevice.id,
-    // The deserialised keys
-    keys,
-    // Since the message was not delayed, we use the current time
-    DateTime.now().millisecondsSinceEpoch,
+  final bobMessage = await bobManager.onIncomingStanza(
+    OmemoIncomingStanza(
+      // The bare sender JID of the message. In this case, it's Alice's.
+      aliceJid,
+
+      // The 'sid' attribute of the <header /> element. Here, we know that Alice only has one device.
+      aliceDevice.id,
+
+      // Time the message was sent. Since the message was not delayed, we use the
+      // current time.
+      DateTime.now().millisecondsSinceEpoch,
+
+      /// The decoded <key /> elements. from the header. Note that we only include the ones
+      /// relevant for Bob, so all children of <keys jid='$bobJid' />.
+      keys,
+
+      /// The text of the <payload /> element, if it exists. If not, then the message might be
+      /// a hearbeat, where no payload is sent. In that case, use null.
+      payload,
+    ),
   );
 
   // All Bob has to do now is replace the OMEMO wrapper element
