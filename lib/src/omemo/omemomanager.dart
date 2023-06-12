@@ -203,6 +203,9 @@ class OmemoManager {
       getTimestamp(),
     );
 
+    // Notify the trust manager
+    await trustManager.onNewSession(jid, deviceId);
+
     return ratchet;
   }
 

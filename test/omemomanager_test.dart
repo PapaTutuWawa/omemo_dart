@@ -5,6 +5,15 @@ import 'package:omemo_dart/src/protobuf/omemo_key_exchange.dart';
 import 'package:omemo_dart/src/trust/always.dart';
 import 'package:test/test.dart';
 
+class TestingTrustManager extends AlwaysTrustingTrustManager {
+  final Map<String, int> devices = {};
+
+  @override
+  Future<void> onNewSession(String jid, int deviceId) async {
+    devices[jid] = deviceId;
+  }
+}
+
 void main() {
   Logger.root
     ..level = Level.ALL
@@ -1349,5 +1358,69 @@ void main() {
     );
     expect(bobResult4.error, null);
     expect(bobResult4.payload, 'Hi Bob');
+  });
+
+  test('Test correct trust behaviour on receiving', () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+
+    final aliceManager = OmemoManager(
+      aliceDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, bobJid);
+        return [bobDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+        return bobDevice.toBundle();
+      },
+      (jid) async {},
+    );
+    final bobManager = OmemoManager(
+      bobDevice,
+      TestingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, aliceJid);
+        return [aliceDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, aliceJid);
+        return aliceDevice.toBundle();
+      },
+      (jid) async {},
+    );
+
+    // Alice sends Bob a message
+    final aliceResult1 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello World!',
+      ),
+    );
+
+    // Bob decrypts Alice's message
+    final bobResult1 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        DateTime.now().millisecondsSinceEpoch,
+        aliceResult1.encryptedKeys,
+        base64.encode(aliceResult1.ciphertext!),
+      ),
+    );
+    expect(bobResult1.error, null);
+
+    // Bob should have some trust state
+    expect(
+      (bobManager.trustManager as TestingTrustManager).devices[aliceJid],
+      await aliceManager.getDeviceId(),
+    );
   });
 }
