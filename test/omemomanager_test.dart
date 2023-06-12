@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:logging/logging.dart';
 import 'package:omemo_dart/omemo_dart.dart';
-import 'package:omemo_dart/src/protobuf/omemo_key_exchange.dart';
+import 'package:omemo_dart/protobuf/schema.pb.dart';
 import 'package:omemo_dart/src/trust/always.dart';
 import 'package:test/test.dart';
 
@@ -1304,10 +1304,10 @@ void main() {
     expect(aliceResult2.encryptedKeys.first.kex, true);
 
     // The basic data should be the same
-    final parsedFirstKex = OmemoKeyExchange.fromBuffer(
+    final parsedFirstKex = OMEMOKeyExchange.fromBuffer(
       base64.decode(aliceResult1.encryptedKeys.first.value),
     );
-    final parsedSecondKex = OmemoKeyExchange.fromBuffer(
+    final parsedSecondKex = OMEMOKeyExchange.fromBuffer(
       base64.decode(aliceResult2.encryptedKeys.first.value),
     );
     expect(parsedSecondKex.pkId, parsedFirstKex.pkId);

@@ -6,6 +6,7 @@ import 'package:cryptography/cryptography.dart';
 import 'package:hex/hex.dart';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
+import 'package:omemo_dart/protobuf/schema.pb.dart';
 import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/double_ratchet/double_ratchet.dart';
 import 'package:omemo_dart/src/errors.dart';
@@ -21,9 +22,6 @@ import 'package:omemo_dart/src/omemo/events.dart';
 import 'package:omemo_dart/src/omemo/fingerprint.dart';
 import 'package:omemo_dart/src/omemo/ratchet_map_key.dart';
 import 'package:omemo_dart/src/omemo/stanza.dart';
-import 'package:omemo_dart/src/protobuf/omemo_authenticated_message.dart';
-import 'package:omemo_dart/src/protobuf/omemo_key_exchange.dart';
-import 'package:omemo_dart/src/protobuf/omemo_message.dart';
 import 'package:omemo_dart/src/trust/base.dart';
 import 'package:omemo_dart/src/x3dh/x3dh.dart';
 import 'package:synchronized/synchronized.dart';
@@ -194,7 +192,7 @@ class OmemoManager {
   Future<OmemoDoubleRatchet> _addSessionFromKeyExchange(
     String jid,
     int deviceId,
-    OmemoKeyExchange kex,
+    OMEMOKeyExchange kex,
   ) async {
     // Pick the correct SPK
     final device = await getDevice();
@@ -209,17 +207,17 @@ class OmemoManager {
 
     final kexResult = await x3dhFromInitialMessage(
       X3DHMessage(
-        OmemoPublicKey.fromBytes(kex.ik!, KeyPairType.ed25519),
-        OmemoPublicKey.fromBytes(kex.ek!, KeyPairType.x25519),
-        kex.pkId!,
+        OmemoPublicKey.fromBytes(kex.ik, KeyPairType.ed25519),
+        OmemoPublicKey.fromBytes(kex.ek, KeyPairType.x25519),
+        kex.pkId,
       ),
       spk,
-      device.opks.values.elementAt(kex.pkId!),
+      device.opks.values.elementAt(kex.pkId),
       device.ik,
     );
     final ratchet = await OmemoDoubleRatchet.acceptNewSession(
       spk,
-      OmemoPublicKey.fromBytes(kex.ik!, KeyPairType.ed25519),
+      OmemoPublicKey.fromBytes(kex.ik, KeyPairType.ed25519),
       kexResult.sk,
       kexResult.ad,
       getTimestamp(),
@@ -234,7 +232,7 @@ class OmemoManager {
   /// Create a ratchet session initiated by Alice to the user with Jid [jid] and the device
   /// [deviceId] from the bundle [bundle].
   @visibleForTesting
-  Future<OmemoKeyExchange> addSessionFromBundle(
+  Future<OMEMOKeyExchange> addSessionFromBundle(
     String jid,
     int deviceId,
     OmemoBundle bundle,
@@ -255,7 +253,7 @@ class OmemoManager {
     await _trustManager.onNewSession(jid, deviceId);
     _addSession(jid, deviceId, ratchet);
 
-    return OmemoKeyExchange()
+    return OMEMOKeyExchange()
       ..pkId = kexResult.opkId
       ..spkId = bundle.spkId
       ..ik = await device.ik.pk.getBytes()
@@ -312,17 +310,17 @@ class OmemoManager {
 
     final decodedRawKey = base64.decode(rawKey.value);
     List<int>? keyAndHmac;
-    OmemoAuthenticatedMessage authMessage;
-    OmemoMessage? message;
+    OMEMOAuthenticatedMessage authMessage;
+    OMEMOMessage? message;
 
     // If the ratchet already existed, we store it. If it didn't, oldRatchet will stay
     // null.
     final ratchetKey = RatchetMapKey(senderJid, senderDeviceId);
     final oldRatchet = getRatchet(ratchetKey)?.clone();
     if (rawKey.kex) {
-      final kex = OmemoKeyExchange.fromBuffer(decodedRawKey);
-      authMessage = kex.message!;
-      message = OmemoMessage.fromBuffer(authMessage.message!);
+      final kex = OMEMOKeyExchange.fromBuffer(decodedRawKey);
+      authMessage = kex.message;
+      message = OMEMOMessage.fromBuffer(authMessage.message);
 
       // Guard against old key exchanges
       if (oldRatchet != null) {
@@ -348,7 +346,7 @@ class OmemoManager {
 
         // Replace the OPK
         await _deviceLock.synchronized(() async {
-          device = await device.replaceOnetimePrekey(kex.pkId!);
+          device = await device.replaceOnetimePrekey(kex.pkId);
 
           // Commit the device
           _eventStreamController.add(DeviceModifiedEvent(device));
@@ -374,8 +372,8 @@ class OmemoManager {
         _log.finest('Kex failed due to $ex. Not proceeding with kex.');
       }
     } else {
-      authMessage = OmemoAuthenticatedMessage.fromBuffer(decodedRawKey);
-      message = OmemoMessage.fromBuffer(authMessage.message!);
+      authMessage = OMEMOAuthenticatedMessage.fromBuffer(decodedRawKey);
+      message = OMEMOMessage.fromBuffer(authMessage.message);
     }
 
     final devices = _deviceList[senderJid];
@@ -499,7 +497,7 @@ class OmemoManager {
       keyPayload = List<int>.filled(32, 0x0);
     }
 
-    final kex = <RatchetMapKey, OmemoKeyExchange>{};
+    final kex = <RatchetMapKey, OMEMOKeyExchange>{};
     for (final jid in jids) {
       for (final newSession in await _fetchNewBundles(jid)) {
         kex[RatchetMapKey(jid, newSession.id)] = await addSessionFromBundle(
@@ -551,7 +549,7 @@ class OmemoManager {
         if (kex.containsKey(ratchetKey)) {
           // The ratchet did not exist
           final k = kex[ratchetKey]!
-            ..message = OmemoAuthenticatedMessage.fromBuffer(ciphertext);
+            ..message = OMEMOAuthenticatedMessage.fromBuffer(ciphertext);
           final buffer = base64.encode(k.writeToBuffer());
           encryptedKeys.add(
             EncryptedKey(
@@ -568,8 +566,8 @@ class OmemoManager {
           // The ratchet exists but is not acked
           if (ratchet.kex != null) {
             final oldKex =
-                OmemoKeyExchange.fromBuffer(base64.decode(ratchet.kex!))
-                  ..message = OmemoAuthenticatedMessage.fromBuffer(ciphertext);
+                OMEMOKeyExchange.fromBuffer(base64.decode(ratchet.kex!))
+                  ..message = OMEMOAuthenticatedMessage.fromBuffer(ciphertext);
 
             encryptedKeys.add(
               EncryptedKey(
