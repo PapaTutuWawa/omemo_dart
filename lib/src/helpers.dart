@@ -44,7 +44,10 @@ int generateRandom32BitNumber() {
 }
 
 OmemoPublicKey? decodeKeyIfNotNull(
-    Map<String, dynamic> map, String key, KeyPairType type,) {
+  Map<String, dynamic> map,
+  String key,
+  KeyPairType type,
+) {
   if (map[key] == null) return null;
 
   return OmemoPublicKey.fromBytes(

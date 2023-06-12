@@ -37,7 +37,9 @@ class X3DHBobResult {
 /// a Ed25519 keypair.
 Future<List<int>> sig(OmemoKeyPair keyPair, List<int> message) async {
   assert(
-      keyPair.type == KeyPairType.ed25519, 'Signature keypair must be Ed25519',);
+    keyPair.type == KeyPairType.ed25519,
+    'Signature keypair must be Ed25519',
+  );
   final signature = await Ed25519().sign(
     message,
     keyPair: await keyPair.asKeyPair(),
@@ -69,7 +71,9 @@ Future<List<int>> kdf(List<int> km) async {
 /// Alice builds a session with Bob using his bundle [bundle] and Alice's identity key
 /// pair [ik].
 Future<X3DHAliceResult> x3dhFromBundle(
-    OmemoBundle bundle, OmemoKeyPair ik,) async {
+  OmemoBundle bundle,
+  OmemoKeyPair ik,
+) async {
   // Check the signature first
   final signatureValue = await Ed25519().verify(
     await bundle.spk.getBytes(),
@@ -107,8 +111,12 @@ Future<X3DHAliceResult> x3dhFromBundle(
 
 /// Bob builds the X3DH shared secret from the inital message [msg], the SPK [spk], the
 /// OPK [opk] that was selected by Alice and our IK [ik]. Returns the shared secret.
-Future<X3DHBobResult> x3dhFromInitialMessage(X3DHMessage msg, OmemoKeyPair spk,
-    OmemoKeyPair opk, OmemoKeyPair ik,) async {
+Future<X3DHBobResult> x3dhFromInitialMessage(
+  X3DHMessage msg,
+  OmemoKeyPair spk,
+  OmemoKeyPair opk,
+  OmemoKeyPair ik,
+) async {
   final dh1 = await omemoDH(spk, msg.ik, 2);
   final dh2 = await omemoDH(ik, msg.ek, 1);
   final dh3 = await omemoDH(spk, msg.ek, 0);

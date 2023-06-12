@@ -179,8 +179,13 @@ class OmemoDoubleRatchet {
   /// Create an OMEMO session using the Signed Pre Key [spk], the shared secret [sk] that
   /// was obtained using a X3DH and the associated data [ad] that was also obtained through
   /// a X3DH. [ik] refers to Bob's (the receiver's) IK public key.
-  static Future<OmemoDoubleRatchet> initiateNewSession(OmemoPublicKey spk,
-      OmemoPublicKey ik, List<int> sk, List<int> ad, int timestamp,) async {
+  static Future<OmemoDoubleRatchet> initiateNewSession(
+    OmemoPublicKey spk,
+    OmemoPublicKey ik,
+    List<int> sk,
+    List<int> ad,
+    int timestamp,
+  ) async {
     final dhs = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     final dhr = spk;
     final rk = await kdfRk(sk, await omemoDH(dhs, dhr, 0));
@@ -208,8 +213,13 @@ class OmemoDoubleRatchet {
   /// Pre Key keypair [spk], the shared secret [sk] that was obtained through a X3DH and
   /// the associated data [ad] that was also obtained through a X3DH. [ik] refers to
   /// Alice's (the initiator's) IK public key.
-  static Future<OmemoDoubleRatchet> acceptNewSession(OmemoKeyPair spk,
-      OmemoPublicKey ik, List<int> sk, List<int> ad, int kexTimestamp,) async {
+  static Future<OmemoDoubleRatchet> acceptNewSession(
+    OmemoKeyPair spk,
+    OmemoPublicKey ik,
+    List<int> sk,
+    List<int> ad,
+    int kexTimestamp,
+  ) async {
     return OmemoDoubleRatchet(
       spk,
       null,
@@ -264,7 +274,9 @@ class OmemoDoubleRatchet {
   }
 
   Future<List<int>?> _trySkippedMessageKeys(
-      OmemoMessage header, List<int> ciphertext,) async {
+    OmemoMessage header,
+    List<int> ciphertext,
+  ) async {
     final key = SkippedKey(
       OmemoPublicKey.fromBytes(header.dhPub!, KeyPairType.x25519),
       header.n!,
@@ -273,8 +285,12 @@ class OmemoDoubleRatchet {
       final mk = mkSkipped[key]!;
       mkSkipped.remove(key);
 
-      return decrypt(mk, ciphertext,
-          concat([sessionAd, header.writeToBuffer()]), sessionAd,);
+      return decrypt(
+        mk,
+        ciphertext,
+        concat([sessionAd, header.writeToBuffer()]),
+        sessionAd,
+      );
     }
 
     return null;
@@ -326,8 +342,12 @@ class OmemoDoubleRatchet {
 
     return RatchetStep(
       header,
-      await encrypt(mk, plaintext, concat([sessionAd, header.writeToBuffer()]),
-          sessionAd,),
+      await encrypt(
+        mk,
+        plaintext,
+        concat([sessionAd, header.writeToBuffer()]),
+        sessionAd,
+      ),
     );
   }
 
@@ -336,7 +356,9 @@ class OmemoDoubleRatchet {
   ///
   /// Throws an SkippingTooManyMessagesException if too many messages were to be skipped.
   Future<List<int>> ratchetDecrypt(
-      OmemoMessage header, List<int> ciphertext,) async {
+    OmemoMessage header,
+    List<int> ciphertext,
+  ) async {
     // Check if we skipped too many messages
     final plaintext = await _trySkippedMessageKeys(header, ciphertext);
     if (plaintext != null) {
@@ -359,7 +381,11 @@ class OmemoDoubleRatchet {
     nr++;
 
     return decrypt(
-        mk, ciphertext, concat([sessionAd, header.writeToBuffer()]), sessionAd,);
+      mk,
+      ciphertext,
+      concat([sessionAd, header.writeToBuffer()]),
+      sessionAd,
+    );
   }
 
   OmemoDoubleRatchet clone() {

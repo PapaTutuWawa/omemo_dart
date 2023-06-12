@@ -7,7 +7,10 @@ import 'package:omemo_dart/src/keys.dart';
 /// is the identity key. This is needed since the identity key pair/public key is
 /// an Ed25519 key, but we need them as X25519 keys for DH.
 Future<List<int>> omemoDH(
-    OmemoKeyPair kp, OmemoPublicKey pk, int identityKey,) async {
+  OmemoKeyPair kp,
+  OmemoPublicKey pk,
+  int identityKey,
+) async {
   var ckp = kp;
   var cpk = pk;
 
@@ -62,13 +65,19 @@ Future<HkdfKeyResult> deriveEncryptionKeys(List<int> input, String info) async {
   final bytes = await result.extractBytes();
 
   return HkdfKeyResult(
-      bytes.sublist(0, 32), bytes.sublist(32, 64), bytes.sublist(64, 80),);
+    bytes.sublist(0, 32),
+    bytes.sublist(32, 64),
+    bytes.sublist(64, 80),
+  );
 }
 
 /// A small helper function to make AES-256-CBC easier. Encrypt [plaintext] using [key] as
 /// the encryption key and [iv] as the IV. Returns the ciphertext.
 Future<List<int>> aes256CbcEncrypt(
-    List<int> plaintext, List<int> key, List<int> iv,) async {
+  List<int> plaintext,
+  List<int> key,
+  List<int> iv,
+) async {
   final algorithm = AesCbc.with256bits(
     macAlgorithm: MacAlgorithm.empty,
   );
@@ -84,7 +93,10 @@ Future<List<int>> aes256CbcEncrypt(
 /// A small helper function to make AES-256-CBC easier. Decrypt [ciphertext] using [key] as
 /// the encryption key and [iv] as the IV. Returns the ciphertext.
 Future<List<int>> aes256CbcDecrypt(
-    List<int> ciphertext, List<int> key, List<int> iv,) async {
+  List<int> ciphertext,
+  List<int> key,
+  List<int> iv,
+) async {
   final algorithm = AesCbc.with256bits(
     macAlgorithm: MacAlgorithm.empty,
   );

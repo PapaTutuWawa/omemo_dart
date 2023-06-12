@@ -31,8 +31,10 @@ class OmemoPublicKey {
   Future<String> asBase64() async => base64Encode(_pubkey.bytes);
 
   Future<OmemoPublicKey> toCurve25519() async {
-    assert(type == KeyPairType.ed25519,
-        'Cannot convert non-Ed25519 public key to X25519',);
+    assert(
+      type == KeyPairType.ed25519,
+      'Cannot convert non-Ed25519 public key to X25519',
+    );
 
     final pkc = Uint8List(publicKeyLength);
     TweetNaClExt.crypto_sign_ed25519_pk_to_x25519_pk(
@@ -41,7 +43,8 @@ class OmemoPublicKey {
     );
 
     return OmemoPublicKey(
-        SimplePublicKey(List<int>.from(pkc), type: KeyPairType.x25519),);
+      SimplePublicKey(List<int>.from(pkc), type: KeyPairType.x25519),
+    );
   }
 
   SimplePublicKey asPublicKey() => _pubkey;
@@ -64,8 +67,10 @@ class OmemoPrivateKey {
   Future<List<int>> getBytes() async => _privkey;
 
   Future<OmemoPrivateKey> toCurve25519() async {
-    assert(type == KeyPairType.ed25519,
-        'Cannot convert non-Ed25519 private key to X25519',);
+    assert(
+      type == KeyPairType.ed25519,
+      'Cannot convert non-Ed25519 private key to X25519',
+    );
 
     final skc = Uint8List(privateKeyLength);
     TweetNaClExt.crypto_sign_ed25519_sk_to_x25519_sk(
@@ -93,7 +98,10 @@ class OmemoKeyPair {
   /// Create an OmemoKeyPair just from a [type] and the bytes of the private and public
   /// key.
   factory OmemoKeyPair.fromBytes(
-      List<int> publicKey, List<int> privateKey, KeyPairType type,) {
+    List<int> publicKey,
+    List<int> privateKey,
+    KeyPairType type,
+  ) {
     return OmemoKeyPair(
       OmemoPublicKey.fromBytes(
         publicKey,
@@ -110,8 +118,10 @@ class OmemoKeyPair {
   /// Generate a completely new random OmemoKeyPair of type [type]. [type] must be either
   /// KeyPairType.ed25519 or KeyPairType.x25519.
   static Future<OmemoKeyPair> generateNewPair(KeyPairType type) async {
-    assert(type == KeyPairType.ed25519 || type == KeyPairType.x25519,
-        'Keypair must be either Ed25519 or X25519',);
+    assert(
+      type == KeyPairType.ed25519 || type == KeyPairType.x25519,
+      'Keypair must be either Ed25519 or X25519',
+    );
 
     SimpleKeyPair kp;
     if (type == KeyPairType.ed25519) {
@@ -140,8 +150,10 @@ class OmemoKeyPair {
 
   /// Return the bytes that comprise the public key.
   Future<OmemoKeyPair> toCurve25519() async {
-    assert(type == KeyPairType.ed25519,
-        'Cannot convert non-Ed25519 keypair to X25519',);
+    assert(
+      type == KeyPairType.ed25519,
+      'Cannot convert non-Ed25519 keypair to X25519',
+    );
 
     return OmemoKeyPair(
       await pk.toCurve25519(),

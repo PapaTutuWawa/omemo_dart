@@ -147,7 +147,10 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
 
   /// Sets the trust of [jid]'s device with identifier [deviceId] to [state].
   Future<void> setDeviceTrust(
-      String jid, int deviceId, BTBVTrustState state,) async {
+    String jid,
+    int deviceId,
+    BTBVTrustState state,
+  ) async {
     await _lock.synchronized(() async {
       trustCache[RatchetMapKey(jid, deviceId)] = state;
 
@@ -205,7 +208,8 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
   /// From a serialized version of a BTBV trust manager, extract the trust cache.
   /// NOTE: This is needed as Dart cannot just cast a List<dynamic> to List<int> and so on.
   static Map<RatchetMapKey, BTBVTrustState> trustCacheFromJson(
-      Map<String, dynamic> json,) {
+    Map<String, dynamic> json,
+  ) {
     return (json['trust']! as Map<String, dynamic>)
         .map<RatchetMapKey, BTBVTrustState>(
       (key, value) => MapEntry(
@@ -218,7 +222,8 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
   /// From a serialized version of a BTBV trust manager, extract the enable cache.
   /// NOTE: This is needed as Dart cannot just cast a List<dynamic> to List<int> and so on.
   static Map<RatchetMapKey, bool> enableCacheFromJson(
-      Map<String, dynamic> json,) {
+    Map<String, dynamic> json,
+  ) {
     return (json['enable']! as Map<String, dynamic>).map<RatchetMapKey, bool>(
       (key, value) => MapEntry(
         RatchetMapKey.fromJsonKey(key),

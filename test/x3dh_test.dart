@@ -73,8 +73,11 @@ void main() {
       await x3dhFromBundle(bundleBob, ikAlice);
     } catch (e) {
       exception = true;
-      expect(e is InvalidSignatureException, true,
-          reason: 'Expected InvalidSignatureException, but got $e',);
+      expect(
+        e is InvalidSignatureException,
+        true,
+        reason: 'Expected InvalidSignatureException, but got $e',
+      );
     }
 
     expect(exception, true, reason: 'Expected test failure');

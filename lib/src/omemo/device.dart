@@ -93,8 +93,10 @@ class OmemoDevice {
   }
 
   /// Generate a completely new device, i.e. cryptographic identity.
-  static Future<OmemoDevice> generateNewDevice(String jid,
-      {int opkAmount = 100,}) async {
+  static Future<OmemoDevice> generateNewDevice(
+    String jid, {
+    int opkAmount = 100,
+  }) async {
     final id = generateRandom32BitNumber();
     final ik = await OmemoKeyPair.generateNewPair(KeyPairType.ed25519);
     final spk = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);

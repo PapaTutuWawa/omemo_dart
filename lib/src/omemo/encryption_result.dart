@@ -5,8 +5,12 @@ import 'package:omemo_dart/src/omemo/ratchet_map_key.dart';
 
 @immutable
 class EncryptionResult {
-  const EncryptionResult(this.ciphertext, this.encryptedKeys,
-      this.deviceEncryptionErrors, this.jidEncryptionErrors,);
+  const EncryptionResult(
+    this.ciphertext,
+    this.encryptedKeys,
+    this.deviceEncryptionErrors,
+    this.jidEncryptionErrors,
+  );
 
   /// The actual message that was encrypted.
   final List<int>? ciphertext;

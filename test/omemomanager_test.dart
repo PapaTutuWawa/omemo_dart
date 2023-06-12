@@ -813,9 +813,10 @@ void main() {
 
     expect(aliceResult.isSuccess(1), false);
     expect(
-        aliceResult.jidEncryptionErrors[bobJid]
-            is NoKeyMaterialAvailableException,
-        true,);
+      aliceResult.jidEncryptionErrors[bobJid]
+          is NoKeyMaterialAvailableException,
+      true,
+    );
   });
 
   test('Test sending a message two two JIDs with failed lookups', () async {
@@ -866,9 +867,10 @@ void main() {
 
     expect(aliceResult.isSuccess(2), true);
     expect(
-        aliceResult.jidEncryptionErrors[cocoJid]
-            is NoKeyMaterialAvailableException,
-        true,);
+      aliceResult.jidEncryptionErrors[cocoJid]
+          is NoKeyMaterialAvailableException,
+      true,
+    );
 
     // Bob decrypts it
     final bobResult = await bobManager.onIncomingStanza(
