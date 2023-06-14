@@ -118,6 +118,7 @@ class OmemoManager {
 
   /// Enter the critical section for performing cryptographic operations on the ratchets
   Future<void> _enterRatchetCriticalSection(String jid) async {
+    return;
     final completer = await _ratchetCriticalSectionLock.synchronized(() {
       if (_ratchetCriticalSectionQueue.containsKey(jid)) {
         final c = Completer<void>();
@@ -136,6 +137,7 @@ class OmemoManager {
 
   /// Leave the critical section for the ratchets.
   Future<void> _leaveRatchetCriticalSection(String jid) async {
+    return;
     await _ratchetCriticalSectionLock.synchronized(() {
       if (_ratchetCriticalSectionQueue.containsKey(jid)) {
         if (_ratchetCriticalSectionQueue[jid]!.isEmpty) {
@@ -229,6 +231,38 @@ class OmemoManager {
     return bundles;
   }
 
+  Future<void> _maybeSendEmptyMessage(RatchetMapKey key, bool created, bool replaced) async {
+    final ratchet = _ratchetMap[key]!;
+    if (ratchet.acknowledged) {
+      // The ratchet is acknowledged
+      _log.finest('Checking whether to heartbeat to ${key.jid}, ratchet.nr (${ratchet.nr}) >= 53: ${ratchet.nr >= 53}, created: $created, replaced: $replaced');
+      if (ratchet.nr >= 53 || created || replaced) {
+        await sendEmptyOmemoMessageImpl(
+          await _onOutgoingStanzaImpl(
+            OmemoOutgoingStanza(
+              [key.jid],
+              null,
+            ),
+          ),
+          key.jid,
+        );
+      }
+    } else {
+      // Ratchet is not acknowledged
+      _log.finest('Sending acknowledgement heartbeat to ${key.jid}');
+      await ratchetAcknowledged(key.jid, key.deviceId);
+      await sendEmptyOmemoMessageImpl(
+        await _onOutgoingStanzaImpl(
+          OmemoOutgoingStanza(
+            [key.jid],
+            null,
+          ),
+        ),
+        key.jid,
+      );
+    }
+  }
+
   /// 
   Future<DecryptionResult> onIncomingStanza(OmemoIncomingStanza stanza) async {
     // NOTE: We do this so that we cannot forget to acquire and free the critical
@@ -253,6 +287,7 @@ class OmemoManager {
 
     final ratchetKey = RatchetMapKey(stanza.bareSenderJid, stanza.senderDeviceId);
     if (key.kex) {
+      _log.finest('Decoding message as OMEMOKeyExchange');
       final kexMessage = OMEMOKeyExchange.fromBuffer(base64Decode(key.value));
 
       // TODO: Check if we already have such a session and if we can build it
@@ -328,6 +363,13 @@ class OmemoManager {
         stanza.senderDeviceId,
       );
 
+      // If we received an empty OMEMO message, mark the ratchet as acknowledged
+      if (result.get<String?>() == null) {
+        if (!ratchet.acknowledged) {
+          ratchet.acknowledged = true;
+        }
+      }
+
       // Commit the ratchet
       _ratchetMap[ratchetKey] = ratchet;
       _deviceList.appendOrCreate(stanza.bareSenderJid, stanza.senderDeviceId);
@@ -352,6 +394,10 @@ class OmemoManager {
         });
       }
 
+      // Send the hearbeat, if we have to
+      // TODO: Handle replace
+      await _maybeSendEmptyMessage(ratchetKey, true, false);
+
       return DecryptionResult(
         result.get<String?>(),
         null,
@@ -367,7 +413,8 @@ class OmemoManager {
         );
       }
 
-      final ratchet = _ratchetMap[key]!.clone();
+      _log.finest('Decoding message as OMEMOAuthenticatedMessage');
+      final ratchet = _ratchetMap[ratchetKey]!.clone();
       final authMessage = OMEMOAuthenticatedMessage.fromBuffer(base64Decode(key.value));
       final keyAndHmac = await ratchet.ratchetDecrypt(authMessage);
       if (keyAndHmac.isType<OmemoError>()) {
@@ -389,7 +436,15 @@ class OmemoManager {
         );
       }
 
+      // If we received an empty OMEMO message, mark the ratchet as acknowledged
+      if (result.get<String?>() == null) {
+        if (!ratchet.acknowledged) {
+          ratchet.acknowledged = true;
+        }
+      }
+
       // Message was successfully decrypted, so commit the ratchet
+      _ratchetMap[ratchetKey] = ratchet;
       _eventStreamController.add(
         RatchetModifiedEvent(
           stanza.bareSenderJid,
@@ -399,6 +454,9 @@ class OmemoManager {
           false,
         ),
       );
+
+      // Send a heartbeat, if required.
+      await _maybeSendEmptyMessage(ratchetKey, false, false);
 
       return DecryptionResult(
         result.get<String?>(),
@@ -541,21 +599,21 @@ class OmemoManager {
         }
 
         // Encrypt
-        final ratchet = _ratchetMap[ratchetKey]!.clone();
+        final ratchet = _ratchetMap[ratchetKey]!;
         final authMessage = await ratchet.ratchetEncrypt(payloadKey);
 
         // Package
         if (kex.containsKey(ratchetKey)) {
           final kexMessage = kex[ratchetKey]!..message = authMessage;
-        encryptedKeys.appendOrCreate(
-          jid,
-          EncryptedKey(
+          encryptedKeys.appendOrCreate(
             jid,
-            device,
-            base64Encode(kexMessage.writeToBuffer()),
-            true,
-          ),
-        );
+            EncryptedKey(
+              jid,
+              device,
+              base64Encode(kexMessage.writeToBuffer()),
+              true,
+            ),
+          );
         } else if (!ratchet.acknowledged) {
           // The ratchet as not yet been acked
           if (ratchet.kex == null) {
@@ -612,8 +670,16 @@ class OmemoManager {
     );
   }
 
-  // TODO
-  Future<void> sendOmemoHeartbeat(String jid) async {}
+  // Sends an empty OMEMO message (heartbeat) to [jid].
+  Future<void> sendOmemoHeartbeat(String jid) async {
+    final result = await onOutgoingStanza(
+      OmemoOutgoingStanza(
+        [jid],
+        null,
+      ),
+    );
+    await sendEmptyOmemoMessageImpl(result, jid);
+  }
 
   // TODO
   Future<void> removeAllRatchets(String jid) async {}
@@ -624,8 +690,23 @@ class OmemoManager {
   // TODO
   Future<void> onNewConnection() async {}
 
-  // TODO
-  Future<void> ratchetAcknowledged(String jid, int device) async {}
+  // Mark the ratchet [jid]:[device] as acknowledged.
+  Future<void> ratchetAcknowledged(String jid, int device) async {
+    await _enterRatchetCriticalSection(jid);
+
+    final ratchetKey = RatchetMapKey(jid, device);
+    if (!_ratchetMap.containsKey(ratchetKey)) {
+      _log.warning('Cannot mark $jid:$device as acknowledged as the ratchet does not exist');
+    } else {
+      // Commit
+      final ratchet = _ratchetMap[ratchetKey]!..acknowledged = true;
+      _eventStreamController.add(
+        RatchetModifiedEvent(jid, device, ratchet, false, false),
+      );
+    }
+
+    await _leaveRatchetCriticalSection(jid);
+  }
 
   // TODO
   Future<List<DeviceFingerprint>> getFingerprintsForJid(String jid) async => [];

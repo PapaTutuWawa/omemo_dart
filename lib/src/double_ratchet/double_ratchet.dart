@@ -200,6 +200,7 @@ class OmemoDoubleRatchet {
     );
     rk = List.from(newRk1);
     ckr = List.from(newRk1);
+
     dhs = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     final newRk2 = await kdfRk(
       rk,
@@ -226,6 +227,7 @@ class OmemoDoubleRatchet {
         final newCkr = await kdfCk(ckr!, kdfCkNextChainKey);
         final mk = await kdfCk(ckr!, kdfCkNextMessageKey);
         ckr = newCkr;
+
         mkSkipped[SkippedKey(dhr!, nr)] = mk;
         nr++;
       }
@@ -309,6 +311,7 @@ class OmemoDoubleRatchet {
     final ck = await kdfCk(ckr!, kdfCkNextChainKey);
     final mk = await kdfCk(ckr!, kdfCkNextMessageKey);
     ckr = ck;
+    nr++;
 
     return _decrypt(message, header.ciphertext, mk);
   }

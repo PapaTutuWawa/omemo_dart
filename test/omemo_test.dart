@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:logging/logging.dart';
 import 'package:omemo_dart/omemo_dart.dart';
-import 'package:omemo_dart/src/protobuf/schema.pb.dart';
 import 'package:omemo_dart/src/trust/always.dart';
 import 'package:test/test.dart';
 
@@ -108,7 +107,7 @@ void main() {
         bobJid,
         bobDevice.id,
         DateTime.now().millisecondsSinceEpoch,
-        bobResult2.encryptedKeys[bobJid]!,
+        bobResult2.encryptedKeys[aliceJid]!,
         base64.encode(bobResult2.ciphertext!),
         false,
       ),
@@ -130,6 +129,7 @@ void main() {
         await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
     final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
 
+    EncryptionResult? bobEmptyMessage;
     final aliceManager = OmemoManager(
       aliceDevice,
       AlwaysTrustingTrustManager(),
@@ -151,6 +151,7 @@ void main() {
       AlwaysTrustingTrustManager(),
       (result, recipientJid) async {
         bobEmptyMessageSent++;
+        bobEmptyMessage = result;
       },
       (jid) async {
         expect(jid, aliceJid);
@@ -188,16 +189,28 @@ void main() {
     expect(bobResult.payload, 'Hello world');
 
     // Bob acknowledges the message
-    await aliceManager.ratchetAcknowledged(bobJid, bobDevice.id);
+    await aliceManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        bobJid,
+        bobDevice.id,
+        getTimestamp(),
+        bobEmptyMessage!.encryptedKeys[aliceJid]!,
+        null,
+        false,
+      ),
+    );
 
     // Alice now sends 52 messages that Bob decrypts
-    for (var i = 0; i <= 51; i++) {
+    for (var i = 0; i < 52; i++) {
+      Logger.root.finest('${i+1}/52');
       final aliceResultLoop = await aliceManager.onOutgoingStanza(
         OmemoOutgoingStanza(
           [bobJid],
           'Test message $i',
         ),
       );
+
+      expect(aliceResultLoop.encryptedKeys[bobJid]!.first.kex, false);
 
       final bobResultLoop = await bobManager.onIncomingStanza(
         OmemoIncomingStanza(
@@ -210,6 +223,7 @@ void main() {
         ),
       );
 
+      expect(bobResultLoop.error, null);
       expect(aliceEmptyMessageSent, 0);
       expect(bobEmptyMessageSent, 1);
       expect(bobResultLoop.payload, 'Test message $i');
@@ -237,6 +251,42 @@ void main() {
     expect(aliceEmptyMessageSent, 0);
     expect(bobEmptyMessageSent, 2);
     expect(bobResultFinal.payload, 'Test message last');
+
+    // Alice receives it and sends another message
+    final aliceResultPostFinal = await aliceManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        bobJid,
+        bobDevice.id,
+        getTimestamp(),
+        bobEmptyMessage!.encryptedKeys[aliceJid]!,
+        null,
+        false,
+      ),
+    );
+    expect(aliceResultPostFinal.error, null);
+    final aliceMessagePostFinal = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        "I'm not done yet!",
+      ),
+    );
+
+    // And Bob decrypts it
+    final bobResultPostFinal = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        getTimestamp(),
+        aliceMessagePostFinal.encryptedKeys[bobJid]!,
+        base64Encode(aliceMessagePostFinal.ciphertext!),
+        false,
+      ),
+    );
+
+    expect(bobResultPostFinal.error, null);
+    expect(bobResultPostFinal.payload, "I'm not done yet!");
+    expect(aliceEmptyMessageSent, 0);
+    expect(bobEmptyMessageSent, 2);
   });
 
   test('Test accessing data without it existing', () async {
@@ -770,7 +820,7 @@ void main() {
 
     // Alice has to reconnect but has no connection yet
     failure = true;
-    aliceManager.onNewConnection();
+    await aliceManager.onNewConnection();
 
     // Alice sends another message to Bob
     final aliceResult2 = await aliceManager.onOutgoingStanza(
