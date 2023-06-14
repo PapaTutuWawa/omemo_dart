@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:omemo_dart/omemo_dart.dart';
+import 'package:omemo_dart/protobuf/schema.pb.dart';
 import 'package:omemo_dart/src/trust/always.dart';
 import 'package:test/test.dart';
 
@@ -144,4 +145,11 @@ void main() {
     );
     expect(btbv.enablementCache, enableCache);
   });*/
+
+  test('Test reading and writing protobuf', () {
+    final kex = OMEMOKeyExchange.fromBuffer(base64Decode('CFIQqvSv8AEaIHuVKKqf00vYpBIB7PKWheboVKcoKCWkRIUFeokzMYqxIiDOYPRA2vAlHwDLwPn/XIMSmenj3fgUIZHMgUXxVJtedyp8ChA+GfjScvWAllcTavRoyvfIEmgIDhAAGiANff1ES1HdSgtjy9JsoXcAywXJfBmZsFYTKUHRQsCMNiJAAOhS/CMrIdDm+ZZ/fmaOfwD0O7MNUaUMkVahvk4XDAy6mYk65r2TE4REW7h7akcKyoL94YSnTWp8p6fO91VSLA=='));
+    final newKex = OMEMOKeyExchange.fromBuffer(kex.writeToBuffer());
+
+    expect(kex.writeToBuffer(), newKex.writeToBuffer());
+  });
 }
