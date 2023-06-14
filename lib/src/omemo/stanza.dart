@@ -41,5 +41,5 @@ class OmemoOutgoingStanza {
   final List<String> recipientJids;
 
   /// The serialised XML data that should be encrypted.
-  final String payload;
+  final String? payload;
 }

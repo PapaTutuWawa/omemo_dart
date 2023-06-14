@@ -1,6 +1,7 @@
 import 'package:meta/meta.dart';
 import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/omemo/encrypted_key.dart';
+import 'package:omemo_dart/src/omemo/errors.dart';
 import 'package:omemo_dart/src/omemo/ratchet_map_key.dart';
 
 @immutable
@@ -9,7 +10,6 @@ class EncryptionResult {
     this.ciphertext,
     this.encryptedKeys,
     this.deviceEncryptionErrors,
-    this.jidEncryptionErrors,
   );
 
   /// The actual message that was encrypted.
@@ -17,17 +17,13 @@ class EncryptionResult {
 
   /// Mapping of the device Id to the key for decrypting ciphertext, encrypted
   /// for the ratchet with said device Id.
-  final List<EncryptedKey> encryptedKeys;
+  final Map<String, List<EncryptedKey>> encryptedKeys;
 
-  /// Mapping of a ratchet map keys to a possible exception.
-  final Map<RatchetMapKey, OmemoError> deviceEncryptionErrors;
-
-  /// Mapping of a JID to a possible exception.
-  final Map<String, OmemoError> jidEncryptionErrors;
+  /// Mapping of a JID to 
+  final Map<String, List<EncryptToJidError>> deviceEncryptionErrors;
 
   /// True if the encryption was a success. This means that we could encrypt for
   /// at least one ratchet.
-  bool isSuccess(int numberOfRecipients) =>
-      encryptedKeys.isNotEmpty &&
-      jidEncryptionErrors.length < numberOfRecipients;
+  /// TODO:
+  bool isSuccess(int numberOfRecipients) => true;
 }

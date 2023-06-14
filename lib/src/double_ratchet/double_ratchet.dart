@@ -35,6 +35,21 @@ class SkippedKey {
   int get hashCode => dh.hashCode ^ n.hashCode;
 }
 
+@immutable
+class KeyExchangeData {
+  const KeyExchangeData(
+    this.pkId,
+    this.spkId,
+    this.ek,
+    this.ik,
+  );
+
+  final int pkId;
+  final int spkId;
+  final OmemoPublicKey ek;
+  final OmemoPublicKey ik;
+}
+
 class OmemoDoubleRatchet {
   OmemoDoubleRatchet(
     this.dhs, // DHs
@@ -92,7 +107,7 @@ class OmemoDoubleRatchet {
   int kexTimestamp;
 
   /// The key exchange that was used for initiating the session.
-  final String? kex;
+  final KeyExchangeData? kex;
 
   /// Indicates whether we received an empty OMEMO message after building a session with
   /// the device.
@@ -108,6 +123,8 @@ class OmemoDoubleRatchet {
     List<int> sk,
     List<int> ad,
     int timestamp,
+    int pkId,
+    int spkId,
   ) async {
     final dhs = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     final rk = await kdfRk(sk, await omemoDH(dhs, spk, 0));
@@ -127,7 +144,12 @@ class OmemoDoubleRatchet {
       {},
       false,
       timestamp,
-      '',
+      KeyExchangeData(
+        pkId,
+        spkId,
+        ik,
+        ek,
+      ),
     );
   }
 
@@ -321,6 +343,25 @@ class OmemoDoubleRatchet {
       ..message = headerBytes;
   }
 
+  OmemoDoubleRatchet clone() {
+    return OmemoDoubleRatchet(
+      dhs,
+      dhr,
+      rk,
+      cks != null ? List<int>.from(cks!) : null,
+      ckr != null ? List<int>.from(ckr!) : null,
+      ns,
+      nr,
+      pn,
+      ik,
+      ek,
+      sessionAd,
+      Map<SkippedKey, List<int>>.from(mkSkipped),
+      acknowledged,
+      kexTimestamp,
+      kex,
+    );
+  }
 
   @visibleForTesting
   Future<bool> equals(OmemoDoubleRatchet other) async {

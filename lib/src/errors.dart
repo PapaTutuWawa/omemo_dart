@@ -36,11 +36,7 @@ class InvalidKeyExchangeException extends OmemoError implements Exception {
 /// no key material available. That happens, for example, when we want to create a
 /// ratchet session with a JID we had no session with but fetching the device bundle
 /// failed.
-class NoKeyMaterialAvailableException extends OmemoError
-    implements Exception {
-  String errMsg() =>
-      'No key material available to create a ratchet session with';
-}
+class NoKeyMaterialAvailableError extends OmemoError {}
 
 /// A non-key-exchange message was received that was encrypted for our device, but we have no ratchet with
 /// the device that sent the message.

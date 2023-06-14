@@ -1,8 +1,7 @@
-// ignore_for_file: avoid_print
 import 'dart:convert';
+import 'dart:developer';
 import 'package:cryptography/cryptography.dart';
 import 'package:omemo_dart/omemo_dart.dart';
-import 'package:omemo_dart/src/protobuf/schema.pb.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -46,7 +45,7 @@ void main() {
       ikBob,
     );
 
-    print('X3DH key exchange done');
+    log('X3DH key exchange done');
 
     // Alice and Bob now share sk as a common secret and ad
     // Build a session
@@ -57,6 +56,8 @@ void main() {
       resultAlice.sk,
       resultAlice.ad,
       0,
+      resultAlice.opkId,
+      bundleBob.spkId,
     );
     final bobsRatchet = await OmemoDoubleRatchet.acceptNewSession(
       spkBob,
@@ -71,12 +72,12 @@ void main() {
     for (var i = 0; i < 100; i++) {
       final messageText = 'Hello, dear $i';
 
-      print('${i + 1}/100');
+      log('${i + 1}/100');
       if (i.isEven) {
         // Alice encrypts a message
         final aliceRatchetResult =
             await alicesRatchet.ratchetEncrypt(utf8.encode(messageText));
-        print('Alice sent the message');
+        log('Alice sent the message');
 
         // Alice sends it to Bob
         // ...
@@ -85,7 +86,7 @@ void main() {
         final bobRatchetResult = await bobsRatchet.ratchetDecrypt(
           aliceRatchetResult,
         );
-        print('Bob decrypted the message');
+        log('Bob decrypted the message');
 
         expect(bobRatchetResult.isType<List<int>>(), true);
         expect(bobRatchetResult.get<List<int>>(), utf8.encode(messageText));
@@ -93,7 +94,7 @@ void main() {
         // Bob sends a message to Alice
         final bobRatchetResult =
             await bobsRatchet.ratchetEncrypt(utf8.encode(messageText));
-        print('Bob sent the message');
+        log('Bob sent the message');
 
         // Bobs sends it to Alice
         // ...
@@ -102,7 +103,7 @@ void main() {
         final aliceRatchetResult = await alicesRatchet.ratchetDecrypt(
           bobRatchetResult,
         );
-        print('Alice decrypted the message');
+        log('Alice decrypted the message');
 
         expect(aliceRatchetResult.isType<List<int>>(), true);
         expect(aliceRatchetResult.get<List<int>>(), utf8.encode(messageText));

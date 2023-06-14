@@ -1,7 +1,14 @@
-import 'package:omemo_dart/src/double_ratchet/double_ratchet.dart';
-import 'package:omemo_dart/src/omemo/device.dart';
+import 'package:omemo_dart/omemo_dart.dart';
 
 abstract class OmemoEvent {}
+
+/// Triggered when (possibly multiple) ratchets have been created at sending time.
+class RatchetsAddedEvent extends OmemoEvent {
+  RatchetsAddedEvent(this.ratchets);
+
+  /// The mapping of the newly created ratchets.
+  final Map<RatchetMapKey, OmemoDoubleRatchet> ratchets;
+}
 
 /// Triggered when a ratchet has been modified
 class RatchetModifiedEvent extends OmemoEvent {
