@@ -5,5 +5,5 @@ import 'package:omemo_dart/src/errors.dart';
 class DecryptionResult {
   const DecryptionResult(this.payload, this.error);
   final String? payload;
-  final OmemoException? error;
+  final OmemoError? error;
 }

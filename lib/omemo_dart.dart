@@ -10,7 +10,7 @@ export 'src/omemo/encrypted_key.dart';
 export 'src/omemo/encryption_result.dart';
 export 'src/omemo/events.dart';
 export 'src/omemo/fingerprint.dart';
-export 'src/omemo/omemomanager.dart';
+export 'src/omemo/omemo.dart';
 export 'src/omemo/ratchet_map_key.dart';
 export 'src/omemo/stanza.dart';
 export 'src/trust/base.dart';

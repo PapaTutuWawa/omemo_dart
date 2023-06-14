@@ -8,6 +8,7 @@ class OmemoIncomingStanza {
     this.timestamp,
     this.keys,
     this.payload,
+    this.isCatchup,
   );
 
   /// The bare JID of the sender of the stanza.
@@ -19,11 +20,14 @@ class OmemoIncomingStanza {
   /// The timestamp when the stanza was received.
   final int timestamp;
 
-  /// The included encrypted keys
+  /// The included encrypted keys for our own JID
   final List<EncryptedKey> keys;
 
   /// The string payload included in the <encrypted /> element.
   final String? payload;
+
+  /// Flag indicating whether the message was received due to a catchup.
+  final bool isCatchup;
 }
 
 /// Describes a stanza that is to be sent out

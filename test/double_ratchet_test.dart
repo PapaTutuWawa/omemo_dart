@@ -2,38 +2,10 @@
 import 'dart:convert';
 import 'package:cryptography/cryptography.dart';
 import 'package:omemo_dart/omemo_dart.dart';
-import 'package:omemo_dart/protobuf/schema.pb.dart';
-import 'package:omemo_dart/src/double_ratchet/crypto.dart';
+import 'package:omemo_dart/src/protobuf/schema.pb.dart';
 import 'package:test/test.dart';
 
 void main() {
-  test('Test encrypting and decrypting', () async {
-    final sessionAd = List<int>.filled(32, 0x0);
-    final mk = List<int>.filled(32, 0x1);
-    final plaintext = utf8.encode('Hallo');
-    final header = OMEMOMessage()
-      ..n = 0
-      ..pn = 0
-      ..dhPub = List<int>.empty();
-    final asd = concat([sessionAd, header.writeToBuffer()]);
-
-    final ciphertext = await encrypt(
-      mk,
-      plaintext,
-      asd,
-      sessionAd,
-    );
-
-    final decrypted = await decrypt(
-      mk,
-      ciphertext,
-      asd,
-      sessionAd,
-    );
-
-    expect(decrypted, plaintext);
-  });
-
   test('Test the Double Ratchet', () async {
     // Generate keys
     const bobJid = 'bob@other.example.server';
@@ -81,6 +53,7 @@ void main() {
     final alicesRatchet = await OmemoDoubleRatchet.initiateNewSession(
       spkBob.pk,
       ikBob.pk,
+      resultAlice.ek.pk,
       resultAlice.sk,
       resultAlice.ad,
       0,
@@ -98,6 +71,7 @@ void main() {
     for (var i = 0; i < 100; i++) {
       final messageText = 'Hello, dear $i';
 
+      print('${i + 1}/100');
       if (i.isEven) {
         // Alice encrypts a message
         final aliceRatchetResult =
@@ -109,12 +83,12 @@ void main() {
 
         // Bob tries to decrypt it
         final bobRatchetResult = await bobsRatchet.ratchetDecrypt(
-          aliceRatchetResult.header,
-          aliceRatchetResult.ciphertext,
+          aliceRatchetResult,
         );
         print('Bob decrypted the message');
 
-        expect(utf8.encode(messageText), bobRatchetResult);
+        expect(bobRatchetResult.isType<List<int>>(), true);
+        expect(bobRatchetResult.get<List<int>>(), utf8.encode(messageText));
       } else {
         // Bob sends a message to Alice
         final bobRatchetResult =
@@ -126,12 +100,13 @@ void main() {
 
         // Alice tries to decrypt it
         final aliceRatchetResult = await alicesRatchet.ratchetDecrypt(
-          bobRatchetResult.header,
-          bobRatchetResult.ciphertext,
+          bobRatchetResult,
         );
         print('Alice decrypted the message');
 
-        expect(utf8.encode(messageText), aliceRatchetResult);
+        expect(aliceRatchetResult.isType<List<int>>(), true);
+        expect(aliceRatchetResult.get<List<int>>(), utf8.encode(messageText));
+        expect(utf8.encode(messageText), aliceRatchetResult.get<List<int>>());
       }
     }
   });

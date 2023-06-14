@@ -20,10 +20,10 @@ class EncryptionResult {
   final List<EncryptedKey> encryptedKeys;
 
   /// Mapping of a ratchet map keys to a possible exception.
-  final Map<RatchetMapKey, OmemoException> deviceEncryptionErrors;
+  final Map<RatchetMapKey, OmemoError> deviceEncryptionErrors;
 
   /// Mapping of a JID to a possible exception.
-  final Map<String, OmemoException> jidEncryptionErrors;
+  final Map<String, OmemoError> jidEncryptionErrors;
 
   /// True if the encryption was a success. This means that we could encrypt for
   /// at least one ratchet.
