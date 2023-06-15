@@ -28,7 +28,8 @@ void main() {
     );
 
     // Alice does X3DH
-    final resultAlice = await x3dhFromBundle(bundleBob, ikAlice);
+    final resultAliceRaw = await x3dhFromBundle(bundleBob, ikAlice);
+    final resultAlice = resultAliceRaw.get<X3DHAliceResult>();
 
     // Alice sends the inital message to Bob
     // ...

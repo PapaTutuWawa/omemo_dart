@@ -26,7 +26,8 @@ void main() {
     );
 
     // Alice does X3DH
-    final resultAlice = await x3dhFromBundle(bundleBob, ikAlice);
+    final resultAliceRaw = await x3dhFromBundle(bundleBob, ikAlice);
+    final resultAlice = resultAliceRaw.get<X3DHAliceResult>();
 
     // Alice sends the inital message to Bob
     // ...
@@ -68,18 +69,7 @@ void main() {
     );
 
     // Alice does X3DH
-    var exception = false;
-    try {
-      await x3dhFromBundle(bundleBob, ikAlice);
-    } catch (e) {
-      exception = true;
-      expect(
-        e is InvalidSignatureException,
-        true,
-        reason: 'Expected InvalidSignatureException, but got $e',
-      );
-    }
-
-    expect(exception, true, reason: 'Expected test failure');
+    final result = await x3dhFromBundle(bundleBob, ikAlice);
+    expect(result.isType<InvalidKeyExchangeSignatureError>(), isTrue);
   });
 }

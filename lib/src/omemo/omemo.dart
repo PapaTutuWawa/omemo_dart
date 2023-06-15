@@ -509,6 +509,7 @@ class OmemoManager {
       ciphertext = [];
     }
 
+    final encryptionErrors = <String, List<EncryptToJidError>>{};
     final addedRatchetKeys = List<RatchetMapKey>.empty(growable: true);
     final kex = <RatchetMapKey, OMEMOKeyExchange>{};
     for (final jid in stanza.recipientJids) {
@@ -521,10 +522,24 @@ class OmemoManager {
         _log.finest('Building new ratchet $jid:${bundle.id}');
         final ratchetKey = RatchetMapKey(jid, bundle.id);
         final ownDevice = await getDevice();
-        final kexResult = await x3dhFromBundle(
+        final kexResultRaw = await x3dhFromBundle(
           bundle,
           ownDevice.ik,
         );
+        // TODO: Track the failure and do not attempt to encrypt to this device
+        //       on every send.
+        if (kexResultRaw.isType<InvalidKeyExchangeSignatureError>()) {
+          encryptionErrors.appendOrCreate(
+            jid,
+            EncryptToJidError(
+              bundle.id,
+              kexResultRaw.get<InvalidKeyExchangeSignatureError>(),
+            ),
+          );
+          continue;
+        }
+
+        final kexResult = kexResultRaw.get<X3DHAliceResult>();
         final newRatchet = await OmemoDoubleRatchet.initiateNewSession(
           bundle.spk,
           bundle.spkId,
@@ -567,7 +582,6 @@ class OmemoManager {
     }
 
     // Encrypt the symmetric key for all devices.
-    final encryptionErrors = <String, List<EncryptToJidError>>{};
     final encryptedKeys = <String, List<EncryptedKey>>{};
     for (final jid in stanza.recipientJids) {
       // Check if we know about any devices to use

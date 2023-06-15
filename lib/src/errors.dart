@@ -1,10 +1,7 @@
 abstract class OmemoError {}
 
 /// Triggered during X3DH if the signature if the SPK does verify to the actual SPK.
-class InvalidSignatureException extends OmemoError implements Exception {
-  String errMsg() =>
-      'The signature of the SPK does not match the provided signature';
-}
+class InvalidKeyExchangeSignatureError extends OmemoError {}
 
 /// Triggered by the Double Ratchet if the computed HMAC does not match the attached HMAC.
 class InvalidMessageHMACError extends OmemoError {}

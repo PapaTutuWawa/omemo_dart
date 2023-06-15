@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:cryptography/cryptography.dart';
+import 'package:omemo_dart/src/common/result.dart';
 import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/helpers.dart';
@@ -70,7 +71,7 @@ Future<List<int>> kdf(List<int> km) async {
 
 /// Alice builds a session with Bob using his bundle [bundle] and Alice's identity key
 /// pair [ik].
-Future<X3DHAliceResult> x3dhFromBundle(
+Future<Result<InvalidKeyExchangeSignatureError, X3DHAliceResult>> x3dhFromBundle(
   OmemoBundle bundle,
   OmemoKeyPair ik,
 ) async {
@@ -84,7 +85,7 @@ Future<X3DHAliceResult> x3dhFromBundle(
   );
 
   if (!signatureValue) {
-    throw InvalidSignatureException();
+    return Result(InvalidKeyExchangeSignatureError());
   }
 
   // Generate EK
@@ -106,7 +107,7 @@ Future<X3DHAliceResult> x3dhFromBundle(
     await bundle.ik.getBytes(),
   ]);
 
-  return X3DHAliceResult(ek, sk, opkId, ad);
+  return Result(X3DHAliceResult(ek, sk, opkId, ad));
 }
 
 /// Bob builds the X3DH shared secret from the inital message [msg], the SPK [spk], the
