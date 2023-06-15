@@ -394,7 +394,7 @@ class OmemoManager {
     } else {
       // Check if we even have a ratchet
       if (!_ratchetMap.containsKey(ratchetKey)) {
-        // TODO: Check if we recently failed to build a session with the device
+        // TODO(Unknown): Check if we recently failed to build a session with the device
         // This causes omemo_dart to build a session with the device.
         if (!_deviceList[stanza.bareSenderJid]!
             .contains(stanza.senderDeviceId)) {
@@ -517,8 +517,8 @@ class OmemoManager {
           bundle,
           ownDevice.ik,
         );
-        // TODO: Track the failure and do not attempt to encrypt to this device
-        //       on every send.
+        // TODO(Unknown): Track the failure and do not attempt to encrypt to this device
+        //                on every send.
         if (kexResultRaw.isType<InvalidKeyExchangeSignatureError>()) {
           encryptionErrors.appendOrCreate(
             jid,

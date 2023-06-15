@@ -145,6 +145,11 @@ void main() async {
       /// The text of the <payload /> element, if it exists. If not, then the message might be
       /// a hearbeat, where no payload is sent. In that case, use null.
       payload,
+
+      /// Since we did not receive this message due to a catch-up mechanism, like MAM, we
+      /// set this to false. If we, however, did use a catch-up mechanism, we must set this
+      /// to true to prevent the OPKs from being replaced.
+      false,
     ),
   );
 
