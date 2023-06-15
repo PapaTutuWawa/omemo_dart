@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:cryptography/cryptography.dart';
 import 'package:hex/hex.dart';
 import 'package:meta/meta.dart';
@@ -356,6 +355,7 @@ class OmemoDoubleRatchet {
       ..message = headerBytes;
   }
 
+  /// Returns a copy of the ratchet.
   OmemoDoubleRatchet clone() {
     return OmemoDoubleRatchet(
       dhs,
@@ -372,6 +372,15 @@ class OmemoDoubleRatchet {
       acknowledged,
       kexTimestamp,
       kex,
+    );
+  }
+
+  /// Computes the fingerprint of the double ratchet, according to
+  /// XEP-0384.
+  Future<String> get fingerprint async {
+    final curveKey = await ik.toCurve25519();
+    return HEX.encode(
+      await curveKey.getBytes(),
     );
   }
 

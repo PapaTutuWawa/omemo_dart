@@ -755,8 +755,43 @@ class OmemoManager {
     await _leaveRatchetCriticalSection(jid);
   }
 
-  // TODO
-  Future<List<DeviceFingerprint>?> getFingerprintsForJid(String jid) async => null;
+  /// If ratchets with [jid] exists, returns a list of fingerprints for each
+  /// ratchet.
+  /// 
+  /// If not ratchets exists, returns null.
+  Future<List<DeviceFingerprint>?> getFingerprintsForJid(String jid) async {
+    await _getFingerprintsForJidImpl(jid);
+    final result = await _getFingerprintsForJidImpl(jid);
+    await _leaveRatchetCriticalSection(jid);
+
+    return result;
+  }
+
+  Future<List<DeviceFingerprint>?> _getFingerprintsForJidImpl(String jid) async {
+    // Check if we know of the JID.
+    if (!_deviceList.containsKey(jid)) {
+      return null;
+    }
+
+    final devices = _deviceList[jid]!;
+    final fingerprints = List<DeviceFingerprint>.empty(growable: true);
+    for (final device in devices) {
+      final ratchet = _ratchetMap[RatchetMapKey(jid, device)];
+      if (ratchet == null) {
+        _log.warning('getFingerprintsForJid: Ratchet $jid:$device not found.');
+        continue;
+      }
+
+      fingerprints.add(
+        DeviceFingerprint(
+          device,
+          await ratchet.fingerprint,
+        ),
+      );
+    }
+
+    return fingerprints;
+  }
 
   /// Returns the device used for encryption and decryption.
   Future<OmemoDevice> getDevice() => _deviceLock.synchronized(() => _device);
