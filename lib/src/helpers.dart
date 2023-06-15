@@ -56,28 +56,6 @@ OmemoPublicKey? decodeKeyIfNotNull(
   );
 }
 
-List<int>? base64DecodeIfNotNull(Map<String, dynamic> map, String key) {
-  if (map[key] == null) return null;
-
-  return base64.decode(map[key]! as String);
-}
-
-String? base64EncodeIfNotNull(List<int>? bytes) {
-  if (bytes == null) return null;
-
-  return base64.encode(bytes);
-}
-
-OmemoKeyPair? decodeKeyPairIfNotNull(String? pk, String? sk, KeyPairType type) {
-  if (pk == null || sk == null) return null;
-
-  return OmemoKeyPair.fromBytes(
-    base64.decode(pk),
-    base64.decode(sk),
-    type,
-  );
-}
-
 int getTimestamp() {
   return DateTime.now().millisecondsSinceEpoch;
 }

@@ -414,7 +414,12 @@ class OmemoManager {
     } else {
       // Check if we even have a ratchet
       if (!_ratchetMap.containsKey(ratchetKey)) {
-        // TODO: Build a session with the device
+        // TODO: Check if we recently failed to build a session with the device
+        // This causes omemo_dart to build a session with the device.
+        if (!_deviceList[stanza.bareSenderJid]!.contains(stanza.senderDeviceId)) {
+          _deviceList[stanza.bareSenderJid]!.add(stanza.senderDeviceId);
+        }
+        await sendOmemoHeartbeat(stanza.bareSenderJid);
 
         return DecryptionResult(
           null,

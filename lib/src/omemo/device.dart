@@ -22,76 +22,6 @@ class OmemoDevice {
     this.opks,
   );
 
-  /// Deserialize the Device
-  factory OmemoDevice.fromJson(Map<String, dynamic> data) {
-    // NOTE: We use the way OpenSSH names their keys, meaning that ik is the Identity
-    //       Keypair's private key, while ik_pub refers to the Identity Keypair's public
-    //       key.
-    /*
-    {
-      'jid': 'alice@...',
-      'id': 123,
-      'ik': 'base/64/encoded',
-      'ik_pub': 'base/64/encoded',
-      'spk': 'base/64/encoded',
-      'spk_pub': 'base/64/encoded',
-      'spk_id': 123,
-      'spk_sig': 'base/64/encoded',
-      'old_spk': 'base/64/encoded',
-      'old_spk_pub': 'base/64/encoded',
-      'old_spk_id': 122,
-      'opks': [
-        {
-          'id': 0,
-          'public': 'base/64/encoded',
-          'private': 'base/64/encoded'
-        }, ...
-      ]
-    }
-    */
-    // NOTE: Dart has some issues with just casting a List<dynamic> to List<Map<...>>, as
-    //       such we need to convert the items by hand.
-    final opks = Map<int, OmemoKeyPair>.fromEntries(
-      (data['opks']! as List<dynamic>).map<MapEntry<int, OmemoKeyPair>>(
-        (opk) {
-          final map = opk as Map<String, dynamic>;
-          return MapEntry(
-            map['id']! as int,
-            OmemoKeyPair.fromBytes(
-              base64.decode(map['public']! as String),
-              base64.decode(map['private']! as String),
-              KeyPairType.x25519,
-            ),
-          );
-        },
-      ),
-    );
-
-    return OmemoDevice(
-      data['jid']! as String,
-      data['id']! as int,
-      OmemoKeyPair.fromBytes(
-        base64.decode(data['ik_pub']! as String),
-        base64.decode(data['ik']! as String),
-        KeyPairType.ed25519,
-      ),
-      OmemoKeyPair.fromBytes(
-        base64.decode(data['spk_pub']! as String),
-        base64.decode(data['spk']! as String),
-        KeyPairType.x25519,
-      ),
-      data['spk_id']! as int,
-      base64.decode(data['spk_sig']! as String),
-      decodeKeyPairIfNotNull(
-        data['old_spk_pub'] as String?,
-        data['old_spk'] as String?,
-        KeyPairType.x25519,
-      ),
-      data['old_spk_id'] as int?,
-      opks,
-    );
-  }
-
   /// Generate a completely new device, i.e. cryptographic identity.
   static Future<OmemoDevice> generateNewDevice(
     String jid, {
@@ -219,34 +149,6 @@ class OmemoDevice {
     // Since the local key is Ed25519, we must convert it to Curve25519 first
     final curveKey = await ik.pk.toCurve25519();
     return HEX.encode(await curveKey.getBytes());
-  }
-
-  /// Serialise the device information.
-  Future<Map<String, dynamic>> toJson() async {
-    /// Serialise the OPKs
-    final serialisedOpks = List<Map<String, dynamic>>.empty(growable: true);
-    for (final entry in opks.entries) {
-      serialisedOpks.add({
-        'id': entry.key,
-        'public': base64.encode(await entry.value.pk.getBytes()),
-        'private': base64.encode(await entry.value.sk.getBytes()),
-      });
-    }
-
-    return {
-      'jid': jid,
-      'id': id,
-      'ik': base64.encode(await ik.sk.getBytes()),
-      'ik_pub': base64.encode(await ik.pk.getBytes()),
-      'spk': base64.encode(await spk.sk.getBytes()),
-      'spk_pub': base64.encode(await spk.pk.getBytes()),
-      'spk_id': spkId,
-      'spk_sig': base64.encode(spkSignature),
-      'old_spk': base64EncodeIfNotNull(await oldSpk?.sk.getBytes()),
-      'old_spk_pub': base64EncodeIfNotNull(await oldSpk?.pk.getBytes()),
-      'old_spk_id': oldSpkId,
-      'opks': serialisedOpks,
-    };
   }
 
   @visibleForTesting
