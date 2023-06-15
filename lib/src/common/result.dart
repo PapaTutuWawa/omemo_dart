@@ -3,7 +3,7 @@ class Result<T, V> {
   const Result(this._data)
       : assert(
           _data is T || _data is V,
-          'Invalid data type: Must be either $T or $V',
+          'Invalid data type $_data: Must be either $T or $V',
         );
   final dynamic _data;
 

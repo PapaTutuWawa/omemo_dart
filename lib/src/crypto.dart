@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:cryptography/cryptography.dart';
+import 'package:omemo_dart/src/common/result.dart';
+import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/keys.dart';
 
 /// Performs X25519 with [kp] and [pk]. If [identityKey] is set, then
@@ -92,7 +94,7 @@ Future<List<int>> aes256CbcEncrypt(
 
 /// A small helper function to make AES-256-CBC easier. Decrypt [ciphertext] using [key] as
 /// the encryption key and [iv] as the IV. Returns the ciphertext.
-Future<List<int>> aes256CbcDecrypt(
+Future<Result<MalformedCiphertextError, List<int>>> aes256CbcDecrypt(
   List<int> ciphertext,
   List<int> key,
   List<int> iv,
@@ -100,13 +102,19 @@ Future<List<int>> aes256CbcDecrypt(
   final algorithm = AesCbc.with256bits(
     macAlgorithm: MacAlgorithm.empty,
   );
-  return algorithm.decrypt(
-    NoMacSecretBox(
-      ciphertext,
-      nonce: iv,
-    ),
-    secretKey: SecretKey(key),
-  );
+  try {
+    return Result(
+      await algorithm.decrypt(
+        NoMacSecretBox(
+          ciphertext,
+          nonce: iv,
+        ),
+        secretKey: SecretKey(key),
+      ),
+    );
+  } catch (ex) {
+    return Result(MalformedCiphertextError(ex)); 
+  }
 }
 
 /// OMEMO often uses the output of a HMAC-SHA-256 truncated to its first 16 bytes.

@@ -152,14 +152,20 @@ class OmemoManager {
       return Result(InvalidMessageHMACError());
     }
 
-    // TODO: Handle an exception from the crypto implementation
+    final result = await aes256CbcDecrypt(
+      ciphertext,
+      derivedKeys.encryptionKey,
+      derivedKeys.iv,
+    );
+    if (result.isType<MalformedCiphertextError>()) {
+      return Result(
+        result.get<MalformedCiphertextError>(),
+      );
+    }
+
     return Result(
       utf8.decode(
-        await aes256CbcDecrypt(
-          ciphertext,
-          derivedKeys.encryptionKey,
-          derivedKeys.iv,
-        ),
+        result.get<List<int>>(),
       ),
     );
   }
@@ -316,8 +322,6 @@ class OmemoManager {
         kexMessage.ek,
         KeyPairType.x25519,
       );
-
-      // TODO: Guard against invalid signatures
       final kex = await x3dhFromInitialMessage(
         X3DHMessage(
           kexIk, 

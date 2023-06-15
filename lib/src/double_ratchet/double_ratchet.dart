@@ -261,7 +261,11 @@ class OmemoDoubleRatchet {
     }
 
     final plaintext = await aes256CbcDecrypt(ciphertext, keys.encryptionKey, keys.iv);
-    return Result(plaintext);
+    if (plaintext.isType<MalformedCiphertextError>()) {
+      return Result(plaintext.get<MalformedCiphertextError>());
+    }
+
+    return Result(plaintext.get<List<int>>());
   }
 
   /// Checks whether we could decrypt the payload in [header] with a skipped key. If yes,
