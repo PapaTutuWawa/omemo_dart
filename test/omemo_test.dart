@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:collection/collection.dart';
 import 'package:logging/logging.dart';
 import 'package:omemo_dart/omemo_dart.dart';
 import 'package:omemo_dart/src/protobuf/schema.pb.dart';
@@ -1531,6 +1532,261 @@ void main() {
     expect(
       (bobManager.trustManager as TestingTrustManager).devices[aliceJid],
       await aliceManager.getDeviceId(),
+    );
+  });
+
+  test('Test receiving a non-KEX from a new device', () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+
+    final aliceDevice1 =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final aliceDevice2 =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+
+    final aliceManager1 = OmemoManager(
+      aliceDevice1,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, bobJid);
+        return [bobDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+        return bobDevice.toBundle();
+      },
+      (jid) async {},
+    );
+    final aliceManager2 = OmemoManager(
+      aliceDevice2,
+      TestingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, bobJid);
+        return [bobDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+        return bobDevice.toBundle();
+      },
+      (jid) async {},
+    );
+
+    EncryptionResult? bobEmptyMessage;
+    var includeAlice2 = false;
+    final bobManager = OmemoManager(
+      bobDevice,
+      TestingTrustManager(),
+      (result, recipientJid) async {
+        bobEmptyMessage = result;
+      },
+      (jid) async {
+        expect(jid, aliceJid);
+        return [
+          aliceDevice1.id,
+          if (includeAlice2) aliceDevice2.id,
+        ];
+      },
+      (jid, id) async {
+        expect(jid, aliceJid);
+
+        if (id == aliceDevice1.id) {
+          return aliceDevice1.toBundle();
+        } else if (id == aliceDevice2.id) {
+          return aliceDevice2.toBundle();
+        }
+
+        return null;
+      },
+      (jid) async {},
+    );
+
+    // Alice sends Bob a message
+    final aliceResult1 = await aliceManager1.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello World!',
+      ),
+    );
+
+    // Bob decrypts Alice's message
+    final bobResult1 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice1.id,
+        DateTime.now().millisecondsSinceEpoch,
+        aliceResult1.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult1.ciphertext!),
+        false,
+      ),
+    );
+    expect(bobResult1.error, null);
+    expect(bobEmptyMessage, isNotNull);
+
+    // Somehow create a non-KEX message without Bob creating a ratchet
+    await aliceManager2.onOutgoingStanza(
+      const OmemoOutgoingStanza([bobJid], 'lol'),
+    );
+    await aliceManager2.ratchetAcknowledged(bobJid, bobDevice.id);
+    final aliceResult2 = await aliceManager2.onOutgoingStanza(
+      const OmemoOutgoingStanza([bobJid], 'lol x2'),
+    );
+
+    // Bob decrypts it and fails, but builds a session with the new device
+    bobEmptyMessage = null;
+    includeAlice2 = true;
+    final bobResult2 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice2.id,
+        getTimestamp(),
+        aliceResult2.encryptedKeys[bobJid]!,
+        base64Encode(aliceResult2.ciphertext!),
+        false,
+      ),
+    );
+    expect(bobResult2.error, const TypeMatcher<NoSessionWithDeviceError>());
+    expect(bobEmptyMessage, isNotNull);
+
+    // Check that the empty message is encrypted for both of Alice's devices
+    expect(
+      bobEmptyMessage!.encryptedKeys[aliceJid]!
+          .firstWhereOrNull((key) => key.rid == aliceDevice1.id),
+      isNotNull,
+    );
+    expect(
+      bobEmptyMessage!.encryptedKeys[aliceJid]!
+          .firstWhereOrNull((key) => key.rid == aliceDevice1.id),
+      isNotNull,
+    );
+  });
+
+  test(
+      'Test receiving a non-KEX from a new device without device list inclusion',
+      () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+
+    final aliceDevice1 =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final aliceDevice2 =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+
+    final aliceManager1 = OmemoManager(
+      aliceDevice1,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, bobJid);
+        return [bobDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+        return bobDevice.toBundle();
+      },
+      (jid) async {},
+    );
+    final aliceManager2 = OmemoManager(
+      aliceDevice2,
+      TestingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, bobJid);
+        return [bobDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+        return bobDevice.toBundle();
+      },
+      (jid) async {},
+    );
+
+    EncryptionResult? bobEmptyMessage;
+    final bobManager = OmemoManager(
+      bobDevice,
+      TestingTrustManager(),
+      (result, recipientJid) async {
+        bobEmptyMessage = result;
+      },
+      (jid) async {
+        expect(jid, aliceJid);
+        return [
+          aliceDevice1.id,
+        ];
+      },
+      (jid, id) async {
+        expect(jid, aliceJid);
+
+        if (id == aliceDevice1.id) {
+          return aliceDevice1.toBundle();
+        } else if (id == aliceDevice2.id) {
+          return aliceDevice2.toBundle();
+        }
+
+        return null;
+      },
+      (jid) async {},
+    );
+
+    // Alice sends Bob a message
+    final aliceResult1 = await aliceManager1.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello World!',
+      ),
+    );
+
+    // Bob decrypts Alice's message
+    final bobResult1 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice1.id,
+        DateTime.now().millisecondsSinceEpoch,
+        aliceResult1.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult1.ciphertext!),
+        false,
+      ),
+    );
+    expect(bobResult1.error, null);
+    expect(bobEmptyMessage, isNotNull);
+
+    // Somehow create a non-KEX message without Bob creating a ratchet
+    await aliceManager2.onOutgoingStanza(
+      const OmemoOutgoingStanza([bobJid], 'lol'),
+    );
+    await aliceManager2.ratchetAcknowledged(bobJid, bobDevice.id);
+    final aliceResult2 = await aliceManager2.onOutgoingStanza(
+      const OmemoOutgoingStanza([bobJid], 'lol x2'),
+    );
+
+    // Bob decrypts it and fails, but builds a session with the new device
+    bobEmptyMessage = null;
+    final bobResult2 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice2.id,
+        getTimestamp(),
+        aliceResult2.encryptedKeys[bobJid]!,
+        base64Encode(aliceResult2.ciphertext!),
+        false,
+      ),
+    );
+    expect(bobResult2.error, const TypeMatcher<NoSessionWithDeviceError>());
+    expect(bobEmptyMessage, isNotNull);
+
+    // Check that the empty message is encrypted for both of Alice's devices
+    expect(
+      bobEmptyMessage!.encryptedKeys[aliceJid]!
+          .firstWhereOrNull((key) => key.rid == aliceDevice1.id),
+      isNotNull,
+    );
+    expect(
+      bobEmptyMessage!.encryptedKeys[aliceJid]!
+          .firstWhereOrNull((key) => key.rid == aliceDevice1.id),
+      isNotNull,
     );
   });
 }
