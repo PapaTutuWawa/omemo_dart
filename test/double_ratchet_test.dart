@@ -51,17 +51,21 @@ void main() {
     // Build a session
     final alicesRatchet = await OmemoDoubleRatchet.initiateNewSession(
       spkBob.pk,
+      bundleBob.spkId,
       ikBob.pk,
+      ikAlice.pk,
       resultAlice.ek.pk,
       resultAlice.sk,
       resultAlice.ad,
       0,
       resultAlice.opkId,
-      bundleBob.spkId,
     );
     final bobsRatchet = await OmemoDoubleRatchet.acceptNewSession(
       spkBob,
+      bundleBob.spkId,
       ikAlice.pk,
+      2,
+      resultAlice.ek.pk,
       resultBob.sk,
       resultBob.ad,
       0,

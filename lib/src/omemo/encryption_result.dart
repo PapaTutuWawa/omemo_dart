@@ -22,8 +22,9 @@ class EncryptionResult {
   /// Mapping of a JID to 
   final Map<String, List<EncryptToJidError>> deviceEncryptionErrors;
 
+  // TODO: Turn this into a property that is computed in [onOutgoingStanza].
   /// True if the encryption was a success. This means that we could encrypt for
-  /// at least one ratchet.
-  /// TODO:
-  bool isSuccess(int numberOfRecipients) => true;
+  /// at least one ratchet per recipient. [recipients] is the number of recipients
+  /// that the message should've been encrypted for.
+  bool isSuccess(int recipients) => encryptedKeys.length == recipients;
 }

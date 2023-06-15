@@ -3,7 +3,6 @@ import 'dart:collection';
 import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:cryptography/cryptography.dart';
-import 'package:hex/hex.dart';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 import 'package:omemo_dart/src/common/result.dart';
@@ -27,20 +26,6 @@ import 'package:omemo_dart/src/protobuf/schema.pb.dart';
 import 'package:omemo_dart/src/trust/base.dart';
 import 'package:omemo_dart/src/x3dh/x3dh.dart';
 import 'package:synchronized/synchronized.dart';
-
-class _InternalDecryptionResult {
-  const _InternalDecryptionResult(
-    this.ratchetCreated,
-    this.ratchetReplaced,
-    this.payload,
-  ) : assert(
-          !ratchetCreated || !ratchetReplaced,
-          'Ratchet must be either replaced or created',
-        );
-  final bool ratchetCreated;
-  final bool ratchetReplaced;
-  final String? payload;
-}
 
 extension AppendToListOrCreateExtension<K, V> on Map<K, List<V>> {
   void appendOrCreate(K key, V value) {
@@ -185,26 +170,27 @@ class OmemoManager {
   /// Returns a list of new bundles, that may be empty.
   Future<List<OmemoBundle>> _fetchNewOmemoBundles(String jid) async {
     // Do we have to request the device list or are we already up-to-date?
-    if (_deviceListRequested.containsKey(jid) && _deviceList.containsKey(jid)) {
-      return [];
+    if (!_deviceListRequested.containsKey(jid) || !_deviceList.containsKey(jid)) {
+      final newDeviceList = await fetchDeviceListImpl(jid);
+      if (newDeviceList != null) {
+        // Figure out what bundles we must fetch
+        _deviceList[jid] = newDeviceList;
+        _deviceListRequested[jid] = true;
+
+        _eventStreamController.add(
+          DeviceListModifiedEvent(jid, newDeviceList),
+        );
+      }
     }
 
-    final newDeviceList = await fetchDeviceListImpl(jid);
-    if (newDeviceList == null) {
+    // Check that we have the device list
+    if (!_deviceList.containsKey(jid)) {
+      _log.warning('$jid not tracked in device list.');
       return [];
     }
-
-    // Figure out what bundles we must fetch
-    _deviceList[jid] = newDeviceList;
-    _deviceListRequested[jid] = true;
-
-    // TODO: Maybe do this per JID?
-    _eventStreamController.add(
-      DeviceListModifiedEvent(_deviceList),
-    );
 
     final ownDevice = await getDevice();
-    final bundlesToFetch = newDeviceList.where((device) {
+    final bundlesToFetch = _deviceList[jid]!.where((device) {
       // Do not include our current device, if we request bundles for our own JID.
       if (ownDevice.jid == jid && device == ownDevice.id) {
         return false;
@@ -285,13 +271,27 @@ class OmemoManager {
       );
     }
 
+    // Check how we should process the message
     final ratchetKey = RatchetMapKey(stanza.bareSenderJid, stanza.senderDeviceId);
-    if (key.kex) {
+    var processAsKex = key.kex;
+    if (key.kex && _ratchetMap.containsKey(ratchetKey)) {
+      final ratchet = _ratchetMap[ratchetKey]!;
+      final kexMessage = OMEMOKeyExchange.fromBuffer(base64Decode(key.value));
+      final ratchetEk = await ratchet.kex.ek.getBytes();
+      final sameEk = listsEqual(kexMessage.ek, ratchetEk);
+
+      if (sameEk) {
+        processAsKex = false;
+      } else {
+        processAsKex = true;
+      }
+      _log.finest('kexMessage.ek == ratchetEk: $sameEk');
+    }
+
+    // Process the message
+    if (processAsKex) {
       _log.finest('Decoding message as OMEMOKeyExchange');
       final kexMessage = OMEMOKeyExchange.fromBuffer(base64Decode(key.value));
-
-      // TODO: Check if we already have such a session and if we can build it
-      // See XEP-0384 4.3
 
       // Find the correct SPK
       final device = await getDevice();
@@ -312,13 +312,16 @@ class OmemoManager {
         kexMessage.ik,
         KeyPairType.ed25519,
       );
+      final kexEk = OmemoPublicKey.fromBytes(
+        kexMessage.ek,
+        KeyPairType.x25519,
+      );
+
+      // TODO: Guard against invalid signatures
       final kex = await x3dhFromInitialMessage(
         X3DHMessage(
           kexIk, 
-          OmemoPublicKey.fromBytes(
-            kexMessage.ek,
-            KeyPairType.x25519,
-          ),
+          kexEk,
           kexMessage.pkId,
         ),
         spk,
@@ -327,7 +330,10 @@ class OmemoManager {
       );
       final ratchet = await OmemoDoubleRatchet.acceptNewSession(
         spk,
+        kexMessage.spkId,
         kexIk,
+        kexMessage.pkId,
+        kexEk,
         kex.sk,
         kex.ad,
         getTimestamp(),
@@ -395,8 +401,7 @@ class OmemoManager {
       }
 
       // Send the hearbeat, if we have to
-      // TODO: Handle replace
-      await _maybeSendEmptyMessage(ratchetKey, true, false);
+      await _maybeSendEmptyMessage(ratchetKey, true, _ratchetMap.containsKey(ratchetKey));
 
       return DecryptionResult(
         result.get<String?>(),
@@ -415,7 +420,16 @@ class OmemoManager {
 
       _log.finest('Decoding message as OMEMOAuthenticatedMessage');
       final ratchet = _ratchetMap[ratchetKey]!.clone();
-      final authMessage = OMEMOAuthenticatedMessage.fromBuffer(base64Decode(key.value));
+
+      // Correctly decode the message
+      OMEMOAuthenticatedMessage authMessage;
+      if (key.kex) {
+        _log.finest('Extracting OMEMOAuthenticatedMessage from OMEMOKeyExchange');
+        authMessage = OMEMOKeyExchange.fromBuffer(base64Decode(key.value)).message;
+      } else {
+        authMessage = OMEMOAuthenticatedMessage.fromBuffer(base64Decode(key.value));
+      }
+
       final keyAndHmac = await ratchet.ratchetDecrypt(authMessage);
       if (keyAndHmac.isType<OmemoError>()) {
         final error = keyAndHmac.get<OmemoError>();
@@ -504,6 +518,7 @@ class OmemoManager {
       }
 
       for (final bundle in newBundles) {
+        _log.finest('Building new ratchet $jid:${bundle.id}');
         final ratchetKey = RatchetMapKey(jid, bundle.id);
         final ownDevice = await getDevice();
         final kexResult = await x3dhFromBundle(
@@ -512,13 +527,14 @@ class OmemoManager {
         );
         final newRatchet = await OmemoDoubleRatchet.initiateNewSession(
           bundle.spk,
+          bundle.spkId,
           bundle.ik,
+          ownDevice.ik.pk,
           kexResult.ek.pk,
           kexResult.sk,
           kexResult.ad,
           getTimestamp(),
           kexResult.opkId,
-          bundle.spkId,
         );
 
         // Track the ratchet
@@ -529,11 +545,13 @@ class OmemoManager {
         await trustManager.onNewSession(jid, bundle.id);
 
         // Track the KEX for later
+        final ik = await ownDevice.ik.pk.getBytes();
+        final ek = await kexResult.ek.pk.getBytes();
         kex[ratchetKey] = OMEMOKeyExchange()
-          ..pkId = kexResult.opkId
-          ..spkId = bundle.spkId
-          ..ik = await ownDevice.ik.pk.getBytes()
-          ..ek = await kexResult.ek.pk.getBytes();
+          ..pkId = newRatchet.kex.pkId
+          ..spkId = newRatchet.kex.spkId
+          ..ik = ik
+          ..ek = ek;
       }
     }
 
@@ -615,30 +633,16 @@ class OmemoManager {
             ),
           );
         } else if (!ratchet.acknowledged) {
-          // The ratchet as not yet been acked
-          if (ratchet.kex == null) {
-            // The ratchet is not acked but we also don't have an old KEX to send with it
-            _log.warning('Ratchet $jid:$device is not acked but has no previous KEX.');
-
-            encryptedKeys.appendOrCreate(
-              jid,
-              EncryptedKey(
-                jid,
-                device,
-                base64Encode(authMessage.writeToBuffer()),
-                false,
-              ),
-            );
-            continue;
-          }
-
+          // The ratchet as not yet been acked.
           // Keep sending the old KEX
+          _log.finest('Using old KEX data for OMEMOKeyExchange');
           final kexMessage = OMEMOKeyExchange()
-            ..pkId = ratchet.kex!.pkId
-            ..spkId = ratchet.kex!.spkId
-            ..ik = await ratchet.kex!.ik.getBytes()
-            ..ek = await ratchet.kex!.ek.getBytes()
+            ..pkId = ratchet.kex.pkId
+            ..spkId = ratchet.kex.spkId
+            ..ik = await ratchet.kex.ik.getBytes()
+            ..ek = await ratchet.kex.ek.getBytes()
             ..message = authMessage;
+
           encryptedKeys.appendOrCreate(
             jid,
             EncryptedKey(
@@ -681,14 +685,43 @@ class OmemoManager {
     await sendEmptyOmemoMessageImpl(result, jid);
   }
 
-  // TODO
-  Future<void> removeAllRatchets(String jid) async {}
+  /// Removes all ratchets associated with [jid].
+  Future<void> removeAllRatchets(String jid) async {
+    await _enterRatchetCriticalSection(jid);
 
-  // TODO
-  Future<void> onDeviceListUpdate(String jid, List<int> devices) async {}
+    for (final device in _deviceList[jid] ?? <int>[]) {
+      // Remove the ratchet and commit
+      _ratchetMap.remove(RatchetMapKey(jid, device));
+      _eventStreamController.add(RatchetRemovedEvent(jid, device));
+    }
 
-  // TODO
-  Future<void> onNewConnection() async {}
+    // Clear the device list
+    _deviceList.remove(jid);
+    _deviceListRequested.remove(jid);
+    _eventStreamController.add(DeviceListModifiedEvent(jid, []));
+
+    await _leaveRatchetCriticalSection(jid);
+  }
+
+  /// To be called when a update to the device list of [jid] is returned.
+  /// [devices] is the list of device identifiers contained in the update.
+  Future<void> onDeviceListUpdate(String jid, List<int> devices) async {
+    // Update our state
+    _deviceList[jid] = devices;
+    _deviceListRequested[jid] = true;
+
+    // Commit the device list
+    _eventStreamController.add(
+      DeviceListModifiedEvent(jid, devices),
+    );
+  }
+
+  /// To be called when a new connection is made, i.e. when the previous stream could
+  /// previous stream could not be resumed using XEP-0198.
+  Future<void> onNewConnection() async {
+    _deviceListRequested.clear();
+    _subscriptionMap.clear();
+  }
 
   // Mark the ratchet [jid]:[device] as acknowledged.
   Future<void> ratchetAcknowledged(String jid, int device) async {
@@ -709,7 +742,7 @@ class OmemoManager {
   }
 
   // TODO
-  Future<List<DeviceFingerprint>> getFingerprintsForJid(String jid) async => [];
+  Future<List<DeviceFingerprint>?> getFingerprintsForJid(String jid) async => null;
 
   /// Returns the device used for encryption and decryption.
   Future<OmemoDevice> getDevice() => _deviceLock.synchronized(() => _device);
@@ -718,5 +751,5 @@ class OmemoManager {
   Future<int> getDeviceId() async => (await getDevice()).id;
 
   @visibleForTesting
-  OmemoDoubleRatchet getRatchet(RatchetMapKey key) => _ratchetMap[key]!;
+  OmemoDoubleRatchet? getRatchet(RatchetMapKey key) => _ratchetMap[key];
 }

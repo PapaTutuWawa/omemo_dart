@@ -40,13 +40,20 @@ class KeyExchangeData {
   const KeyExchangeData(
     this.pkId,
     this.spkId,
-    this.ek,
     this.ik,
+    this.ek,
   );
 
+  /// The id of the used OPK.
   final int pkId;
+
+  /// The id of the used SPK.
   final int spkId;
+
+  /// The ephemeral key used while the key exchange.
   final OmemoPublicKey ek;
+
+  /// The identity key used in the key exchange.
   final OmemoPublicKey ik;
 }
 
@@ -61,7 +68,6 @@ class OmemoDoubleRatchet {
     this.nr, // Nr
     this.pn, // Pn
     this.ik,
-    this.ek,
     this.sessionAd,
     this.mkSkipped, // MKSKIPPED
     this.acknowledged,
@@ -93,13 +99,10 @@ class OmemoDoubleRatchet {
   /// for verification purposes
   final OmemoPublicKey ik;
 
-  /// The ephemeral public key of the chat partner. Not used for encryption but for possible
-  /// checks when replacing the ratchet. As such, this is only non-null for the initiating
-  /// side.
-  final OmemoPublicKey? ek;
-
+  /// Associated data for this ratchet.
   final List<int> sessionAd;
 
+  /// List of skipped message keys.
   final Map<SkippedKey, List<int>> mkSkipped;
 
   /// The point in time at which we performed the kex exchange to create this ratchet.
@@ -107,7 +110,7 @@ class OmemoDoubleRatchet {
   int kexTimestamp;
 
   /// The key exchange that was used for initiating the session.
-  final KeyExchangeData? kex;
+  final KeyExchangeData kex;
 
   /// Indicates whether we received an empty OMEMO message after building a session with
   /// the device.
@@ -118,13 +121,14 @@ class OmemoDoubleRatchet {
   /// a X3DH. [ik] refers to Bob's (the receiver's) IK public key.
   static Future<OmemoDoubleRatchet> initiateNewSession(
     OmemoPublicKey spk,
+    int spkId,
     OmemoPublicKey ik,
+    OmemoPublicKey ownIk,
     OmemoPublicKey ek,
     List<int> sk,
     List<int> ad,
     int timestamp,
     int pkId,
-    int spkId,
   ) async {
     final dhs = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
     final rk = await kdfRk(sk, await omemoDH(dhs, spk, 0));
@@ -139,7 +143,6 @@ class OmemoDoubleRatchet {
       0,
       0,
       ik,
-      ek,
       ad,
       {},
       false,
@@ -147,7 +150,7 @@ class OmemoDoubleRatchet {
       KeyExchangeData(
         pkId,
         spkId,
-        ik,
+        ownIk,
         ek,
       ),
     );
@@ -159,7 +162,10 @@ class OmemoDoubleRatchet {
   /// Alice's (the initiator's) IK public key.
   static Future<OmemoDoubleRatchet> acceptNewSession(
     OmemoKeyPair spk,
+    int spkId,
     OmemoPublicKey ik,
+    int pkId,
+    OmemoPublicKey ek,
     List<int> sk,
     List<int> ad,
     int kexTimestamp,
@@ -174,12 +180,16 @@ class OmemoDoubleRatchet {
       0,
       0,
       ik,
-      null,
       ad,
       {},
       true,
       kexTimestamp,
-      null,
+      KeyExchangeData(
+        pkId,
+        spkId,
+        ik,
+        ek,
+      ),
     );
   }
 
@@ -357,7 +367,6 @@ class OmemoDoubleRatchet {
       nr,
       pn,
       ik,
-      ek,
       sessionAd,
       Map<SkippedKey, List<int>>.from(mkSkipped),
       acknowledged,

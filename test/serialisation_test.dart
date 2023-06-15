@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:omemo_dart/omemo_dart.dart';
-import 'package:omemo_dart/protobuf/schema.pb.dart';
+import 'package:omemo_dart/src/protobuf/schema.pb.dart';
 import 'package:omemo_dart/src/trust/always.dart';
 import 'package:test/test.dart';
 

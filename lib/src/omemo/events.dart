@@ -39,8 +39,13 @@ class RatchetRemovedEvent extends OmemoEvent {
 
 /// Triggered when the device map has been modified
 class DeviceListModifiedEvent extends OmemoEvent {
-  DeviceListModifiedEvent(this.list);
-  final Map<String, List<int>> list;
+  DeviceListModifiedEvent(this.jid, this.devices);
+
+  /// The JID of the user.
+  final String jid;
+
+  /// The list of devices for [jid].
+  final List<int> devices;
 }
 
 /// Triggered by the OmemoSessionManager when our own device bundle was modified

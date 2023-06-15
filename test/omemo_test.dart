@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:logging/logging.dart';
 import 'package:omemo_dart/omemo_dart.dart';
+import 'package:omemo_dart/src/protobuf/schema.pb.dart';
 import 'package:omemo_dart/src/trust/always.dart';
 import 'package:test/test.dart';
 
@@ -210,7 +211,7 @@ void main() {
         ),
       );
 
-      expect(aliceResultLoop.encryptedKeys[bobJid]!.first.kex, false);
+      expect(aliceResultLoop.encryptedKeys[bobJid]!.first.kex, isFalse);
 
       final bobResultLoop = await bobManager.onIncomingStanza(
         OmemoIncomingStanza(
@@ -376,7 +377,7 @@ void main() {
     );
 
     expect(bobResult1.payload, null);
-    expect(bobResult1.error is NotEncryptedForDeviceError, true);
+    expect(bobResult1.error, const TypeMatcher<NotEncryptedForDeviceError>());
 
     // Now Alice's client loses and regains the connection
     await aliceManager.onNewConnection();
@@ -401,6 +402,7 @@ void main() {
     );
 
     expect(aliceResult2.encryptedKeys.length, 1);
+    expect(bobResult2.error, null);
     expect(bobResult2.payload, 'Hello Bob x2');
   });
 
@@ -506,7 +508,7 @@ void main() {
         bobJid,
         bobDevice2.id,
         DateTime.now().millisecondsSinceEpoch,
-        bobResult2.encryptedKeys[bobJid]!,
+        bobResult2.encryptedKeys[aliceJid]!,
         base64.encode(bobResult2.ciphertext!),
         false,
       ),
@@ -617,7 +619,7 @@ void main() {
       ),
     );
 
-    expect(aliceResult2.encryptedKeys.length, 2);
+    expect(aliceResult2.encryptedKeys[bobJid]!.length, 2);
 
     // And Bob decrypts it
     final bobResult21 = await bobManager1.onIncomingStanza(
@@ -658,7 +660,7 @@ void main() {
         bobJid,
         bobDevice2.id,
         DateTime.now().millisecondsSinceEpoch,
-        bobResult32.encryptedKeys[bobJid]!,
+        bobResult32.encryptedKeys[aliceJid]!,
         base64.encode(bobResult32.ciphertext!),
         false,
       ),
@@ -878,13 +880,10 @@ void main() {
       ),
     );
 
-    expect(aliceResult.isSuccess(1), false);
-    // TODO
-    /*expect(
-      aliceResult.jidEncryptionErrors[bobJid]
-          is NoKeyMaterialAvailableException,
-      true,
-    );*/
+    expect(aliceResult.isSuccess(1), isFalse);
+    expect(aliceResult.deviceEncryptionErrors[bobJid]!.length, 1);
+    final error = aliceResult.deviceEncryptionErrors[bobJid]!.first;
+    expect(error.error, const TypeMatcher<NoKeyMaterialAvailableError>());
   });
 
   test('Test sending a message two two JIDs with failed lookups', () async {
@@ -933,14 +932,9 @@ void main() {
       ),
     );
 
-    expect(aliceResult.isSuccess(2), true);
-    // TODO
-    /*
-    expect(
-      aliceResult.jidEncryptionErrors[cocoJid]
-          is NoKeyMaterialAvailableException,
-      true,
-    );*/
+    expect(aliceResult.isSuccess(2), isFalse);
+    expect(aliceResult.deviceEncryptionErrors[cocoJid]!.length, 1);
+    expect(aliceResult.deviceEncryptionErrors[cocoJid]!.first.error, const TypeMatcher<NoKeyMaterialAvailableError>(),);
 
     // Bob decrypts it
     final bobResult = await bobManager.onIncomingStanza(
@@ -1025,7 +1019,7 @@ void main() {
           messageText,
         ),
       );
-      expect(bobResponseMessage.isSuccess(1), true);
+      expect(bobResponseMessage.isSuccess(1), isTrue);
 
       final aliceReceivedMessage = await aliceManager.onIncomingStanza(
         OmemoIncomingStanza(
@@ -1181,7 +1175,7 @@ void main() {
       'Test removing all ratchets and sending a message without post-heartbeat ack',
       () async {
     // This test is the same as "Test removing all ratchets and sending a message" except
-    // that bob does not ack the ratchet after Alice's heartbeat after she recreated
+    // that Bob does not ack the ratchet after Alice's heartbeat after she recreated
     // all ratchets.
     const aliceJid = 'alice@server1';
     const bobJid = 'bob@server2';
@@ -1227,7 +1221,7 @@ void main() {
     );
 
     // And Bob decrypts it
-    await bobManager.onIncomingStanza(
+    final bobResult1 = await bobManager.onIncomingStanza(
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
@@ -1237,6 +1231,7 @@ void main() {
         false,
       ),
     );
+    expect(bobResult1.error, isNull);
 
     // Ratchets are acked
     await aliceManager.ratchetAcknowledged(
@@ -1245,9 +1240,10 @@ void main() {
     );
 
     // Alice now removes all ratchets for Bob and sends another new message
+    Logger.root.info('Removing all ratchets for $bobJid');
     await aliceManager.removeAllRatchets(bobJid);
 
-    expect(aliceManager.getRatchet(RatchetMapKey(bobJid, bobDevice.id)), null);
+    expect(aliceManager.getRatchet(RatchetMapKey(bobJid, bobDevice.id)), isNull);
 
     // Alice prepares an empty OMEMO message
     await aliceManager.sendOmemoHeartbeat(bobJid);
@@ -1266,12 +1262,14 @@ void main() {
     expect(bobResult2.error, null);
 
     // Alice sends another message
+    Logger.root.info('Sending final message');
     final aliceResult3 = await aliceManager.onOutgoingStanza(
       const OmemoOutgoingStanza(
         [bobJid],
         'I did not trust your last device, Bob!',
       ),
     );
+    expect(aliceResult3.encryptedKeys[bobJid]!.first.kex, isTrue);
 
     // Bob decrypts it
     final bobResult3 = await bobManager.onIncomingStanza(
@@ -1358,8 +1356,7 @@ void main() {
     );
 
     // The first message must be a KEX message
-    // TODO
-    //expect(aliceResult1.encryptedKeys.first.kex, true);
+    expect(aliceResult1.encryptedKeys[bobJid]!.first.kex, isTrue);
 
     // Bob decrypts Alice's message
     final bobResult1 = await bobManager.onIncomingStanza(
@@ -1384,24 +1381,21 @@ void main() {
     );
 
     // The response should contain a KEX
-    // TODO
-    /*
-    expect(aliceResult2.encryptedKeys.first.kex, true);
+    expect(aliceResult2.encryptedKeys[bobJid]!.first.kex, isTrue);
 
     // The basic data should be the same
     final parsedFirstKex = OMEMOKeyExchange.fromBuffer(
-      base64.decode(aliceResult1.encryptedKeys.first.value),
+      base64.decode(aliceResult1.encryptedKeys[bobJid]!.first.value),
     );
     final parsedSecondKex = OMEMOKeyExchange.fromBuffer(
-      base64.decode(aliceResult2.encryptedKeys.first.value),
+      base64.decode(aliceResult2.encryptedKeys[bobJid]!.first.value),
     );
     expect(parsedSecondKex.pkId, parsedFirstKex.pkId);
     expect(parsedSecondKex.spkId, parsedFirstKex.spkId);
     expect(parsedSecondKex.ik, parsedFirstKex.ik);
     expect(parsedSecondKex.ek, parsedFirstKex.ek);
-    */
 
-    // Alice decrypts it
+    // Bob decrypts it
     final bobResult2 = await bobManager.onIncomingStanza(
       OmemoIncomingStanza(
         aliceJid,
@@ -1429,7 +1423,7 @@ void main() {
         bobJid,
         bobDevice.id,
         DateTime.now().millisecondsSinceEpoch,
-        bobResult3.encryptedKeys[bobJid]!,
+        bobResult3.encryptedKeys[aliceJid]!,
         base64.encode(bobResult3.ciphertext!),
         false,
       ),
@@ -1452,8 +1446,7 @@ void main() {
     );
 
     // The response should contain no KEX
-    // TODO
-    //expect(aliceResult4.encryptedKeys.first.kex, false);
+    expect(aliceResult4.encryptedKeys[bobJid]!.first.kex, isFalse);
 
     // Bob decrypts it
     final bobResult4 = await bobManager.onIncomingStanza(
