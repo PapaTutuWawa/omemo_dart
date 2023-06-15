@@ -28,6 +28,7 @@ import 'package:omemo_dart/src/x3dh/x3dh.dart';
 import 'package:synchronized/synchronized.dart';
 
 extension AppendToListOrCreateExtension<K, V> on Map<K, List<V>> {
+  /// Create or append [value] to the list identified with key [key].
   void appendOrCreate(K key, V value) {
     if (containsKey(key)) {
       this[key]!.add(value);
@@ -38,6 +39,8 @@ extension AppendToListOrCreateExtension<K, V> on Map<K, List<V>> {
 }
 
 extension StringFromBase64Extension on String {
+  /// Base64-decode this string. Useful for doing `someString?.fromBase64()` instead
+  /// of `someString != null ? base64Decode(someString) : null`.
   List<int> fromBase64() => base64Decode(this);
 }
 
@@ -255,7 +258,7 @@ class OmemoManager {
     var processAsKex = key.kex;
     if (key.kex && _ratchetMap.containsKey(ratchetKey)) {
       final ratchet = _ratchetMap[ratchetKey]!;
-      final kexMessage = OMEMOKeyExchange.fromBuffer(base64Decode(key.value));
+      final kexMessage = OMEMOKeyExchange.fromBuffer(key.data);
       final ratchetEk = await ratchet.kex.ek.getBytes();
       final sameEk = listsEqual(kexMessage.ek, ratchetEk);
 
@@ -270,7 +273,7 @@ class OmemoManager {
     // Process the message
     if (processAsKex) {
       _log.finest('Decoding message as OMEMOKeyExchange');
-      final kexMessage = OMEMOKeyExchange.fromBuffer(base64Decode(key.value));
+      final kexMessage = OMEMOKeyExchange.fromBuffer(key.data);
 
       // Find the correct SPK
       final device = await getDevice();
@@ -327,7 +330,7 @@ class OmemoManager {
       }
 
       final result = await _decryptAndVerifyHmac(
-        stanza.payload != null ? base64Decode(stanza.payload!) : null,
+        stanza.payload?.fromBase64(),
         keyAndHmac.get<List<int>>(),
       );
       if (result.isType<OmemoError>()) {
@@ -414,11 +417,9 @@ class OmemoManager {
         _log.finest(
           'Extracting OMEMOAuthenticatedMessage from OMEMOKeyExchange',
         );
-        authMessage =
-            OMEMOKeyExchange.fromBuffer(base64Decode(key.value)).message;
+        authMessage = OMEMOKeyExchange.fromBuffer(key.data).message;
       } else {
-        authMessage =
-            OMEMOAuthenticatedMessage.fromBuffer(base64Decode(key.value));
+        authMessage = OMEMOAuthenticatedMessage.fromBuffer(key.data);
       }
 
       final keyAndHmac = await ratchet.ratchetDecrypt(authMessage);
@@ -632,7 +633,6 @@ class OmemoManager {
           encryptedKeys.appendOrCreate(
             jid,
             EncryptedKey(
-              jid,
               device,
               base64Encode(kexMessage.writeToBuffer()),
               true,
@@ -652,7 +652,6 @@ class OmemoManager {
           encryptedKeys.appendOrCreate(
             jid,
             EncryptedKey(
-              jid,
               device,
               base64Encode(kexMessage.writeToBuffer()),
               true,
@@ -663,7 +662,6 @@ class OmemoManager {
           encryptedKeys.appendOrCreate(
             jid,
             EncryptedKey(
-              jid,
               device,
               base64Encode(authMessage.writeToBuffer()),
               false,
