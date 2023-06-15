@@ -1,9 +1,12 @@
 import 'dart:async';
-
 import 'package:omemo_dart/src/omemo/queue.dart';
 import 'package:test/test.dart';
 
-Future<void> testMethod(RatchetAccessQueue queue, List<String> data, int duration) async {
+Future<void> testMethod(
+  RatchetAccessQueue queue,
+  List<String> data,
+  int duration,
+) async {
   await queue.enterCriticalSection(data);
 
   await Future<void>.delayed(Duration(seconds: duration));
@@ -48,7 +51,10 @@ void main() {
     expect(queue.runningOperations.length, 4);
     expect(
       queue.runningOperations.containsAll([
-        'a', 'b', 'c', 'd',
+        'a',
+        'b',
+        'c',
+        'd',
       ]),
       isTrue,
     );

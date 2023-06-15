@@ -113,7 +113,7 @@ Future<Result<MalformedCiphertextError, List<int>>> aes256CbcDecrypt(
       ),
     );
   } catch (ex) {
-    return Result(MalformedCiphertextError(ex)); 
+    return Result(MalformedCiphertextError(ex));
   }
 }
 

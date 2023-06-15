@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:collection';
 import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:cryptography/cryptography.dart';
@@ -139,11 +138,12 @@ class OmemoManager {
 
   /// Fetches the device list from the server for [jid] and downloads OMEMO bundles
   /// for devices we have no session with.
-  /// 
+  ///
   /// Returns a list of new bundles, that may be empty.
   Future<List<OmemoBundle>> _fetchNewOmemoBundles(String jid) async {
     // Do we have to request the device list or are we already up-to-date?
-    if (!_deviceListRequested.containsKey(jid) || !_deviceList.containsKey(jid)) {
+    if (!_deviceListRequested.containsKey(jid) ||
+        !_deviceList.containsKey(jid)) {
       final newDeviceList = await fetchDeviceListImpl(jid);
       if (newDeviceList != null) {
         // Figure out what bundles we must fetch
@@ -190,11 +190,17 @@ class OmemoManager {
     return bundles;
   }
 
-  Future<void> _maybeSendEmptyMessage(RatchetMapKey key, bool created, bool replaced) async {
+  Future<void> _maybeSendEmptyMessage(
+    RatchetMapKey key,
+    bool created,
+    bool replaced,
+  ) async {
     final ratchet = _ratchetMap[key]!;
     if (ratchet.acknowledged) {
       // The ratchet is acknowledged
-      _log.finest('Checking whether to heartbeat to ${key.jid}, ratchet.nr (${ratchet.nr}) >= 53: ${ratchet.nr >= 53}, created: $created, replaced: $replaced');
+      _log.finest(
+        'Checking whether to heartbeat to ${key.jid}, ratchet.nr (${ratchet.nr}) >= 53: ${ratchet.nr >= 53}, created: $created, replaced: $replaced',
+      );
       if (ratchet.nr >= 53 || created || replaced) {
         await sendEmptyOmemoMessageImpl(
           await _onOutgoingStanzaImpl(
@@ -222,7 +228,7 @@ class OmemoManager {
     }
   }
 
-  /// 
+  ///
   Future<DecryptionResult> onIncomingStanza(OmemoIncomingStanza stanza) async {
     return _ratchetQueue.synchronized(
       [stanza.bareSenderJid],
@@ -230,7 +236,9 @@ class OmemoManager {
     );
   }
 
-  Future<DecryptionResult> _onIncomingStanzaImpl(OmemoIncomingStanza stanza) async {
+  Future<DecryptionResult> _onIncomingStanzaImpl(
+    OmemoIncomingStanza stanza,
+  ) async {
     // Find the correct key for our device
     final deviceId = await getDeviceId();
     final key = stanza.keys.firstWhereOrNull((key) => key.rid == deviceId);
@@ -242,7 +250,8 @@ class OmemoManager {
     }
 
     // Check how we should process the message
-    final ratchetKey = RatchetMapKey(stanza.bareSenderJid, stanza.senderDeviceId);
+    final ratchetKey =
+        RatchetMapKey(stanza.bareSenderJid, stanza.senderDeviceId);
     var processAsKex = key.kex;
     if (key.kex && _ratchetMap.containsKey(ratchetKey)) {
       final ratchet = _ratchetMap[ratchetKey]!;
@@ -288,7 +297,7 @@ class OmemoManager {
       );
       final kex = await x3dhFromInitialMessage(
         X3DHMessage(
-          kexIk, 
+          kexIk,
           kexEk,
           kexMessage.pkId,
         ),
@@ -369,7 +378,11 @@ class OmemoManager {
       }
 
       // Send the hearbeat, if we have to
-      await _maybeSendEmptyMessage(ratchetKey, true, _ratchetMap.containsKey(ratchetKey));
+      await _maybeSendEmptyMessage(
+        ratchetKey,
+        true,
+        _ratchetMap.containsKey(ratchetKey),
+      );
 
       return DecryptionResult(
         result.get<String?>(),
@@ -380,7 +393,8 @@ class OmemoManager {
       if (!_ratchetMap.containsKey(ratchetKey)) {
         // TODO: Check if we recently failed to build a session with the device
         // This causes omemo_dart to build a session with the device.
-        if (!_deviceList[stanza.bareSenderJid]!.contains(stanza.senderDeviceId)) {
+        if (!_deviceList[stanza.bareSenderJid]!
+            .contains(stanza.senderDeviceId)) {
           _deviceList[stanza.bareSenderJid]!.add(stanza.senderDeviceId);
         }
         await _sendOmemoHeartbeat(stanza.bareSenderJid);
@@ -397,10 +411,14 @@ class OmemoManager {
       // Correctly decode the message
       OMEMOAuthenticatedMessage authMessage;
       if (key.kex) {
-        _log.finest('Extracting OMEMOAuthenticatedMessage from OMEMOKeyExchange');
-        authMessage = OMEMOKeyExchange.fromBuffer(base64Decode(key.value)).message;
+        _log.finest(
+          'Extracting OMEMOAuthenticatedMessage from OMEMOKeyExchange',
+        );
+        authMessage =
+            OMEMOKeyExchange.fromBuffer(base64Decode(key.value)).message;
       } else {
-        authMessage = OMEMOAuthenticatedMessage.fromBuffer(base64Decode(key.value));
+        authMessage =
+            OMEMOAuthenticatedMessage.fromBuffer(base64Decode(key.value));
       }
 
       final keyAndHmac = await ratchet.ratchetDecrypt(authMessage);
@@ -459,7 +477,9 @@ class OmemoManager {
     );
   }
 
-  Future<EncryptionResult> _onOutgoingStanzaImpl(OmemoOutgoingStanza stanza) async {
+  Future<EncryptionResult> _onOutgoingStanzaImpl(
+    OmemoOutgoingStanza stanza,
+  ) async {
     // Encrypt the payload, if we have any
     final List<int> payloadKey;
     final List<int> ciphertext;
@@ -545,7 +565,9 @@ class OmemoManager {
       _eventStreamController.add(
         RatchetsAddedEvent(
           Map<RatchetMapKey, OmemoDoubleRatchet>.fromEntries(
-            addedRatchetKeys.map((key) => MapEntry(key, _ratchetMap[key]!)).toList(),
+            addedRatchetKeys
+                .map((key) => MapEntry(key, _ratchetMap[key]!))
+                .toList(),
           ),
         ),
       );
@@ -728,7 +750,9 @@ class OmemoManager {
   Future<void> _ratchetAcknowledged(String jid, int device) async {
     final ratchetKey = RatchetMapKey(jid, device);
     if (!_ratchetMap.containsKey(ratchetKey)) {
-      _log.warning('Cannot mark $jid:$device as acknowledged as the ratchet does not exist');
+      _log.warning(
+        'Cannot mark $jid:$device as acknowledged as the ratchet does not exist',
+      );
     } else {
       // Commit
       final ratchet = _ratchetMap[ratchetKey]!..acknowledged = true;
@@ -740,7 +764,7 @@ class OmemoManager {
 
   /// If ratchets with [jid] exists, returns a list of fingerprints for each
   /// ratchet.
-  /// 
+  ///
   /// If not ratchets exists, returns null.
   Future<List<DeviceFingerprint>?> getFingerprintsForJid(String jid) async {
     return _ratchetQueue.synchronized(
@@ -750,7 +774,9 @@ class OmemoManager {
   }
 
   /// Same as [getFingerprintsForJid], but without acquiring the lock for [jid].
-  Future<List<DeviceFingerprint>?> _getFingerprintsForJidImpl(String jid) async {
+  Future<List<DeviceFingerprint>?> _getFingerprintsForJidImpl(
+    String jid,
+  ) async {
     // Check if we know of the JID.
     if (!_deviceList.containsKey(jid)) {
       return null;

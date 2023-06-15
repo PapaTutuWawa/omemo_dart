@@ -71,7 +71,8 @@ Future<List<int>> kdf(List<int> km) async {
 
 /// Alice builds a session with Bob using his bundle [bundle] and Alice's identity key
 /// pair [ik].
-Future<Result<InvalidKeyExchangeSignatureError, X3DHAliceResult>> x3dhFromBundle(
+Future<Result<InvalidKeyExchangeSignatureError, X3DHAliceResult>>
+    x3dhFromBundle(
   OmemoBundle bundle,
   OmemoKeyPair ik,
 ) async {

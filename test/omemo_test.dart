@@ -203,7 +203,7 @@ void main() {
 
     // Alice now sends 52 messages that Bob decrypts
     for (var i = 0; i < 52; i++) {
-      Logger.root.finest('${i+1}/52');
+      Logger.root.finest('${i + 1}/52');
       final aliceResultLoop = await aliceManager.onOutgoingStanza(
         OmemoOutgoingStanza(
           [bobJid],
@@ -934,7 +934,10 @@ void main() {
 
     expect(aliceResult.isSuccess(2), isFalse);
     expect(aliceResult.deviceEncryptionErrors[cocoJid]!.length, 1);
-    expect(aliceResult.deviceEncryptionErrors[cocoJid]!.first.error, const TypeMatcher<NoKeyMaterialAvailableError>(),);
+    expect(
+      aliceResult.deviceEncryptionErrors[cocoJid]!.first.error,
+      const TypeMatcher<NoKeyMaterialAvailableError>(),
+    );
 
     // Bob decrypts it
     final bobResult = await bobManager.onIncomingStanza(
@@ -1243,7 +1246,10 @@ void main() {
     Logger.root.info('Removing all ratchets for $bobJid');
     await aliceManager.removeAllRatchets(bobJid);
 
-    expect(aliceManager.getRatchet(RatchetMapKey(bobJid, bobDevice.id)), isNull);
+    expect(
+      aliceManager.getRatchet(RatchetMapKey(bobJid, bobDevice.id)),
+      isNull,
+    );
 
     // Alice prepares an empty OMEMO message
     await aliceManager.sendOmemoHeartbeat(bobJid);

@@ -247,11 +247,15 @@ class OmemoDoubleRatchet {
 
   /// Decrypt [ciphertext] using keys derived from the message key [mk]. Also computes the
   /// HMAC from the [OMEMOMessage] embedded in [message].
-  /// 
+  ///
   /// If the computed HMAC does not match the HMAC in [message], returns
   /// [InvalidMessageHMACError]. If it matches, returns the decrypted
   /// payload.
-  Future<Result<OmemoError, List<int>>> _decrypt(OMEMOAuthenticatedMessage message, List<int> ciphertext, List<int> mk) async {
+  Future<Result<OmemoError, List<int>>> _decrypt(
+    OMEMOAuthenticatedMessage message,
+    List<int> ciphertext,
+    List<int> mk,
+  ) async {
     final keys = await deriveEncryptionKeys(mk, encryptHkdfInfoString);
 
     final hmacInput = concat([sessionAd, message.message]);
@@ -260,7 +264,8 @@ class OmemoDoubleRatchet {
       return Result(InvalidMessageHMACError());
     }
 
-    final plaintext = await aes256CbcDecrypt(ciphertext, keys.encryptionKey, keys.iv);
+    final plaintext =
+        await aes256CbcDecrypt(ciphertext, keys.encryptionKey, keys.iv);
     if (plaintext.isType<MalformedCiphertextError>()) {
       return Result(plaintext.get<MalformedCiphertextError>());
     }
@@ -270,10 +275,13 @@ class OmemoDoubleRatchet {
 
   /// Checks whether we could decrypt the payload in [header] with a skipped key. If yes,
   /// attempts to decrypt it. If not, returns null.
-  /// 
+  ///
   /// If the decryption is successful, returns the plaintext payload. If an error occurs, like
   /// an [InvalidMessageHMACError], that is returned instead.
-  Future<Result<OmemoError, List<int>?>> _trySkippedMessageKeys(OMEMOAuthenticatedMessage message, OMEMOMessage header) async {
+  Future<Result<OmemoError, List<int>?>> _trySkippedMessageKeys(
+    OMEMOAuthenticatedMessage message,
+    OMEMOMessage header,
+  ) async {
     final key = SkippedKey(
       OmemoPublicKey.fromBytes(header.dhPub, KeyPairType.x25519),
       header.n,
@@ -289,10 +297,12 @@ class OmemoDoubleRatchet {
   }
 
   /// Decrypt the payload (deeply) embedded in [message].
-  /// 
+  ///
   /// If everything goes well, returns the plaintext payload. If an error occurs, that
   /// is returned instead.
-  Future<Result<OmemoError, List<int>>> ratchetDecrypt(OMEMOAuthenticatedMessage message) async {
+  Future<Result<OmemoError, List<int>>> ratchetDecrypt(
+    OMEMOAuthenticatedMessage message,
+  ) async {
     final header = OMEMOMessage.fromBuffer(message.message);
 
     // Try skipped keys
@@ -343,10 +353,10 @@ class OmemoDoubleRatchet {
 
     // Fill-in the header and serialize it here so we do it only once
     final header = OMEMOMessage()
-        ..dhPub = await dhs.pk.getBytes()
-        ..pn = pn
-        ..n = ns
-        ..ciphertext = ciphertext;
+      ..dhPub = await dhs.pk.getBytes()
+      ..pn = pn
+      ..n = ns
+      ..ciphertext = ciphertext;
     final headerBytes = header.writeToBuffer();
 
     // Increment the send counter

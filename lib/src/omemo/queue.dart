@@ -87,7 +87,10 @@ class RatchetAccessQueue {
     });
   }
 
-  Future<T> synchronized<T>(List<String> jids, Future<T> Function() function) async {
+  Future<T> synchronized<T>(
+    List<String> jids,
+    Future<T> Function() function,
+  ) async {
     await enterCriticalSection(jids);
     final result = await function();
     await leaveCriticalSection(jids);
