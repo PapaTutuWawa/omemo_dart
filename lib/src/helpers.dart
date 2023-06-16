@@ -83,3 +83,20 @@ extension BeforeAfterListDiff<T> on List<T> {
     );
   }
 }
+
+extension AppendToListOrCreateExtension<K, V> on Map<K, List<V>> {
+  /// Create or append [value] to the list identified with key [key].
+  void appendOrCreate(K key, V value) {
+    if (containsKey(key)) {
+      this[key]!.add(value);
+    } else {
+      this[key] = [value];
+    }
+  }
+}
+
+extension StringFromBase64Extension on String {
+  /// Base64-decode this string. Useful for doing `someString?.fromBase64()` instead
+  /// of `someString != null ? base64Decode(someString) : null`.
+  List<int> fromBase64() => base64Decode(this);
+}

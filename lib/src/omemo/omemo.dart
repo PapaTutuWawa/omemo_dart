@@ -17,9 +17,9 @@ import 'package:omemo_dart/src/omemo/device.dart';
 import 'package:omemo_dart/src/omemo/encrypted_key.dart';
 import 'package:omemo_dart/src/omemo/encryption_result.dart';
 import 'package:omemo_dart/src/omemo/errors.dart';
-import 'package:omemo_dart/src/omemo/events.dart';
 import 'package:omemo_dart/src/omemo/fingerprint.dart';
 import 'package:omemo_dart/src/omemo/queue.dart';
+import 'package:omemo_dart/src/omemo/ratchet_data.dart';
 import 'package:omemo_dart/src/omemo/ratchet_map_key.dart';
 import 'package:omemo_dart/src/omemo/stanza.dart';
 import 'package:omemo_dart/src/protobuf/schema.pb.dart';
@@ -27,22 +27,62 @@ import 'package:omemo_dart/src/trust/base.dart';
 import 'package:omemo_dart/src/x3dh/x3dh.dart';
 import 'package:synchronized/synchronized.dart';
 
-extension AppendToListOrCreateExtension<K, V> on Map<K, List<V>> {
-  /// Create or append [value] to the list identified with key [key].
-  void appendOrCreate(K key, V value) {
-    if (containsKey(key)) {
-      this[key]!.add(value);
-    } else {
-      this[key] = [value];
-    }
-  }
-}
+/// Callback type definitions
 
-extension StringFromBase64Extension on String {
-  /// Base64-decode this string. Useful for doing `someString?.fromBase64()` instead
-  /// of `someString != null ? base64Decode(someString) : null`.
-  List<int> fromBase64() => base64Decode(this);
-}
+/// Directly "package" [result] into an OMEMO message and send it to [recipientJid].
+typedef SendEmptyOmemoMessageFunction = Future<void> Function(
+  EncryptionResult result,
+  String recipientJid,
+);
+
+/// Fetches the device list for [jid]. If no device list could be fetched, returns null.
+typedef FetchDeviceListFunction = Future<List<int>?> Function(String jid);
+
+/// Fetch the device bundle for the device with id @id of jid. If it cannot be fetched, return null.
+typedef FetchDeviceBundleFunction = Future<OmemoBundle?> Function(
+  String jid,
+  int id,
+);
+
+/// Subscribes to the device list node of [jid].
+typedef DeviceListSubscribeFunction = Future<void> Function(String jid);
+
+/// Commits the device list for [jid] to persistent storage. [added] will be the list of
+/// devices added and [removed] will be the list of removed devices.
+typedef CommitDeviceListCallback = Future<void> Function(
+  String jid,
+  List<int> added,
+  List<int> removed,
+);
+
+/// A stub implementation of [CommitDeviceListCallback].
+Future<void> commitDeviceListStub(
+  String _,
+  List<int> __,
+  List<int> ___,
+) async {}
+
+/// Commits the mapping of the (new) ratchets in [ratchets] to persistent storage.
+typedef CommitRatchetsCallback = Future<void> Function(
+  List<OmemoRatchetData> ratchets,
+);
+
+/// A stub implementation of [CommitRatchetsCallback];
+Future<void> commitRatchetsStub(List<OmemoRatchetData> _) async {}
+
+/// Commits the device [device] to persistent storage.
+typedef CommitDeviceCallback = Future<void> Function(OmemoDevice device);
+
+/// A stub implementation of [CommitDeviceCallback].
+Future<void> commitDeviceStub(OmemoDevice device) async {}
+
+/// Removes the ratchets identified by their keys in [ratchets] from persistent storage.
+typedef RemoveRatchetsFunction = Future<void> Function(
+  List<RatchetMapKey> ratchets,
+);
+
+/// A stub implementation of [RemoveRatchetsFunction].
+Future<void> removeRatchetsStub(List<RatchetMapKey> ratchets) async {}
 
 class OmemoManager {
   OmemoManager(
@@ -51,8 +91,12 @@ class OmemoManager {
     this.sendEmptyOmemoMessageImpl,
     this.fetchDeviceListImpl,
     this.fetchDeviceBundleImpl,
-    this.subscribeToDeviceListNodeImpl,
-  );
+    this.subscribeToDeviceListNodeImpl, {
+    this.commitRatchets = commitRatchetsStub,
+    this.commitDeviceList = commitDeviceListStub,
+    this.commitDevice = commitDeviceStub,
+    this.removeRatchets = removeRatchetsStub,
+  });
 
   final Logger _log = Logger('OmemoManager');
 
@@ -60,18 +104,29 @@ class OmemoManager {
 
   /// Send an empty OMEMO:2 message using the encrypted payload @result to
   /// @recipientJid.
-  final Future<void> Function(EncryptionResult result, String recipientJid)
-      sendEmptyOmemoMessageImpl;
+  final SendEmptyOmemoMessageFunction sendEmptyOmemoMessageImpl;
 
   /// Fetch the list of device ids associated with @jid. If the device list cannot be
   /// fetched, return null.
-  final Future<List<int>?> Function(String jid) fetchDeviceListImpl;
+  final FetchDeviceListFunction fetchDeviceListImpl;
 
   /// Fetch the device bundle for the device with id @id of jid. If it cannot be fetched, return null.
-  final Future<OmemoBundle?> Function(String jid, int id) fetchDeviceBundleImpl;
+  final FetchDeviceBundleFunction fetchDeviceBundleImpl;
 
   /// Subscribe to the device list PEP node of @jid.
-  final Future<void> Function(String jid) subscribeToDeviceListNodeImpl;
+  final DeviceListSubscribeFunction subscribeToDeviceListNodeImpl;
+
+  /// Callback to commit the ratchet to persistent storage.
+  final CommitRatchetsCallback commitRatchets;
+
+  /// Callback to commit the device list to persistent storage.
+  final CommitDeviceListCallback commitDeviceList;
+
+  /// Callback to commit the device to persistent storage.
+  final CommitDeviceCallback commitDevice;
+
+  /// Callback to remove ratchets from persistent storage.
+  final RemoveRatchetsFunction removeRatchets;
 
   /// Map bare JID to its known devices
   final Map<String, List<int>> _deviceList = {};
@@ -97,11 +152,6 @@ class OmemoManager {
   final Lock _deviceLock = Lock();
   // ignore: prefer_final_fields
   OmemoDevice _device;
-
-  /// The event bus of the session manager
-  final StreamController<OmemoEvent> _eventStreamController =
-      StreamController<OmemoEvent>.broadcast();
-  Stream<OmemoEvent> get eventStream => _eventStreamController.stream;
 
   Future<Result<OmemoError, String?>> _decryptAndVerifyHmac(
     List<int>? ciphertext,
@@ -153,8 +203,10 @@ class OmemoManager {
         _deviceList[jid] = newDeviceList;
         _deviceListRequested[jid] = true;
 
-        _eventStreamController.add(
-          DeviceListModifiedEvent(jid, newDeviceList, []),
+        await commitDeviceList(
+          jid,
+          newDeviceList,
+          [],
         );
       }
     }
@@ -359,24 +411,21 @@ class OmemoManager {
       // Commit the ratchet
       _ratchetMap[ratchetKey] = ratchet;
       _deviceList.appendOrCreate(stanza.bareSenderJid, stanza.senderDeviceId);
-      _eventStreamController.add(
-        RatchetModifiedEvent(
+      await commitRatchets([
+        OmemoRatchetData(
           stanza.bareSenderJid,
           stanza.senderDeviceId,
           ratchet,
           true,
           false,
         ),
-      );
+      ]);
 
       // Replace the OPK if we're not doing a catchup.
       if (!stanza.isCatchup) {
         await _deviceLock.synchronized(() async {
           await _device.replaceOnetimePrekey(kexMessage.pkId);
-
-          _eventStreamController.add(
-            DeviceModifiedEvent(_device),
-          );
+          await commitDevice(_device);
         });
       }
 
@@ -451,15 +500,15 @@ class OmemoManager {
 
       // Message was successfully decrypted, so commit the ratchet
       _ratchetMap[ratchetKey] = ratchet;
-      _eventStreamController.add(
-        RatchetModifiedEvent(
+      await commitRatchets([
+        OmemoRatchetData(
           stanza.bareSenderJid,
           stanza.senderDeviceId,
           ratchet,
           false,
           false,
         ),
-      );
+      ]);
 
       // Send a heartbeat, if required.
       await _maybeSendEmptyMessage(ratchetKey, false, false);
@@ -563,14 +612,16 @@ class OmemoManager {
 
     // Commit the newly created ratchets, if we created any.
     if (addedRatchetKeys.isNotEmpty) {
-      _eventStreamController.add(
-        RatchetsAddedEvent(
-          Map<RatchetMapKey, OmemoDoubleRatchet>.fromEntries(
-            addedRatchetKeys
-                .map((key) => MapEntry(key, _ratchetMap[key]!))
-                .toList(),
-          ),
-        ),
+      await commitRatchets(
+        addedRatchetKeys.map((key) {
+          return OmemoRatchetData(
+            key.jid,
+            key.deviceId,
+            _ratchetMap[key]!,
+            true,
+            false,
+          );
+        }).toList(),
       );
     }
 
@@ -702,15 +753,20 @@ class OmemoManager {
     await _ratchetQueue.synchronized(
       [jid],
       () async {
-        for (final device in _deviceList[jid] ?? <int>[]) {
-          // Remove the ratchet and commit
-          _ratchetMap.remove(RatchetMapKey(jid, device));
-          _eventStreamController.add(RatchetRemovedEvent(jid, device));
+        // Remove the ratchet and commit
+        final keys = (_deviceList[jid] ?? <int>[])
+            .map((device) => RatchetMapKey(jid, device));
+        for (final key in keys) {
+          _ratchetMap.remove(key);
         }
+        await removeRatchets(keys.toList());
 
         // Clear the device list
-        _eventStreamController
-            .add(DeviceListModifiedEvent(jid, [], _deviceList[jid]!));
+        await commitDeviceList(
+          jid,
+          [],
+          _deviceList[jid]!,
+        );
         _deviceList.remove(jid);
         _deviceListRequested.remove(jid);
       },
@@ -736,9 +792,7 @@ class OmemoManager {
         _deviceListRequested[jid] = true;
 
         // Commit the device list
-        _eventStreamController.add(
-          DeviceListModifiedEvent(jid, delta.added, delta.removed),
-        );
+        await commitDeviceList(jid, delta.added, delta.removed);
       },
     );
   }
@@ -768,9 +822,15 @@ class OmemoManager {
     } else {
       // Commit
       final ratchet = _ratchetMap[ratchetKey]!..acknowledged = true;
-      _eventStreamController.add(
-        RatchetModifiedEvent(jid, device, ratchet, false, false),
-      );
+      await commitRatchets([
+        OmemoRatchetData(
+          jid,
+          device,
+          ratchet,
+          false,
+          false,
+        ),
+      ]);
     }
   }
 
