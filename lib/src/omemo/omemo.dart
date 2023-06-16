@@ -154,7 +154,7 @@ class OmemoManager {
         _deviceListRequested[jid] = true;
 
         _eventStreamController.add(
-          DeviceListModifiedEvent(jid, newDeviceList),
+          DeviceListModifiedEvent(jid, newDeviceList, []),
         );
       }
     }
@@ -709,9 +709,10 @@ class OmemoManager {
         }
 
         // Clear the device list
+        _eventStreamController
+            .add(DeviceListModifiedEvent(jid, [], _deviceList[jid]!));
         _deviceList.remove(jid);
         _deviceListRequested.remove(jid);
-        _eventStreamController.add(DeviceListModifiedEvent(jid, []));
       },
     );
   }
@@ -719,13 +720,26 @@ class OmemoManager {
   /// To be called when a update to the device list of [jid] is returned.
   /// [devices] is the list of device identifiers contained in the update.
   Future<void> onDeviceListUpdate(String jid, List<int> devices) async {
-    // Update our state
-    _deviceList[jid] = devices;
-    _deviceListRequested[jid] = true;
+    await _ratchetQueue.synchronized(
+      [jid],
+      () async {
+        // Compute the delta
+        ListDiff<int> delta;
+        if (_deviceList.containsKey(jid)) {
+          delta = _deviceList[jid]!.diff(devices);
+        } else {
+          delta = ListDiff(devices, []);
+        }
 
-    // Commit the device list
-    _eventStreamController.add(
-      DeviceListModifiedEvent(jid, devices),
+        // Update our state
+        _deviceList[jid] = devices;
+        _deviceListRequested[jid] = true;
+
+        // Commit the device list
+        _eventStreamController.add(
+          DeviceListModifiedEvent(jid, delta.added, delta.removed),
+        );
+      },
     );
   }
 

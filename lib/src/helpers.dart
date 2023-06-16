@@ -59,3 +59,27 @@ OmemoPublicKey? decodeKeyIfNotNull(
 int getTimestamp() {
   return DateTime.now().millisecondsSinceEpoch;
 }
+
+/// Describes the differences between two lists in terms of its items.
+class ListDiff<T> {
+  ListDiff(this.added, this.removed);
+
+  /// The items that were added.
+  final List<T> added;
+
+  /// The items that were removed.
+  final List<T> removed;
+}
+
+extension BeforeAfterListDiff<T> on List<T> {
+  /// Compute the set-based changes between this list and [newList].
+  ListDiff<T> diff(List<T> newList) {
+    final oldSet = Set<T>.from(this);
+    final newSet = Set<T>.from(newList);
+
+    return ListDiff(
+      newSet.difference(oldSet).toList(),
+      oldSet.difference(newSet).toList(),
+    );
+  }
+}
