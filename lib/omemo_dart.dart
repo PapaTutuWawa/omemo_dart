@@ -8,6 +8,7 @@ export 'src/omemo/bundle.dart';
 export 'src/omemo/device.dart';
 export 'src/omemo/encrypted_key.dart';
 export 'src/omemo/encryption_result.dart';
+export 'src/omemo/errors.dart';
 export 'src/omemo/fingerprint.dart';
 export 'src/omemo/omemo.dart';
 export 'src/omemo/ratchet_data.dart';
