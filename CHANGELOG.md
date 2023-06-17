@@ -54,3 +54,14 @@
 ## 0.4.3
 
 - Fix bug that causes ratchets to be unable to decrypt anything after receiving a heartbeat with a completely new session
+
+## 0.5.0
+
+This version is a complete rework of omemo_dart!
+
+- Removed events from `OmemoManager`
+- Removed `OmemoSessionManager`
+- Removed serialization/deserialization code
+- Replace exceptions with errors inside a result type
+- Ratchets and trust data is now loaded and cached on demand
+- Accessing the trust manager must happen via `withTrustManager`

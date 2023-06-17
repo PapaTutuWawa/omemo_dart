@@ -356,6 +356,14 @@ class OmemoManager {
       );
     }
 
+    // Protobuf will happily parse this and return bogus data.
+    if (key.value.isEmpty) {
+      return DecryptionResult(
+        null,
+        MalformedEncryptedKeyError(),
+      );
+    }
+
     // Check how we should process the message
     final ratchetKey =
         RatchetMapKey(stanza.bareSenderJid, stanza.senderDeviceId);
@@ -433,18 +441,23 @@ class OmemoManager {
         return DecryptionResult(null, error);
       }
 
-      final result = await _decryptAndVerifyHmac(
-        stanza.payload?.fromBase64(),
-        keyAndHmac.get<List<int>>(),
-      );
-      if (result.isType<OmemoError>()) {
-        final error = result.get<OmemoError>();
-        _log.warning('Decrypting payload failed: $error');
-
-        return DecryptionResult(
-          null,
-          error,
+      Result<OmemoError, String?> result;
+      if (stanza.payload != null) {
+        result = await _decryptAndVerifyHmac(
+          stanza.payload?.fromBase64(),
+          keyAndHmac.get<List<int>>(),
         );
+        if (result.isType<OmemoError>()) {
+          final error = result.get<OmemoError>();
+          _log.warning('Decrypting payload failed: $error');
+
+          return DecryptionResult(
+            null,
+            error,
+          );
+        }
+      } else {
+        result = const Result(null);
       }
 
       // Notify the trust manager
@@ -530,17 +543,22 @@ class OmemoManager {
         return DecryptionResult(null, error);
       }
 
-      final result = await _decryptAndVerifyHmac(
-        stanza.payload?.fromBase64(),
-        keyAndHmac.get<List<int>>(),
-      );
-      if (result.isType<OmemoError>()) {
-        final error = result.get<OmemoError>();
-        _log.warning('Failed to decrypt message: $error');
-        return DecryptionResult(
-          null,
-          error,
+      Result<OmemoError, String?> result;
+      if (stanza.payload != null) {
+        result = await _decryptAndVerifyHmac(
+          stanza.payload?.fromBase64(),
+          keyAndHmac.get<List<int>>(),
         );
+        if (result.isType<OmemoError>()) {
+          final error = result.get<OmemoError>();
+          _log.warning('Failed to decrypt message: $error');
+          return DecryptionResult(
+            null,
+            error,
+          );
+        }
+      } else {
+        result = const Result(null);
       }
 
       // If we received an empty OMEMO message, mark the ratchet as acknowledged
@@ -587,7 +605,7 @@ class OmemoManager {
 
     // Encrypt the payload, if we have any
     final List<int> payloadKey;
-    final List<int> ciphertext;
+    final List<int>? ciphertext;
     if (stanza.payload != null) {
       // Generate the key and encrypt the plaintext
       final rawKey = generateRandomBytes(32);
@@ -601,7 +619,7 @@ class OmemoManager {
       payloadKey = concat([rawKey, hmac]);
     } else {
       payloadKey = List<int>.filled(32, 0x0);
-      ciphertext = [];
+      ciphertext = null;
     }
 
     final encryptionErrors = <String, List<EncryptToJidError>>{};
@@ -942,7 +960,9 @@ class OmemoManager {
 
   /// Trust management functions
   Future<void> withTrustManager(
-      String jid, Future<void> Function(TrustManager) callback) async {
+    String jid,
+    Future<void> Function(TrustManager) callback,
+  ) async {
     await _ratchetQueue.synchronized(
       [jid],
       () => callback(_trustManager),

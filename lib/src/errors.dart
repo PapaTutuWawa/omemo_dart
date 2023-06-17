@@ -34,3 +34,6 @@ class MalformedCiphertextError extends OmemoError {
   /// The exception that was raised while decryption.
   final Object ex;
 }
+
+/// Caused by an empty <key /> element
+class MalformedEncryptedKeyError extends OmemoError {}
