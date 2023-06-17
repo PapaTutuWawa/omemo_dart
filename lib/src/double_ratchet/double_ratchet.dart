@@ -70,7 +70,6 @@ class OmemoDoubleRatchet {
     this.sessionAd,
     this.mkSkipped, // MKSKIPPED
     this.acknowledged,
-    this.kexTimestamp,
     this.kex,
   );
 
@@ -104,10 +103,6 @@ class OmemoDoubleRatchet {
   /// List of skipped message keys.
   final Map<SkippedKey, List<int>> mkSkipped;
 
-  /// The point in time at which we performed the kex exchange to create this ratchet.
-  /// Precision is milliseconds since epoch.
-  int kexTimestamp;
-
   /// The key exchange that was used for initiating the session.
   final KeyExchangeData kex;
 
@@ -126,7 +121,6 @@ class OmemoDoubleRatchet {
     OmemoPublicKey ek,
     List<int> sk,
     List<int> ad,
-    int timestamp,
     int pkId,
   ) async {
     final dhs = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
@@ -145,7 +139,6 @@ class OmemoDoubleRatchet {
       ad,
       {},
       false,
-      timestamp,
       KeyExchangeData(
         pkId,
         spkId,
@@ -167,7 +160,6 @@ class OmemoDoubleRatchet {
     OmemoPublicKey ek,
     List<int> sk,
     List<int> ad,
-    int kexTimestamp,
   ) async {
     return OmemoDoubleRatchet(
       spk,
@@ -182,7 +174,6 @@ class OmemoDoubleRatchet {
       ad,
       {},
       true,
-      kexTimestamp,
       KeyExchangeData(
         pkId,
         spkId,
@@ -384,7 +375,6 @@ class OmemoDoubleRatchet {
       sessionAd,
       Map<SkippedKey, List<int>>.from(mkSkipped),
       acknowledged,
-      kexTimestamp,
       kex,
     );
   }
@@ -426,7 +416,6 @@ class OmemoDoubleRatchet {
         ns == other.ns &&
         nr == other.nr &&
         pn == other.pn &&
-        listsEqual(sessionAd, other.sessionAd) &&
-        kexTimestamp == other.kexTimestamp;
+        listsEqual(sessionAd, other.sessionAd);
   }
 }

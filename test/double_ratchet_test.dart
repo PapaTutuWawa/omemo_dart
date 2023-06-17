@@ -58,7 +58,6 @@ void main() {
       resultAlice.ek.pk,
       resultAlice.sk,
       resultAlice.ad,
-      0,
       resultAlice.opkId,
     );
     final bobsRatchet = await OmemoDoubleRatchet.acceptNewSession(
@@ -69,7 +68,6 @@ void main() {
       resultAlice.ek.pk,
       resultBob.sk,
       resultBob.ad,
-      0,
     );
 
     expect(alicesRatchet.sessionAd, bobsRatchet.sessionAd);

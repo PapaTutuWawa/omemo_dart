@@ -431,7 +431,6 @@ class OmemoManager {
         kexEk,
         kex.sk,
         kex.ad,
-        getTimestamp(),
       );
 
       final keyAndHmac = await ratchet.ratchetDecrypt(
@@ -672,7 +671,6 @@ class OmemoManager {
           kexResult.ek.pk,
           kexResult.sk,
           kexResult.ad,
-          getTimestamp(),
           kexResult.opkId,
         );
 
