@@ -35,6 +35,10 @@ void main() async {
     // This needs to be wired into your XMPP library's OMEMO implementation.
     // For simplicity, we use an empty function and imagine it works.
     (jid) async {},
+    // This function is called whenever our own device bundle has to be republished to our PEP node.
+    // This needs to be wired into your XMPP library's OMEMO implementation.
+    // For simplicity, we use an empty function and imagine it works.
+    (device) async {},
   );
 
   // Alice now wants to chat with Bob at his bare Jid "bob@other.server". To make things

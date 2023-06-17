@@ -48,6 +48,7 @@ void main() {
         return bobDevice.toBundle();
       },
       (jid) async {},
+      (_) async {},
     );
     final bobManager = OmemoManager(
       bobDevice,
@@ -64,6 +65,7 @@ void main() {
         return aliceDevice.toBundle();
       },
       (jid) async {},
+      (_) async {},
     );
 
     // Alice sends a message
@@ -147,6 +149,7 @@ void main() {
         return bobDevice.toBundle();
       },
       (jid) async {},
+      (_) async {},
     );
     final bobManager = OmemoManager(
       bobDevice,
@@ -164,6 +167,7 @@ void main() {
         return aliceDevice.toBundle();
       },
       (jid) async {},
+      (_) async {},
     );
 
     // Alice sends a message
@@ -304,6 +308,7 @@ void main() {
       (jid) async => [],
       (jid, id) async => null,
       (jid) async {},
+      (_) async {},
     );
 
     // Get non-existant fingerprints
@@ -347,6 +352,7 @@ void main() {
             : bobCurrentDevice.toBundle();
       },
       (jid) async {},
+      (_) async {},
     );
     final bobManager = OmemoManager(
       bobCurrentDevice,
@@ -355,6 +361,7 @@ void main() {
       (jid) async => [],
       (jid, id) async => null,
       (jid) async {},
+      (_) async {},
     );
 
     // Alice encrypts a message to Bob
@@ -447,6 +454,7 @@ void main() {
         return null;
       },
       (jid) async {},
+      (_) async {},
     );
     final bobManager1 = OmemoManager(
       bobDevice1,
@@ -455,6 +463,7 @@ void main() {
       (jid) async => [],
       (jid, id) async => null,
       (jid) async {},
+      (_) async {},
     );
     final bobManager2 = OmemoManager(
       bobDevice2,
@@ -469,6 +478,7 @@ void main() {
         return aliceDevice.toBundle();
       },
       (jid) async {},
+      (_) async {},
     );
 
     // Alice sends a message to Bob
@@ -558,6 +568,7 @@ void main() {
         return null;
       },
       (jid) async {},
+      (_) async {},
     );
     final bobManager1 = OmemoManager(
       bobDevice1,
@@ -566,6 +577,7 @@ void main() {
       (jid) async => null,
       (jid, id) async => null,
       (jid) async {},
+      (_) async {},
     );
     final bobManager2 = OmemoManager(
       bobDevice2,
@@ -574,6 +586,7 @@ void main() {
       (jid) async => null,
       (jid, id) async => null,
       (jid) async {},
+      (_) async {},
     );
 
     // Alice sends a message to Bob
@@ -704,6 +717,7 @@ void main() {
         return null;
       },
       (jid) async {},
+      (_) async {},
     );
     final bobManager = OmemoManager(
       bobDevice,
@@ -712,6 +726,7 @@ void main() {
       (jid) async => null,
       (jid, id) async => null,
       (jid) async {},
+      (_) async {},
     );
     final cocoManager = OmemoManager(
       cocoDevice,
@@ -720,6 +735,7 @@ void main() {
       (jid) async => null,
       (jid, id) async => null,
       (jid) async {},
+      (_) async {},
     );
 
     // Alice sends a message to Bob and Coco
@@ -782,6 +798,7 @@ void main() {
         return failure ? null : bobDevice.toBundle();
       },
       (jid) async {},
+      (_) async {},
     );
     final bobManager = OmemoManager(
       bobDevice,
@@ -790,6 +807,7 @@ void main() {
       (jid) async => null,
       (jid, id) async => null,
       (jid) async {},
+      (_) async {},
     );
 
     // Alice sends a message to Bob and Coco
@@ -871,6 +889,7 @@ void main() {
         return null;
       },
       (jid) async {},
+      (_) async {},
     );
 
     // Alice sends a message to Bob
@@ -915,6 +934,7 @@ void main() {
         return null;
       },
       (jid) async {},
+      (_) async {},
     );
     final bobManager = OmemoManager(
       bobDevice,
@@ -923,6 +943,7 @@ void main() {
       (jid) async => null,
       (jid, id) async => null,
       (jid) async {},
+      (_) async {},
     );
 
     // Alice sends a message to Bob and Coco
@@ -978,6 +999,7 @@ void main() {
         return bobDevice.toBundle();
       },
       (jid) async {},
+      (_) async {},
     );
     final bobManager = OmemoManager(
       bobDevice,
@@ -986,6 +1008,7 @@ void main() {
       (jid) async => null,
       (jid, id) async => null,
       (jid) async {},
+      (_) async {},
     );
 
     // Alice encrypts a message for Bob
@@ -1065,6 +1088,7 @@ void main() {
         return bobDevice.toBundle();
       },
       (jid) async {},
+      (_) async {},
     );
     final bobManager = OmemoManager(
       bobDevice,
@@ -1073,6 +1097,7 @@ void main() {
       (jid) async => null,
       (jid, id) async => null,
       (jid) async {},
+      (_) async {},
     );
 
     // Alice encrypts a message for Bob
@@ -1206,6 +1231,7 @@ void main() {
         return bobDevice.toBundle();
       },
       (jid) async {},
+      (_) async {},
     );
     final bobManager = OmemoManager(
       bobDevice,
@@ -1214,6 +1240,7 @@ void main() {
       (jid) async => null,
       (jid, id) async => null,
       (jid) async {},
+      (_) async {},
     );
 
     // Alice encrypts a message for Bob
@@ -1338,6 +1365,7 @@ void main() {
         return bobDevice.toBundle();
       },
       (jid) async {},
+      (_) async {},
     );
     final bobManager = OmemoManager(
       bobDevice,
@@ -1352,6 +1380,7 @@ void main() {
         return aliceDevice.toBundle();
       },
       (jid) async {},
+      (_) async {},
     );
 
     // Alice sends Bob a message
@@ -1491,6 +1520,7 @@ void main() {
         return bobDevice.toBundle();
       },
       (jid) async {},
+      (_) async {},
     );
     final bobManager = OmemoManager(
       bobDevice,
@@ -1505,6 +1535,7 @@ void main() {
         return aliceDevice.toBundle();
       },
       (jid) async {},
+      (_) async {},
     );
 
     // Alice sends Bob a message
@@ -1563,6 +1594,7 @@ void main() {
         return bobDevice.toBundle();
       },
       (jid) async {},
+      (_) async {},
     );
     final aliceManager2 = OmemoManager(
       aliceDevice2,
@@ -1577,6 +1609,7 @@ void main() {
         return bobDevice.toBundle();
       },
       (jid) async {},
+      (_) async {},
     );
 
     EncryptionResult? bobEmptyMessage;
@@ -1606,6 +1639,7 @@ void main() {
         return null;
       },
       (jid) async {},
+      (_) async {},
     );
 
     // Alice sends Bob a message
@@ -1693,6 +1727,7 @@ void main() {
         return bobDevice.toBundle();
       },
       (jid) async {},
+      (_) async {},
     );
     final aliceManager2 = OmemoManager(
       aliceDevice2,
@@ -1707,6 +1742,7 @@ void main() {
         return bobDevice.toBundle();
       },
       (jid) async {},
+      (_) async {},
     );
 
     EncryptionResult? bobEmptyMessage;
@@ -1734,6 +1770,7 @@ void main() {
         return null;
       },
       (jid) async {},
+      (_) async {},
     );
 
     // Alice sends Bob a message

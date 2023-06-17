@@ -57,6 +57,9 @@ typedef FetchDeviceBundleFunction = Future<OmemoBundle?> Function(
 /// Subscribes to the device list node of [jid].
 typedef DeviceListSubscribeFunction = Future<void> Function(String jid);
 
+/// Publishes the device bundle on our own PEP node.
+typedef PublishDeviceBundleFunction = Future<void> Function(OmemoDevice device);
+
 /// Commits the device list for [jid] to persistent storage. [added] will be the list of
 /// devices added and [removed] will be the list of removed devices.
 typedef CommitDeviceListCallback = Future<void> Function(
@@ -107,7 +110,8 @@ class OmemoManager {
     this.sendEmptyOmemoMessageImpl,
     this.fetchDeviceListImpl,
     this.fetchDeviceBundleImpl,
-    this.subscribeToDeviceListNodeImpl, {
+    this.subscribeToDeviceListNodeImpl,
+    this.publishDeviceBundle, {
     this.commitRatchets = commitRatchetsStub,
     this.commitDeviceList = commitDeviceListStub,
     this.commitDevice = commitDeviceStub,
@@ -132,6 +136,9 @@ class OmemoManager {
 
   /// Subscribe to the device list PEP node of @jid.
   final DeviceListSubscribeFunction subscribeToDeviceListNodeImpl;
+
+  /// Publishes the device bundle on the PEP node.
+  final PublishDeviceBundleFunction publishDeviceBundle;
 
   /// Callback to commit the ratchet to persistent storage.
   final CommitRatchetsCallback commitRatchets;
@@ -494,6 +501,11 @@ class OmemoManager {
         await _deviceLock.synchronized(() async {
           await _device.replaceOnetimePrekey(kexMessage.pkId);
           await commitDevice(_device);
+
+          // Publish the device bundle
+          unawaited(
+            publishDeviceBundle(_device),
+          );
         });
       }
 
@@ -982,6 +994,11 @@ class OmemoManager {
 
       // Commit the device
       await commitDevice(_device);
+
+      // Publish
+      unawaited(
+        publishDeviceBundle(_device),
+      );
     });
   }
 
