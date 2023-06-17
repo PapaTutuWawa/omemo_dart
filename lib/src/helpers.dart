@@ -86,9 +86,13 @@ extension BeforeAfterListDiff<T> on List<T> {
 
 extension AppendToListOrCreateExtension<K, V> on Map<K, List<V>> {
   /// Create or append [value] to the list identified with key [key].
-  void appendOrCreate(K key, V value) {
+  void appendOrCreate(K key, V value, {bool checkExistence = false}) {
     if (containsKey(key)) {
-      this[key]!.add(value);
+      if (!checkExistence) {
+        this[key]!.add(value);
+      } if (!this[key]!.contains(value)) {
+        this[key]!.add(value);
+      }
     } else {
       this[key] = [value];
     }

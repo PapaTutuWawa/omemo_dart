@@ -132,11 +132,8 @@ class BlindTrustBeforeVerificationTrustManager extends TrustManager {
       enablementCache[key] = true;
     }
 
-    if (devices.containsKey(jid)) {
-      devices[jid]!.add(deviceId);
-    } else {
-      devices[jid] = List<int>.from([deviceId]);
-    }
+    // Append to the device list
+    devices.appendOrCreate(jid, deviceId, checkExistence: true);
 
     // Commit the state
     await commit(
@@ -227,7 +224,7 @@ class BlindTrustBeforeVerificationTrustManager extends TrustManager {
       final key = RatchetMapKey(jid, result.device);
       trustCache[key] = result.state;
       enablementCache[key] = result.enabled;
-      devices.appendOrCreate(jid, result.device);
+      devices.appendOrCreate(jid, result.device, checkExistence: true);
     }
   }
 
