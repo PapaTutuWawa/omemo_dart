@@ -352,6 +352,7 @@ class OmemoManager {
     if (key == null) {
       return DecryptionResult(
         null,
+        null,
         NotEncryptedForDeviceError(),
       );
     }
@@ -359,6 +360,7 @@ class OmemoManager {
     // Protobuf will happily parse this and return bogus data.
     if (key.value.isEmpty) {
       return DecryptionResult(
+        null,
         null,
         MalformedEncryptedKeyError(),
       );
@@ -396,6 +398,7 @@ class OmemoManager {
         spk = device.oldSpk!;
       } else {
         return DecryptionResult(
+          null,
           null,
           UnknownSignedPrekeyError(),
         );
@@ -438,7 +441,7 @@ class OmemoManager {
         final error = keyAndHmac.get<OmemoError>();
         _log.warning('Failed to decrypt symmetric key: $error');
 
-        return DecryptionResult(null, error);
+        return DecryptionResult(null, null, error);
       }
 
       Result<OmemoError, String?> result;
@@ -452,6 +455,7 @@ class OmemoManager {
           _log.warning('Decrypting payload failed: $error');
 
           return DecryptionResult(
+            null,
             null,
             error,
           );
@@ -503,6 +507,7 @@ class OmemoManager {
 
       return DecryptionResult(
         result.get<String?>(),
+        kexMessage.pkId,
         null,
       );
     } else {
@@ -517,6 +522,7 @@ class OmemoManager {
         await _sendOmemoHeartbeat(stanza.bareSenderJid);
 
         return DecryptionResult(
+          null,
           null,
           NoSessionWithDeviceError(),
         );
@@ -540,7 +546,7 @@ class OmemoManager {
       if (keyAndHmac.isType<OmemoError>()) {
         final error = keyAndHmac.get<OmemoError>();
         _log.warning('Failed to decrypt symmetric key: $error');
-        return DecryptionResult(null, error);
+        return DecryptionResult(null, null, error);
       }
 
       Result<OmemoError, String?> result;
@@ -553,6 +559,7 @@ class OmemoManager {
           final error = result.get<OmemoError>();
           _log.warning('Failed to decrypt message: $error');
           return DecryptionResult(
+            null,
             null,
             error,
           );
@@ -585,6 +592,7 @@ class OmemoManager {
 
       return DecryptionResult(
         result.get<String?>(),
+        null,
         null,
       );
     }
@@ -958,7 +966,33 @@ class OmemoManager {
   @visibleForTesting
   OmemoDoubleRatchet? getRatchet(RatchetMapKey key) => _ratchetMap[key];
 
-  /// Trust management functions
+  /// Replaces the OPK with id [opkId] and commits the new device to storage. This
+  /// function should not be called. It's only useful for rotating OPKs after message
+  /// catch-up, because in that case the OPKs are not rotated automatically.
+  Future<void> replaceOnetimePrekey(int opkId) async {
+    await _deviceLock.synchronized(() async {
+      // Replace OPK
+      await _device.replaceOnetimePrekey(opkId);
+
+      // Commit the device
+      await commitDevice(_device);
+    });
+  }
+
+  /// Replaces the SPK of our device and commits it to storage.
+  Future<void> replaceSignedPrekey() async {
+    await _deviceLock.synchronized(() async {
+      // Replace SPK
+      await _device.replaceSignedPrekey();
+
+      // Commit the device
+      await commitDevice(_device);
+    });
+  }
+
+  /// Acquire a lock for interacting with the trust manager for modifying the trust
+  /// state of [jid]. [callback] is called from within the critical section with the
+  /// trust manager as its parameter.
   Future<void> withTrustManager(
     String jid,
     Future<void> Function(TrustManager) callback,

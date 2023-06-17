@@ -35,7 +35,16 @@ class OmemoDevice {
 
     final opks = <int, OmemoKeyPair>{};
     for (var i = 0; i < opkAmount; i++) {
-      opks[i] = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
+      // Generate unique ids for each key
+      while (true) {
+        final opkId = generateRandom32BitNumber();
+        if (opks.containsKey(opkId)) {
+          continue;
+        }
+
+        opks[opkId] = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
+        break;
+      }
     }
 
     return OmemoDevice(jid, id, ik, spk, spkId, signature, null, null, opks);
@@ -72,7 +81,18 @@ class OmemoDevice {
   /// a new Device object that copies over everything but replaces said key.
   @internal
   Future<OmemoDevice> replaceOnetimePrekey(int id) async {
-    opks[id] = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
+    opks.remove(id);
+
+    // Generate a new unique id for the OPK.
+    while (true) {
+      final newId = generateRandom32BitNumber();
+      if (opks.containsKey(newId)) {
+        continue;
+      }
+
+      opks[newId] = await OmemoKeyPair.generateNewPair(KeyPairType.x25519);
+      break;
+    }
 
     return OmemoDevice(
       jid,
