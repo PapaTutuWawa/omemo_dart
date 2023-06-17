@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:cryptography/cryptography.dart';
-import 'package:omemo_dart/src/common/result.dart';
+import 'package:moxlib/moxlib.dart';
 import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/keys.dart';
 

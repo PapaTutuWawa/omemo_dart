@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:cryptography/cryptography.dart';
+import 'package:moxlib/moxlib.dart';
 import 'package:omemo_dart/src/common/constants.dart';
-import 'package:omemo_dart/src/common/result.dart';
 import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/helpers.dart';

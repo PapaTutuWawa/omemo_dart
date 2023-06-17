@@ -13,6 +13,9 @@ dependencies:
   hex: ^0.2.0
   logging: ^1.0.2
   meta: ^1.7.0
+  moxlib:
+    version: ^0.2.0
+    hosted: https://git.polynom.me/api/packages/Moxxy/pub
   pinenacl: ^0.5.1
   protobuf: ^2.1.0
   protoc_plugin: ^20.0.1

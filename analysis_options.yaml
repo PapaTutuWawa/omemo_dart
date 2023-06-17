@@ -11,4 +11,3 @@ analyzer:
   exclude:
     - "lib/src/protobuf/*.dart"
     - "example/omemo_dart_example.dart"
-    - "test/serialisation_test.dart"
