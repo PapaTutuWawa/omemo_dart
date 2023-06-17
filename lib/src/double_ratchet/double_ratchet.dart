@@ -1,6 +1,7 @@
 import 'package:cryptography/cryptography.dart';
 import 'package:hex/hex.dart';
 import 'package:meta/meta.dart';
+import 'package:omemo_dart/src/common/constants.dart';
 import 'package:omemo_dart/src/common/result.dart';
 import 'package:omemo_dart/src/crypto.dart';
 import 'package:omemo_dart/src/double_ratchet/kdf.dart';
@@ -8,12 +9,6 @@ import 'package:omemo_dart/src/errors.dart';
 import 'package:omemo_dart/src/helpers.dart';
 import 'package:omemo_dart/src/keys.dart';
 import 'package:omemo_dart/src/protobuf/schema.pb.dart';
-
-/// Amount of messages we may skip per session
-const maxSkip = 1000;
-
-/// Info string for ENCRYPT
-const encryptHkdfInfoString = 'OMEMO Message Key Material';
 
 @immutable
 class SkippedKey {
