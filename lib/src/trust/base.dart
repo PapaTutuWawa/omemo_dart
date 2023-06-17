@@ -1,3 +1,5 @@
+import 'package:meta/meta.dart';
+
 /// The base class for managing trust in OMEMO sessions.
 // ignore: one_member_abstracts
 abstract class TrustManager {
@@ -19,4 +21,11 @@ abstract class TrustManager {
 
   /// Removes all trust decisions for [jid].
   Future<void> removeTrustDecisionsForJid(String jid);
+
+  // ignore: comment_references
+  /// Called from within the [OmemoManager].
+  /// Loads the trust data for the JID [jid] from persistent storage
+  /// into the internal cache, if applicable.
+  @internal
+  Future<void> loadTrustData(String jid);
 }

@@ -1,4 +1,5 @@
 import 'package:meta/meta.dart';
+import 'package:omemo_dart/src/helpers.dart';
 import 'package:omemo_dart/src/omemo/ratchet_map_key.dart';
 import 'package:omemo_dart/src/trust/base.dart';
 import 'package:synchronized/synchronized.dart';
@@ -37,6 +38,12 @@ typedef BTBVRemoveTrustForJidCallback = Future<void> Function(String jid);
 /// A stub-implementation of [BTBVRemoveTrustForJidCallback].
 Future<void> btbvRemoveTrustStub(String _) async {}
 
+/// A callback for when trust data should be loaded.
+typedef BTBVLoadDataCallback = Future<List<BTBVTrustData>> Function(String jid);
+
+/// A stub-implementation for [BTBVLoadDataCallback].
+Future<List<BTBVTrustData>> btbvLoadDataStub(String _) async => [];
+
 /// Every device is in either of those two trust states:
 /// - notTrusted: The device is absolutely not trusted
 /// - blindTrust: The fingerprint is not verified using OOB means
@@ -56,33 +63,31 @@ enum BTBVTrustState {
 /// See https://gultsch.de/trust.html for more details.
 class BlindTrustBeforeVerificationTrustManager extends TrustManager {
   BlindTrustBeforeVerificationTrustManager({
-    Map<RatchetMapKey, BTBVTrustState>? trustCache,
-    Map<RatchetMapKey, bool>? enablementCache,
-    Map<String, List<int>>? devices,
+    this.loadData = btbvLoadDataStub,
     this.commit = btbvCommitStub,
     this.removeTrust = btbvRemoveTrustStub,
-  })  : trustCache = trustCache ?? {},
-        enablementCache = enablementCache ?? {},
-        devices = devices ?? {},
-        _lock = Lock();
+  });
 
   /// The cache for mapping a RatchetMapKey to its trust state
   @visibleForTesting
   @protected
-  final Map<RatchetMapKey, BTBVTrustState> trustCache;
+  final Map<RatchetMapKey, BTBVTrustState> trustCache = {};
 
   /// The cache for mapping a RatchetMapKey to whether it is enabled or not
   @visibleForTesting
   @protected
-  final Map<RatchetMapKey, bool> enablementCache;
+  final Map<RatchetMapKey, bool> enablementCache = {};
 
   /// Mapping of Jids to their device identifiers
   @visibleForTesting
   @protected
-  final Map<String, List<int>> devices;
+  final Map<String, List<int>> devices = {};
 
   /// The lock for devices and trustCache
-  final Lock _lock;
+  final Lock _lock = Lock();
+
+  /// Callback for loading trust data.
+  final BTBVLoadDataCallback loadData;
 
   /// Callback for commiting trust data to persistent storage.
   final BTBVTrustCommitCallback commit;
@@ -238,6 +243,18 @@ class BlindTrustBeforeVerificationTrustManager extends TrustManager {
 
       // Commit the state
       await removeTrust(jid);
+    });
+  }
+
+  @override
+  Future<void> loadTrustData(String jid) async {
+    await _lock.synchronized(() async {
+      for (final result in await loadData(jid)) {
+        final key = RatchetMapKey(jid, result.device);
+        trustCache[key] = result.state;
+        enablementCache[key] = result.enabled;
+        devices.appendOrCreate(jid, result.device);
+      }
     });
   }
 

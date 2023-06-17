@@ -27,6 +27,16 @@ import 'package:omemo_dart/src/trust/base.dart';
 import 'package:omemo_dart/src/x3dh/x3dh.dart';
 import 'package:synchronized/synchronized.dart';
 
+class OmemoDataPackage {
+  const OmemoDataPackage(this.devices, this.ratchets);
+
+  /// The device list for the given JID.
+  final List<int> devices;
+
+  /// The ratchets for the JID.
+  final Map<RatchetMapKey, OmemoDoubleRatchet> ratchets;
+}
+
 /// Callback type definitions
 
 /// Directly "package" [result] into an OMEMO message and send it to [recipientJid].
@@ -84,6 +94,12 @@ typedef RemoveRatchetsFunction = Future<void> Function(
 /// A stub implementation of [RemoveRatchetsFunction].
 Future<void> removeRatchetsStub(List<RatchetMapKey> ratchets) async {}
 
+/// Loads all the required data for the ratchets of [jid].
+typedef LoadRatchetsCallback = Future<OmemoDataPackage?> Function(String jid);
+
+/// A stub implementation of [LoadRatchetsCallback].
+Future<OmemoDataPackage?> loadRatchetsStub(String _) async => null;
+
 class OmemoManager {
   OmemoManager(
     this._device,
@@ -96,6 +112,7 @@ class OmemoManager {
     this.commitDeviceList = commitDeviceListStub,
     this.commitDevice = commitDeviceStub,
     this.removeRatchets = removeRatchetsStub,
+    this.loadRatchets = loadRatchetsStub,
   });
 
   final Logger _log = Logger('OmemoManager');
@@ -128,6 +145,9 @@ class OmemoManager {
   /// Callback to remove ratchets from persistent storage.
   final RemoveRatchetsFunction removeRatchets;
 
+  /// Callback to load ratchets from persistent storage.
+  final LoadRatchetsCallback loadRatchets;
+
   /// Map bare JID to its known devices
   final Map<String, List<int>> _deviceList = {};
 
@@ -141,6 +161,9 @@ class OmemoManager {
   /// Map bare JID to whether we already tried to subscribe to the device list node.
   final Map<String, bool> _subscriptionMap = {};
 
+  /// List of JIDs for which we cached trust data, the device list, and the ratchets.
+  final List<String> _cachedJids = [];
+
   /// For preventing a race condition in encryption/decryption
   final RatchetAccessQueue _ratchetQueue = RatchetAccessQueue();
 
@@ -152,6 +175,33 @@ class OmemoManager {
   final Lock _deviceLock = Lock();
   // ignore: prefer_final_fields
   OmemoDevice _device;
+
+  Future<void> _cacheJidsIfNeccessary(List<String> jids) async {
+    for (final jid in jids) {
+      await _cacheJidIfNeccessary(jid);
+    }
+  }
+
+  Future<void> _cacheJidIfNeccessary(String jid) async {
+    // JID is already cached. We don't have to do anything.
+    if (_cachedJids.contains(jid)) {
+      return;
+    }
+
+    _cachedJids.add(jid);
+    final result = await loadRatchets(jid);
+    if (result == null) {
+      _log.fine('Did not load ratchet data for $jid. Assuming there is none.');
+      return;
+    }
+
+    // Cache the data
+    _deviceList[jid] = result.devices;
+    _ratchetMap.addAll(result.ratchets);
+
+    // Load trust data
+    await trustManager.loadTrustData(jid);
+  }
 
   Future<Result<OmemoError, String?>> _decryptAndVerifyHmac(
     List<int>? ciphertext,
@@ -294,6 +344,9 @@ class OmemoManager {
   Future<DecryptionResult> _onIncomingStanzaImpl(
     OmemoIncomingStanza stanza,
   ) async {
+    // Populate the cache
+    await _cacheJidIfNeccessary(stanza.bareSenderJid);
+
     // Find the correct key for our device
     final deviceId = await getDeviceId();
     final key = stanza.keys.firstWhereOrNull((key) => key.rid == deviceId);
@@ -530,6 +583,9 @@ class OmemoManager {
   Future<EncryptionResult> _onOutgoingStanzaImpl(
     OmemoOutgoingStanza stanza,
   ) async {
+    // Populate the cache
+    await _cacheJidsIfNeccessary(stanza.recipientJids);
+
     // Encrypt the payload, if we have any
     final List<int> payloadKey;
     final List<int> ciphertext;
@@ -760,6 +816,8 @@ class OmemoManager {
           _ratchetMap.remove(key);
         }
         await removeRatchets(keys.toList());
+
+        // TODO: Do we have to tell the trust manager?
 
         // Clear the device list
         await commitDeviceList(

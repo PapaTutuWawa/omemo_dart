@@ -20,4 +20,7 @@ class NeverTrustingTrustManager extends TrustManager {
 
   @override
   Future<void> removeTrustDecisionsForJid(String jid) async {}
+
+  @override
+  Future<void> loadTrustData(String jid) async {}
 }
