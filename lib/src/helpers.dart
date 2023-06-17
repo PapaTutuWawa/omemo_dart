@@ -1,7 +1,5 @@
 import 'dart:convert';
 import 'dart:math';
-import 'package:cryptography/cryptography.dart';
-import 'package:omemo_dart/src/keys.dart';
 
 /// Flattens [inputs] and concatenates the elements.
 List<int> concat(List<List<int>> inputs) {
