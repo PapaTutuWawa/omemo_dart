@@ -81,7 +81,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult.encryptedKeys[bobJid]!,
         base64.encode(aliceResult.ciphertext!),
         false,
@@ -110,7 +109,6 @@ void main() {
       OmemoIncomingStanza(
         bobJid,
         bobDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         bobResult2.encryptedKeys[aliceJid]!,
         base64.encode(bobResult2.ciphertext!),
         false,
@@ -183,7 +181,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult.encryptedKeys[bobJid]!,
         base64.encode(aliceResult.ciphertext!),
         false,
@@ -199,7 +196,6 @@ void main() {
       OmemoIncomingStanza(
         bobJid,
         bobDevice.id,
-        getTimestamp(),
         bobEmptyMessage!.encryptedKeys[aliceJid]!,
         null,
         false,
@@ -222,7 +218,6 @@ void main() {
         OmemoIncomingStanza(
           aliceJid,
           aliceDevice.id,
-          DateTime.now().millisecondsSinceEpoch,
           aliceResultLoop.encryptedKeys[bobJid]!,
           base64.encode(aliceResultLoop.ciphertext!),
           false,
@@ -247,7 +242,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResultFinal.encryptedKeys[bobJid]!,
         base64.encode(aliceResultFinal.ciphertext!),
         false,
@@ -263,7 +257,6 @@ void main() {
       OmemoIncomingStanza(
         bobJid,
         bobDevice.id,
-        getTimestamp(),
         bobEmptyMessage!.encryptedKeys[aliceJid]!,
         null,
         false,
@@ -282,7 +275,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        getTimestamp(),
         aliceMessagePostFinal.encryptedKeys[bobJid]!,
         base64Encode(aliceMessagePostFinal.ciphertext!),
         false,
@@ -377,7 +369,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult1.encryptedKeys[bobJid]!,
         base64.encode(aliceResult1.ciphertext!),
         false,
@@ -402,7 +393,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult2.encryptedKeys[bobJid]!,
         base64.encode(aliceResult2.ciphertext!),
         false,
@@ -494,7 +484,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult1.encryptedKeys[bobJid]!,
         base64.encode(aliceResult1.ciphertext!),
         false,
@@ -518,7 +507,6 @@ void main() {
       OmemoIncomingStanza(
         bobJid,
         bobDevice2.id,
-        DateTime.now().millisecondsSinceEpoch,
         bobResult2.encryptedKeys[aliceJid]!,
         base64.encode(bobResult2.ciphertext!),
         false,
@@ -602,7 +590,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult1.encryptedKeys[bobJid]!,
         base64.encode(aliceResult1.ciphertext!),
         false,
@@ -640,7 +627,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult2.encryptedKeys[bobJid]!,
         base64.encode(aliceResult2.ciphertext!),
         false,
@@ -650,7 +636,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult2.encryptedKeys[bobJid]!,
         base64.encode(aliceResult2.ciphertext!),
         false,
@@ -673,7 +658,6 @@ void main() {
       OmemoIncomingStanza(
         bobJid,
         bobDevice2.id,
-        DateTime.now().millisecondsSinceEpoch,
         bobResult32.encryptedKeys[aliceJid]!,
         base64.encode(bobResult32.ciphertext!),
         false,
@@ -751,7 +735,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult.encryptedKeys[bobJid]!,
         base64.encode(aliceResult.ciphertext!),
         false,
@@ -761,7 +744,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult.encryptedKeys[cocoJid]!,
         base64.encode(aliceResult.ciphertext!),
         false,
@@ -823,7 +805,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult1.encryptedKeys[bobJid]!,
         base64.encode(aliceResult1.ciphertext!),
         false,
@@ -856,7 +837,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult2.encryptedKeys[bobJid]!,
         base64.encode(aliceResult2.ciphertext!),
         false,
@@ -966,7 +946,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult.encryptedKeys[bobJid]!,
         base64.encode(aliceResult.ciphertext!),
         false,
@@ -1024,7 +1003,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceMessage.encryptedKeys[bobJid]!,
         base64.encode(aliceMessage.ciphertext!),
         false,
@@ -1052,7 +1030,6 @@ void main() {
         OmemoIncomingStanza(
           bobJid,
           bobDevice.id,
-          DateTime.now().millisecondsSinceEpoch,
           bobResponseMessage.encryptedKeys[aliceJid]!,
           base64.encode(bobResponseMessage.ciphertext!),
           false,
@@ -1113,7 +1090,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult1.encryptedKeys[bobJid]!,
         base64.encode(aliceResult1.ciphertext!),
         false,
@@ -1139,7 +1115,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         await aliceManager.getDeviceId(),
-        DateTime.now().millisecondsSinceEpoch,
         aliceEmptyMessage!.encryptedKeys[bobJid]!,
         null,
         false,
@@ -1166,7 +1141,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult3.encryptedKeys[bobJid]!,
         base64.encode(aliceResult3.ciphertext!),
         false,
@@ -1189,7 +1163,6 @@ void main() {
       OmemoIncomingStanza(
         bobJid,
         bobDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         bobResult4.encryptedKeys[aliceJid]!,
         base64.encode(bobResult4.ciphertext!),
         false,
@@ -1256,7 +1229,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult1.encryptedKeys[bobJid]!,
         base64.encode(aliceResult1.ciphertext!),
         false,
@@ -1287,7 +1259,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         await aliceManager.getDeviceId(),
-        DateTime.now().millisecondsSinceEpoch,
         aliceEmptyMessage!.encryptedKeys[bobJid]!,
         null,
         false,
@@ -1310,7 +1281,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult3.encryptedKeys[bobJid]!,
         base64.encode(aliceResult3.ciphertext!),
         false,
@@ -1333,7 +1303,6 @@ void main() {
       OmemoIncomingStanza(
         bobJid,
         bobDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         bobResult4.encryptedKeys[aliceJid]!,
         base64.encode(bobResult4.ciphertext!),
         false,
@@ -1399,7 +1368,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult1.encryptedKeys[bobJid]!,
         base64.encode(aliceResult1.ciphertext!),
         false,
@@ -1436,7 +1404,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult2.encryptedKeys[bobJid]!,
         base64.encode(aliceResult2.ciphertext!),
         false,
@@ -1458,7 +1425,6 @@ void main() {
       OmemoIncomingStanza(
         bobJid,
         bobDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         bobResult3.encryptedKeys[aliceJid]!,
         base64.encode(bobResult3.ciphertext!),
         false,
@@ -1489,7 +1455,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult4.encryptedKeys[bobJid]!,
         base64.encode(aliceResult4.ciphertext!),
         false,
@@ -1551,7 +1516,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult1.encryptedKeys[bobJid]!,
         base64.encode(aliceResult1.ciphertext!),
         false,
@@ -1655,7 +1619,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice1.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult1.encryptedKeys[bobJid]!,
         base64.encode(aliceResult1.ciphertext!),
         false,
@@ -1680,7 +1643,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice2.id,
-        getTimestamp(),
         aliceResult2.encryptedKeys[bobJid]!,
         base64Encode(aliceResult2.ciphertext!),
         false,
@@ -1786,7 +1748,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice1.id,
-        DateTime.now().millisecondsSinceEpoch,
         aliceResult1.encryptedKeys[bobJid]!,
         base64.encode(aliceResult1.ciphertext!),
         false,
@@ -1810,7 +1771,6 @@ void main() {
       OmemoIncomingStanza(
         aliceJid,
         aliceDevice2.id,
-        getTimestamp(),
         aliceResult2.encryptedKeys[bobJid]!,
         base64Encode(aliceResult2.ciphertext!),
         false,

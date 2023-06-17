@@ -43,23 +43,6 @@ int generateRandom32BitNumber() {
   return Random.secure().nextInt(4294967295 /*pow(2, 32) - 1*/);
 }
 
-OmemoPublicKey? decodeKeyIfNotNull(
-  Map<String, dynamic> map,
-  String key,
-  KeyPairType type,
-) {
-  if (map[key] == null) return null;
-
-  return OmemoPublicKey.fromBytes(
-    base64.decode(map[key]! as String),
-    type,
-  );
-}
-
-int getTimestamp() {
-  return DateTime.now().millisecondsSinceEpoch;
-}
-
 /// Describes the differences between two lists in terms of its items.
 class ListDiff<T> {
   ListDiff(this.added, this.removed);
@@ -90,7 +73,8 @@ extension AppendToListOrCreateExtension<K, V> on Map<K, List<V>> {
     if (containsKey(key)) {
       if (!checkExistence) {
         this[key]!.add(value);
-      } if (!this[key]!.contains(value)) {
+      }
+      if (!this[key]!.contains(value)) {
         this[key]!.add(value);
       }
     } else {

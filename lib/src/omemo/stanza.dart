@@ -5,7 +5,6 @@ class OmemoIncomingStanza {
   const OmemoIncomingStanza(
     this.bareSenderJid,
     this.senderDeviceId,
-    this.timestamp,
     this.keys,
     this.payload,
     this.isCatchup,
@@ -16,9 +15,6 @@ class OmemoIncomingStanza {
 
   /// The device ID of the sender.
   final int senderDeviceId;
-
-  /// The timestamp when the stanza was received.
-  final int timestamp;
 
   /// The included encrypted keys for our own JID
   final List<EncryptedKey> keys;
