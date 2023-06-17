@@ -847,7 +847,8 @@ class OmemoManager {
         }
         await removeRatchets(keys.toList());
 
-        // TODO: Do we have to tell the trust manager?
+        // Tell the trust manager
+        await _trustManager.removeTrustDecisionsForJid(jid);
 
         // Clear the device list
         await commitDeviceList(
