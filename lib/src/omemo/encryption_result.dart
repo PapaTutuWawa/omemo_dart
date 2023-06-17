@@ -8,6 +8,7 @@ class EncryptionResult {
     this.ciphertext,
     this.encryptedKeys,
     this.deviceEncryptionErrors,
+    this.canSend,
   );
 
   /// The actual message that was encrypted.
@@ -20,9 +21,7 @@ class EncryptionResult {
   /// Mapping of a JID to
   final Map<String, List<EncryptToJidError>> deviceEncryptionErrors;
 
-  // TODO: Turn this into a property that is computed in [onOutgoingStanza].
-  /// True if the encryption was a success. This means that we could encrypt for
-  /// at least one ratchet per recipient. [recipients] is the number of recipients
-  /// that the message should've been encrypted for.
-  bool isSuccess(int recipients) => encryptedKeys.length == recipients;
+  /// A flag indicating that the message could be sent like that, i.e. we were able
+  /// to encrypt to at-least one device per recipient.
+  final bool canSend;
 }

@@ -881,7 +881,7 @@ void main() {
       ),
     );
 
-    expect(aliceResult.isSuccess(1), isFalse);
+    expect(aliceResult.canSend, isFalse);
     expect(aliceResult.deviceEncryptionErrors[bobJid]!.length, 1);
     final error = aliceResult.deviceEncryptionErrors[bobJid]!.first;
     expect(error.error, const TypeMatcher<NoKeyMaterialAvailableError>());
@@ -933,7 +933,7 @@ void main() {
       ),
     );
 
-    expect(aliceResult.isSuccess(2), isFalse);
+    expect(aliceResult.canSend, isFalse);
     expect(aliceResult.deviceEncryptionErrors[cocoJid]!.length, 1);
     expect(
       aliceResult.deviceEncryptionErrors[cocoJid]!.first.error,
@@ -1023,7 +1023,7 @@ void main() {
           messageText,
         ),
       );
-      expect(bobResponseMessage.isSuccess(1), isTrue);
+      expect(bobResponseMessage.canSend, isTrue);
 
       final aliceReceivedMessage = await aliceManager.onIncomingStanza(
         OmemoIncomingStanza(

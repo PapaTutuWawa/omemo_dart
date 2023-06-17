@@ -630,6 +630,9 @@ class OmemoManager {
       ciphertext = null;
     }
 
+    final successfulEncryptions = Map<String, int>.fromEntries(
+      stanza.recipientJids.map((jid) => MapEntry(jid, 0)),
+    );
     final encryptionErrors = <String, List<EncryptToJidError>>{};
     final addedRatchetKeys = List<RatchetMapKey>.empty(growable: true);
     final kex = <RatchetMapKey, OMEMOKeyExchange>{};
@@ -770,6 +773,7 @@ class OmemoManager {
               true,
             ),
           );
+          successfulEncryptions[jid] = successfulEncryptions[jid]! + 1;
         } else if (!ratchet.acknowledged) {
           // The ratchet as not yet been acked.
           // Keep sending the old KEX
@@ -789,6 +793,7 @@ class OmemoManager {
               true,
             ),
           );
+          successfulEncryptions[jid] = successfulEncryptions[jid]! + 1;
         } else {
           // The ratchet exists and is acked
           encryptedKeys.appendOrCreate(
@@ -799,6 +804,7 @@ class OmemoManager {
               false,
             ),
           );
+          successfulEncryptions[jid] = successfulEncryptions[jid]! + 1;
         }
       }
     }
@@ -807,6 +813,7 @@ class OmemoManager {
       ciphertext,
       encryptedKeys,
       encryptionErrors,
+      successfulEncryptions.values.every((n) => n > 0),
     );
   }
 
