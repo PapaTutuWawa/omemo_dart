@@ -2,7 +2,6 @@ import 'package:meta/meta.dart';
 import 'package:omemo_dart/src/helpers.dart';
 import 'package:omemo_dart/src/omemo/ratchet_map_key.dart';
 import 'package:omemo_dart/src/trust/base.dart';
-import 'package:synchronized/synchronized.dart';
 
 @immutable
 class BTBVTrustData {
@@ -83,9 +82,6 @@ class BlindTrustBeforeVerificationTrustManager extends TrustManager {
   @protected
   final Map<String, List<int>> devices = {};
 
-  /// The lock for devices and trustCache
-  final Lock _lock = Lock();
-
   /// Callback for loading trust data.
   final BTBVLoadDataCallback loadData;
 
@@ -108,76 +104,63 @@ class BlindTrustBeforeVerificationTrustManager extends TrustManager {
 
   @override
   Future<bool> isTrusted(String jid, int deviceId) async {
-    var returnValue = false;
-    await _lock.synchronized(() async {
-      final trustCacheValue = trustCache[RatchetMapKey(jid, deviceId)];
-      if (trustCacheValue == BTBVTrustState.notTrusted) {
-        returnValue = false;
-        return;
-      } else if (trustCacheValue == BTBVTrustState.verified) {
-        // The key is verified, so it's safe.
-        returnValue = true;
-        return;
+    final trustCacheValue = trustCache[RatchetMapKey(jid, deviceId)];
+    if (trustCacheValue == BTBVTrustState.notTrusted) {
+      return false;
+    } else if (trustCacheValue == BTBVTrustState.verified) {
+      // The key is verified, so it's safe.
+      return true;
+    } else {
+      if (_hasAtLeastOneVerifiedDevice(jid)) {
+        // Do not trust if there is at least one device with full trust
+        return false;
       } else {
-        if (_hasAtLeastOneVerifiedDevice(jid)) {
-          // Do not trust if there is at least one device with full trust
-          returnValue = false;
-          return;
-        } else {
-          // We have not verified a key from [jid], so it is blind trust all the way.
-          returnValue = true;
-          return;
-        }
+        // We have not verified a key from [jid], so it is blind trust all the way.
+        return true;
       }
-    });
-
-    return returnValue;
+    }
   }
 
   @override
   Future<void> onNewSession(String jid, int deviceId) async {
-    await _lock.synchronized(() async {
-      final key = RatchetMapKey(jid, deviceId);
-      if (_hasAtLeastOneVerifiedDevice(jid)) {
-        trustCache[key] = BTBVTrustState.notTrusted;
-        enablementCache[key] = false;
-      } else {
-        trustCache[key] = BTBVTrustState.blindTrust;
-        enablementCache[key] = true;
-      }
+    final key = RatchetMapKey(jid, deviceId);
+    if (_hasAtLeastOneVerifiedDevice(jid)) {
+      trustCache[key] = BTBVTrustState.notTrusted;
+      enablementCache[key] = false;
+    } else {
+      trustCache[key] = BTBVTrustState.blindTrust;
+      enablementCache[key] = true;
+    }
 
-      if (devices.containsKey(jid)) {
-        devices[jid]!.add(deviceId);
-      } else {
-        devices[jid] = List<int>.from([deviceId]);
-      }
+    if (devices.containsKey(jid)) {
+      devices[jid]!.add(deviceId);
+    } else {
+      devices[jid] = List<int>.from([deviceId]);
+    }
 
-      // Commit the state
-      await commit(
-        BTBVTrustData(
-          jid,
-          deviceId,
-          trustCache[key]!,
-          enablementCache[key]!,
-        ),
-      );
-    });
+    // Commit the state
+    await commit(
+      BTBVTrustData(
+        jid,
+        deviceId,
+        trustCache[key]!,
+        enablementCache[key]!,
+      ),
+    );
   }
 
   /// Returns a mapping from the device identifiers of [jid] to their trust state. If
   /// there are no devices known for [jid], then an empty map is returned.
   Future<Map<int, BTBVTrustState>> getDevicesTrust(String jid) async {
-    return _lock.synchronized(() async {
-      final map = <int, BTBVTrustState>{};
+    final map = <int, BTBVTrustState>{};
 
-      if (!devices.containsKey(jid)) return map;
+    if (!devices.containsKey(jid)) return map;
 
-      for (final deviceId in devices[jid]!) {
-        map[deviceId] = trustCache[RatchetMapKey(jid, deviceId)]!;
-      }
+    for (final deviceId in devices[jid]!) {
+      map[deviceId] = trustCache[RatchetMapKey(jid, deviceId)]!;
+    }
 
-      return map;
-    });
+    return map;
   }
 
   /// Sets the trust of [jid]'s device with identifier [deviceId] to [state].
@@ -186,76 +169,66 @@ class BlindTrustBeforeVerificationTrustManager extends TrustManager {
     int deviceId,
     BTBVTrustState state,
   ) async {
-    await _lock.synchronized(() async {
-      final key = RatchetMapKey(jid, deviceId);
-      trustCache[key] = state;
+    final key = RatchetMapKey(jid, deviceId);
+    trustCache[key] = state;
 
-      // Commit the state
-      await commit(
-        BTBVTrustData(
-          jid,
-          deviceId,
-          state,
-          enablementCache[key]!,
-        ),
-      );
-    });
+    // Commit the state
+    await commit(
+      BTBVTrustData(
+        jid,
+        deviceId,
+        state,
+        enablementCache[key]!,
+      ),
+    );
   }
 
   @override
   Future<bool> isEnabled(String jid, int deviceId) async {
-    return _lock.synchronized(() async {
-      final value = enablementCache[RatchetMapKey(jid, deviceId)];
+    final value = enablementCache[RatchetMapKey(jid, deviceId)];
 
-      if (value == null) return false;
-      return value;
-    });
+    if (value == null) return false;
+    return value;
   }
 
   @override
   Future<void> setEnabled(String jid, int deviceId, bool enabled) async {
     final key = RatchetMapKey(jid, deviceId);
-    await _lock.synchronized(() async {
-      enablementCache[key] = enabled;
+    enablementCache[key] = enabled;
 
-      // Commit the state
-      await commit(
-        BTBVTrustData(
-          jid,
-          deviceId,
-          trustCache[key]!,
-          enabled,
-        ),
-      );
-    });
+    // Commit the state
+    await commit(
+      BTBVTrustData(
+        jid,
+        deviceId,
+        trustCache[key]!,
+        enabled,
+      ),
+    );
   }
 
   @override
   Future<void> removeTrustDecisionsForJid(String jid) async {
-    await _lock.synchronized(() async {
-      // Clear the caches
-      for (final device in devices[jid]!) {
-        final key = RatchetMapKey(jid, device);
-        trustCache.remove(key);
-        enablementCache.remove(key);
-      }
-      devices.remove(jid);
+    // Clear the caches
+    for (final device in devices[jid]!) {
+      final key = RatchetMapKey(jid, device);
+      trustCache.remove(key);
+      enablementCache.remove(key);
+    }
+    devices.remove(jid);
 
-      // Commit the state
-      await removeTrust(jid);
-    });
+    // Commit the state
+    await removeTrust(jid);
   }
 
   @override
   Future<void> loadTrustData(String jid) async {
-    await _lock.synchronized(() async {
-      for (final result in await loadData(jid)) {
-        final key = RatchetMapKey(jid, result.device);
-        trustCache[key] = result.state;
-        enablementCache[key] = result.enabled;
-        devices.appendOrCreate(jid, result.device);
-      }
-    });
+    for (final result in await loadData(jid)) {
+      final key = RatchetMapKey(jid, result.device);
+      trustCache[key] = result.state;
+      enablementCache[key] = result.enabled;
+      devices.appendOrCreate(jid, result.device);
+    }
   }
 
   @visibleForTesting

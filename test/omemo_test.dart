@@ -1529,9 +1529,14 @@ void main() {
     expect(bobResult1.error, null);
 
     // Bob should have some trust state
-    expect(
-      (bobManager.trustManager as TestingTrustManager).devices[aliceJid],
-      await aliceManager.getDeviceId(),
+    await bobManager.withTrustManager(
+      bobJid,
+      (tm) async {
+        expect(
+          (tm as TestingTrustManager).devices[aliceJid],
+          await aliceManager.getDeviceId(),
+        );
+      },
     );
   });
 

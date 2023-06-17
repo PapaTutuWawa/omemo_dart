@@ -169,7 +169,6 @@ class OmemoManager {
 
   /// The OmemoManager's trust management
   final TrustManager _trustManager;
-  TrustManager get trustManager => _trustManager;
 
   /// Our own keys...
   final Lock _deviceLock = Lock();
@@ -200,7 +199,7 @@ class OmemoManager {
     _ratchetMap.addAll(result.ratchets);
 
     // Load trust data
-    await trustManager.loadTrustData(jid);
+    await _trustManager.loadTrustData(jid);
   }
 
   Future<Result<OmemoError, String?>> _decryptAndVerifyHmac(
@@ -449,7 +448,7 @@ class OmemoManager {
       }
 
       // Notify the trust manager
-      await trustManager.onNewSession(
+      await _trustManager.onNewSession(
         stanza.bareSenderJid,
         stanza.senderDeviceId,
       );
@@ -653,7 +652,7 @@ class OmemoManager {
         addedRatchetKeys.add(ratchetKey);
 
         // Initiate trust
-        await trustManager.onNewSession(jid, bundle.id);
+        await _trustManager.onNewSession(jid, bundle.id);
 
         // Track the KEX for later
         final ik = await ownDevice.ik.pk.getBytes();
@@ -940,4 +939,13 @@ class OmemoManager {
 
   @visibleForTesting
   OmemoDoubleRatchet? getRatchet(RatchetMapKey key) => _ratchetMap[key];
+
+  /// Trust management functions
+  Future<void> withTrustManager(
+      String jid, Future<void> Function(TrustManager) callback) async {
+    await _ratchetQueue.synchronized(
+      [jid],
+      () => callback(_trustManager),
+    );
+  }
 }
