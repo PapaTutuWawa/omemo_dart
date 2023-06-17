@@ -3,47 +3,64 @@ import 'package:omemo_dart/src/omemo/ratchet_map_key.dart';
 import 'package:omemo_dart/src/trust/base.dart';
 import 'package:synchronized/synchronized.dart';
 
+@immutable
+class BTBVTrustData {
+  const BTBVTrustData(
+    this.jid,
+    this.device,
+    this.state,
+    this.enabled,
+  );
+
+  /// The JID in question.
+  final String jid;
+
+  /// The device (ratchet) in question.
+  final int device;
+
+  /// The trust state of the ratchet.
+  final BTBVTrustState state;
+
+  /// Flag indicating whether the ratchet is enabled (true) or not (false).
+  final bool enabled;
+}
+
+/// A callback for when a trust decision is to be commited to persistent storage.
+typedef BTBVTrustCommitCallback = Future<void> Function(BTBVTrustData data);
+
+/// A stub-implementation of [BTBVTrustCommitCallback].
+Future<void> btbvCommitStub(BTBVTrustData _) async {}
+
+/// A callback for when all trust decisions for a JID should be removed from persistent storage.
+typedef BTBVRemoveTrustForJidCallback = Future<void> Function(String jid);
+
+/// A stub-implementation of [BTBVRemoveTrustForJidCallback].
+Future<void> btbvRemoveTrustStub(String _) async {}
+
 /// Every device is in either of those two trust states:
 /// - notTrusted: The device is absolutely not trusted
 /// - blindTrust: The fingerprint is not verified using OOB means
 /// - verified: The fingerprint has been verified using OOB means
 enum BTBVTrustState {
-  notTrusted, // = 1
-  blindTrust, // = 2
-  verified, // = 3
-}
+  notTrusted(1),
+  blindTrust(2),
+  verified(3);
 
-int _trustToInt(BTBVTrustState state) {
-  switch (state) {
-    case BTBVTrustState.notTrusted:
-      return 1;
-    case BTBVTrustState.blindTrust:
-      return 2;
-    case BTBVTrustState.verified:
-      return 3;
-  }
-}
+  const BTBVTrustState(this.value);
 
-BTBVTrustState _trustFromInt(int i) {
-  switch (i) {
-    case 1:
-      return BTBVTrustState.notTrusted;
-    case 2:
-      return BTBVTrustState.blindTrust;
-    case 3:
-      return BTBVTrustState.verified;
-    default:
-      return BTBVTrustState.notTrusted;
-  }
+  /// The value backing the trust state.
+  final int value;
 }
 
 /// A TrustManager that implements the idea of Blind Trust Before Verification.
 /// See https://gultsch.de/trust.html for more details.
-abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
+class BlindTrustBeforeVerificationTrustManager extends TrustManager {
   BlindTrustBeforeVerificationTrustManager({
     Map<RatchetMapKey, BTBVTrustState>? trustCache,
     Map<RatchetMapKey, bool>? enablementCache,
     Map<String, List<int>>? devices,
+    this.commit = btbvCommitStub,
+    this.removeTrust = btbvRemoveTrustStub,
   })  : trustCache = trustCache ?? {},
         enablementCache = enablementCache ?? {},
         devices = devices ?? {},
@@ -66,6 +83,12 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
 
   /// The lock for devices and trustCache
   final Lock _lock;
+
+  /// Callback for commiting trust data to persistent storage.
+  final BTBVTrustCommitCallback commit;
+
+  /// Callback for removing trust data for a JID.
+  final BTBVRemoveTrustForJidCallback removeTrust;
 
   /// Returns true if [jid] has at least one device that is verified. If not, returns false.
   /// Note that this function accesses devices and trustCache, which requires that the
@@ -125,7 +148,14 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
       }
 
       // Commit the state
-      await commitState();
+      await commit(
+        BTBVTrustData(
+          jid,
+          deviceId,
+          trustCache[key]!,
+          enablementCache[key]!,
+        ),
+      );
     });
   }
 
@@ -152,10 +182,18 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
     BTBVTrustState state,
   ) async {
     await _lock.synchronized(() async {
-      trustCache[RatchetMapKey(jid, deviceId)] = state;
+      final key = RatchetMapKey(jid, deviceId);
+      trustCache[key] = state;
 
       // Commit the state
-      await commitState();
+      await commit(
+        BTBVTrustData(
+          jid,
+          deviceId,
+          state,
+          enablementCache[key]!,
+        ),
+      );
     });
   }
 
@@ -171,88 +209,39 @@ abstract class BlindTrustBeforeVerificationTrustManager extends TrustManager {
 
   @override
   Future<void> setEnabled(String jid, int deviceId, bool enabled) async {
+    final key = RatchetMapKey(jid, deviceId);
     await _lock.synchronized(() async {
-      enablementCache[RatchetMapKey(jid, deviceId)] = enabled;
-    });
+      enablementCache[key] = enabled;
 
-    // Commit the state
-    await commitState();
-  }
-
-  @override
-  Future<Map<String, dynamic>> toJson() async {
-    return {
-      'devices': devices,
-      'trust': trustCache.map(
-        (key, value) => MapEntry(
-          key.toJsonKey(),
-          _trustToInt(value),
+      // Commit the state
+      await commit(
+        BTBVTrustData(
+          jid,
+          deviceId,
+          trustCache[key]!,
+          enabled,
         ),
-      ),
-      'enable':
-          enablementCache.map((key, value) => MapEntry(key.toJsonKey(), value)),
-    };
-  }
-
-  /// From a serialized version of a BTBV trust manager, extract the device list.
-  /// NOTE: This is needed as Dart cannot just cast a List<dynamic> to List<int> and so on.
-  static Map<String, List<int>> deviceListFromJson(Map<String, dynamic> json) {
-    return (json['devices']! as Map<String, dynamic>).map<String, List<int>>(
-      (key, value) => MapEntry(
-        key,
-        (value as List<dynamic>).map<int>((i) => i as int).toList(),
-      ),
-    );
-  }
-
-  /// From a serialized version of a BTBV trust manager, extract the trust cache.
-  /// NOTE: This is needed as Dart cannot just cast a List<dynamic> to List<int> and so on.
-  static Map<RatchetMapKey, BTBVTrustState> trustCacheFromJson(
-    Map<String, dynamic> json,
-  ) {
-    return (json['trust']! as Map<String, dynamic>)
-        .map<RatchetMapKey, BTBVTrustState>(
-      (key, value) => MapEntry(
-        RatchetMapKey.fromJsonKey(key),
-        _trustFromInt(value as int),
-      ),
-    );
-  }
-
-  /// From a serialized version of a BTBV trust manager, extract the enable cache.
-  /// NOTE: This is needed as Dart cannot just cast a List<dynamic> to List<int> and so on.
-  static Map<RatchetMapKey, bool> enableCacheFromJson(
-    Map<String, dynamic> json,
-  ) {
-    return (json['enable']! as Map<String, dynamic>).map<RatchetMapKey, bool>(
-      (key, value) => MapEntry(
-        RatchetMapKey.fromJsonKey(key),
-        value as bool,
-      ),
-    );
+      );
+    });
   }
 
   @override
   Future<void> removeTrustDecisionsForJid(String jid) async {
     await _lock.synchronized(() async {
+      // Clear the caches
+      for (final device in devices[jid]!) {
+        final key = RatchetMapKey(jid, device);
+        trustCache.remove(key);
+        enablementCache.remove(key);
+      }
       devices.remove(jid);
-      await commitState();
+
+      // Commit the state
+      await removeTrust(jid);
     });
   }
-
-  /// Called when the state of the trust manager has been changed. Allows the user to
-  /// commit the trust state to persistent storage.
-  @visibleForOverriding
-  Future<void> commitState();
 
   @visibleForTesting
   BTBVTrustState getDeviceTrust(String jid, int deviceId) =>
       trustCache[RatchetMapKey(jid, deviceId)]!;
-}
-
-/// A BTBV TrustManager that does not commit its state to persistent storage. Well suited
-/// for testing.
-class MemoryBTBVTrustManager extends BlindTrustBeforeVerificationTrustManager {
-  @override
-  Future<void> commitState() async {}
 }

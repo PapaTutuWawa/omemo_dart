@@ -20,7 +20,4 @@ class NeverTrustingTrustManager extends TrustManager {
 
   @override
   Future<void> removeTrustDecisionsForJid(String jid) async {}
-
-  @override
-  Future<Map<String, dynamic>> toJson() async => <String, dynamic>{};
 }

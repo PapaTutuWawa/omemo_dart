@@ -42,7 +42,7 @@ void main() async {
   // request it using PEP and then convert the device bundle into a OmemoBundle object.
   final bobManager = OmemoManager(
     await OmemoDevice.generateNewDevice(bobJid),
-    MemoryBTBVTrustManager(),
+    BlindTrustBeforeVerificationTrustManager(),
     (result, recipient) async => {},
     (jid) async => [],
     (jid, id) async => null,
