@@ -6,6 +6,10 @@ import 'package:omemo_dart/src/protobuf/schema.pb.dart';
 import 'package:omemo_dart/src/trust/always.dart';
 import 'package:test/test.dart';
 
+extension BytesToBase64 on List<int> {
+  String toBase64() => base64Encode(this);
+}
+
 class TestingTrustManager extends AlwaysTrustingTrustManager {
   final Map<String, int> devices = {};
 
@@ -1790,5 +1794,113 @@ void main() {
           .firstWhereOrNull((key) => key.rid == aliceDevice1.id),
       isNotNull,
     );
+  });
+
+  test('Test receiving an empty OMEMO message', () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+
+    final aliceManager = OmemoManager(
+      aliceDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, bobJid);
+        return [bobDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+        return bobDevice.toBundle();
+      },
+      (jid) async {},
+      (_) async {},
+    );
+
+    EncryptionResult? bobEmptyMessage;
+    final bobManager = OmemoManager(
+      bobDevice,
+      TestingTrustManager(),
+      (result, recipientJid) async {
+        bobEmptyMessage = result;
+      },
+      (jid) async {
+        expect(jid, aliceJid);
+        return [
+          aliceDevice.id,
+        ];
+      },
+      (jid, id) async {
+        expect(jid, aliceJid);
+
+        if (id == aliceDevice.id) {
+          return aliceDevice.toBundle();
+        }
+
+        return null;
+      },
+      (jid) async {},
+      (_) async {},
+    );
+
+    // Alice sends Bob a message
+    final aliceResult1 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello World!',
+      ),
+    );
+
+    // Bob decrypts Alice's message
+    final bobResult1 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult1.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult1.ciphertext!),
+        false,
+      ),
+    );
+    expect(bobResult1.error, null);
+    expect(bobEmptyMessage, isNotNull);
+
+    // Bob now sends the empty OMEMO message to Alice, who then decrypts
+    // it.
+    final aliceResult2 = await aliceManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        bobJid,
+        bobDevice.id,
+        bobEmptyMessage!.encryptedKeys[aliceJid]!,
+        bobEmptyMessage!.ciphertext?.toBase64(),
+        false,
+      ),
+    );
+    expect(aliceResult2.error, isNull);
+    expect(aliceResult2.payload, isNull);
+    expect(aliceManager.getRatchet(RatchetMapKey(bobJid, bobDevice.id))!.acknowledged, isTrue);
+
+    // Now Alice sends something to Bob
+    final aliceResult3 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello Bob',
+      ),
+    );
+
+    // And Bob decrypts it
+    final bobResult = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult3.encryptedKeys[bobJid]!,
+        aliceResult3.ciphertext?.toBase64(),
+        false,
+      ),
+    );
+    expect(bobResult.error, isNull);
+    expect(bobResult.payload, 'Hello Bob');
   });
 }
