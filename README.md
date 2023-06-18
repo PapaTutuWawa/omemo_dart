@@ -28,22 +28,32 @@ Include `omemo_dart` in your `pubspec.yaml` like this:
 dependencies:
   omemo_dart:
     hosted: https://git.polynom.me/api/packages/PapaTutuWawa/pub
-    version: ^0.4.3
+    version: ^0.5.0
   # [...]
 
 # [...]
 ```
 
-## Contributing
+### Example
 
-Due to issues with `protobuf`, `omemo_dart` reimplements the Protobuf encoding for the required
-OMEMO messages. As such, `protobuf` is only a dependency for testing that the serialisation and
-deserialisation of the custom implementation. In order to run tests, you need the Protbuf
-compiler. After that, making sure that
-the [Dart Protobuf compiler addon](https://pub.dev/packages/protoc_plugin) and the
-Protobuf compiler itself is in your PATH,
-run `protoc -I=./protobuf/ --dart_out=lib/protobuf/ ./protobuf/schema.proto` in the
-repository's root to generate the real Protobuf bindings.
+This repository includes a documented ["example"](./example/omemo_dart_example.dart) that explains the basic usage of the library while
+leaving out the XMPP specific bits. For a more functional and integrated example, see the `omemo_client.dart` example from
+[moxxmpp](https://codeberg.org/moxxy/moxxmpp).
+
+### Persistence
+
+By default, `omemo_dart` uses in-memory implementations for everything. For a real-world application, this is unsuitable as OMEMO devices would be constantly added.
+In order to allow persistence, your application needs to keep track of the following:
+
+- The `OmemoDevice` assigned to the `OmemoManager`
+- `JID -> [int]`: The device list for each JID
+- `(JID, device) -> Ratchet`: The actual ratchet
+
+If you also use the `BlindTrustBeforeVerificationTrustManager`, you additionally need to keep track of:
+
+- `(JID, device) -> (int, bool)`: The trust level and the enablement state
+
+## Contributing
 
 When submitting a PR, please run the linter using `dart analyze` and make sure that all
 tests still pass using `dart test`.

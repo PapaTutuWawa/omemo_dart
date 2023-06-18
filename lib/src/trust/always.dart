@@ -22,5 +22,5 @@ class AlwaysTrustingTrustManager extends TrustManager {
   Future<void> removeTrustDecisionsForJid(String jid) async {}
 
   @override
-  Future<Map<String, dynamic>> toJson() async => <String, dynamic>{};
+  Future<void> loadTrustData(String jid) async {}
 }

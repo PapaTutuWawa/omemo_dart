@@ -1,8 +1,23 @@
+import 'dart:convert';
+import 'package:collection/collection.dart';
 import 'package:logging/logging.dart';
 import 'package:omemo_dart/omemo_dart.dart';
+import 'package:omemo_dart/src/protobuf/schema.pb.dart';
 import 'package:omemo_dart/src/trust/always.dart';
-import 'package:omemo_dart/src/trust/never.dart';
 import 'package:test/test.dart';
+
+extension BytesToBase64 on List<int> {
+  String toBase64() => base64Encode(this);
+}
+
+class TestingTrustManager extends AlwaysTrustingTrustManager {
+  final Map<String, int> devices = {};
+
+  @override
+  Future<void> onNewSession(String jid, int deviceId) async {
+    devices[jid] = deviceId;
+  }
+}
 
 void main() {
   Logger.root
@@ -12,945 +27,1880 @@ void main() {
       print('${record.level.name}: ${record.message}');
     });
 
-  test('Test replacing a onetime prekey', () async {
-    const aliceJid = 'alice@server.example';
-    final device = await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+  test('Test sending a message without the device list cache', () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+    var aliceEmptyMessageSent = 0;
+    var bobEmptyMessageSent = 0;
 
-    final newDevice = await device.replaceOnetimePrekey(0);
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
 
-    expect(device.jid, newDevice.jid);
-    expect(device.id, newDevice.id);
+    final aliceManager = OmemoManager(
+      aliceDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {
+        aliceEmptyMessageSent++;
+      },
+      (jid) async {
+        expect(jid, bobJid);
+        return [bobDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+        return bobDevice.toBundle();
+      },
+      (jid) async {},
+      (_) async {},
+    );
+    final bobManager = OmemoManager(
+      bobDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {
+        bobEmptyMessageSent++;
+      },
+      (jid) async {
+        expect(jid, aliceJid);
+        return [aliceDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, aliceJid);
+        return aliceDevice.toBundle();
+      },
+      (jid) async {},
+      (_) async {},
+    );
 
-    var opksMatch = true;
-    if (newDevice.opks.length != device.opks.length) {
-      opksMatch = false;
-    } else {
-      for (final entry in device.opks.entries) {
-        final m = await newDevice.opks[entry.key]?.equals(entry.value) ?? false;
-        if (!m) opksMatch = false;
-      }
+    // Alice sends a message
+    final aliceResult = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello world',
+      ),
+    );
+
+    // Bob must be able to decrypt the message
+    final bobResult = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult.ciphertext!),
+        false,
+      ),
+    );
+
+    expect(bobResult.payload, 'Hello world');
+    expect(bobResult.error, null);
+    expect(aliceEmptyMessageSent, 0);
+    expect(bobEmptyMessageSent, 1);
+
+    // Alice receives the ack message
+    await aliceManager.ratchetAcknowledged(
+      bobJid,
+      bobDevice.id,
+    );
+
+    // Bob now responds
+    final bobResult2 = await bobManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [aliceJid],
+        'Hello world, Alice',
+      ),
+    );
+    final aliceResult2 = await aliceManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        bobJid,
+        bobDevice.id,
+        bobResult2.encryptedKeys[aliceJid]!,
+        base64.encode(bobResult2.ciphertext!),
+        false,
+      ),
+    );
+
+    expect(aliceResult2.error, null);
+    expect(aliceEmptyMessageSent, 0);
+    expect(bobEmptyMessageSent, 1);
+    expect(aliceResult2.payload, 'Hello world, Alice');
+  });
+
+  test('Test triggering the heartbeat', () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+    var aliceEmptyMessageSent = 0;
+    var bobEmptyMessageSent = 0;
+
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+
+    EncryptionResult? bobEmptyMessage;
+    final aliceManager = OmemoManager(
+      aliceDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {
+        aliceEmptyMessageSent++;
+      },
+      (jid) async {
+        expect(jid, bobJid);
+        return [bobDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+        return bobDevice.toBundle();
+      },
+      (jid) async {},
+      (_) async {},
+    );
+    final bobManager = OmemoManager(
+      bobDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {
+        bobEmptyMessageSent++;
+        bobEmptyMessage = result;
+      },
+      (jid) async {
+        expect(jid, aliceJid);
+        return [aliceDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, aliceJid);
+        return aliceDevice.toBundle();
+      },
+      (jid) async {},
+      (_) async {},
+    );
+
+    // Alice sends a message
+    final aliceResult = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello world',
+      ),
+    );
+
+    // Bob must be able to decrypt the message
+    final bobResult = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult.ciphertext!),
+        false,
+      ),
+    );
+
+    expect(aliceEmptyMessageSent, 0);
+    expect(bobEmptyMessageSent, 1);
+    expect(bobResult.payload, 'Hello world');
+
+    // Bob acknowledges the message
+    await aliceManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        bobJid,
+        bobDevice.id,
+        bobEmptyMessage!.encryptedKeys[aliceJid]!,
+        null,
+        false,
+      ),
+    );
+
+    // Alice now sends 52 messages that Bob decrypts
+    for (var i = 0; i < 52; i++) {
+      Logger.root.finest('${i + 1}/52');
+      final aliceResultLoop = await aliceManager.onOutgoingStanza(
+        OmemoOutgoingStanza(
+          [bobJid],
+          'Test message $i',
+        ),
+      );
+
+      expect(aliceResultLoop.encryptedKeys[bobJid]!.first.kex, isFalse);
+
+      final bobResultLoop = await bobManager.onIncomingStanza(
+        OmemoIncomingStanza(
+          aliceJid,
+          aliceDevice.id,
+          aliceResultLoop.encryptedKeys[bobJid]!,
+          base64.encode(aliceResultLoop.ciphertext!),
+          false,
+        ),
+      );
+
+      expect(bobResultLoop.error, null);
+      expect(aliceEmptyMessageSent, 0);
+      expect(bobEmptyMessageSent, 1);
+      expect(bobResultLoop.payload, 'Test message $i');
     }
 
-    expect(opksMatch, true);
-    expect(await device.ik.equals(newDevice.ik), true);
-    expect(await device.spk.equals(newDevice.spk), true);
+    // Alice sends a final message that triggers a heartbeat
+    final aliceResultFinal = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Test message last',
+      ),
+    );
 
-    final oldSpkMatch = device.oldSpk != null
-        ? await device.oldSpk!.equals(newDevice.oldSpk!)
-        : newDevice.oldSpk == null;
-    expect(oldSpkMatch, true);
-    expect(listsEqual(device.spkSignature, newDevice.spkSignature), true);
+    final bobResultFinal = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResultFinal.encryptedKeys[bobJid]!,
+        base64.encode(aliceResultFinal.ciphertext!),
+        false,
+      ),
+    );
+
+    expect(aliceEmptyMessageSent, 0);
+    expect(bobEmptyMessageSent, 2);
+    expect(bobResultFinal.payload, 'Test message last');
+
+    // Alice receives it and sends another message
+    final aliceResultPostFinal = await aliceManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        bobJid,
+        bobDevice.id,
+        bobEmptyMessage!.encryptedKeys[aliceJid]!,
+        null,
+        false,
+      ),
+    );
+    expect(aliceResultPostFinal.error, null);
+    final aliceMessagePostFinal = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        "I'm not done yet!",
+      ),
+    );
+
+    // And Bob decrypts it
+    final bobResultPostFinal = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceMessagePostFinal.encryptedKeys[bobJid]!,
+        base64Encode(aliceMessagePostFinal.ciphertext!),
+        false,
+      ),
+    );
+
+    expect(bobResultPostFinal.error, null);
+    expect(bobResultPostFinal.payload, "I'm not done yet!");
+    expect(aliceEmptyMessageSent, 0);
+    expect(bobEmptyMessageSent, 2);
   });
 
-  test('Test using OMEMO sessions with only one device per user', () async {
-    const aliceJid = 'alice@server.example';
-    const bobJid = 'bob@other.server.example';
-    // Alice and Bob generate their sessions
-    var deviceModified = false;
-    var ratchetModified = 0;
-    var deviceMapModified = 0;
-    final aliceSession = await OmemoSessionManager.generateNewIdentity(
-      aliceJid,
+  test('Test accessing data without it existing', () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+
+    final aliceManager = OmemoManager(
+      aliceDevice,
       AlwaysTrustingTrustManager(),
-      opkAmount: 1,
+      (result, recipientJid) async {},
+      (jid) async => [],
+      (jid, id) async => null,
+      (jid) async {},
+      (_) async {},
     );
-    final bobSession = await OmemoSessionManager.generateNewIdentity(
-      bobJid,
-      AlwaysTrustingTrustManager(),
-      opkAmount: 1,
-    );
-    final bobOpks = (await bobSession.getDevice()).opks.values.toList();
-    bobSession.eventStream.listen((event) {
-      if (event is DeviceModifiedEvent) {
-        deviceModified = true;
-      } else if (event is RatchetModifiedEvent) {
-        ratchetModified++;
-      } else if (event is DeviceListModifiedEvent) {
-        deviceMapModified++;
-      }
-    });
 
-    // Alice encrypts a message for Bob
-    const messagePlaintext = 'Hello Bob!';
-    final aliceMessage = await aliceSession.encryptToJid(
-      bobJid,
-      messagePlaintext,
-      newSessions: [
-        await bobSession.getDeviceBundle(),
-      ],
-    );
-    expect(aliceMessage.encryptedKeys.length, 1);
-
-    // Alice sends the message to Bob
-    // ...
-
-    // Bob decrypts it
-    final bobMessage = await bobSession.decryptMessage(
-      aliceMessage.ciphertext,
-      aliceJid,
-      await aliceSession.getDeviceId(),
-      aliceMessage.encryptedKeys,
-      0,
-    );
-    expect(messagePlaintext, bobMessage);
-    // The ratchet should be modified two times: Once for when the ratchet is created and
-    // other time for when the message is decrypted
-    expect(ratchetModified, 2);
-    // Bob's device map should be modified once
-    expect(deviceMapModified, 1);
-    // The event should be triggered
-    expect(deviceModified, true);
-    // Bob should have replaced his OPK
+    // Get non-existant fingerprints
     expect(
-      listsEqual(bobOpks, (await bobSession.getDevice()).opks.values.toList()),
-      false,
-    );
-
-    // Ratchets are acked
-    await aliceSession.ratchetAcknowledged(
-        bobJid, await bobSession.getDeviceId());
-    await bobSession.ratchetAcknowledged(
-        aliceJid, await aliceSession.getDeviceId());
-
-    // Bob responds to Alice
-    const bobResponseText = 'Oh, hello Alice!';
-    final bobResponseMessage = await bobSession.encryptToJid(
-      aliceJid,
-      bobResponseText,
-    );
-
-    // Bob sends the message to Alice
-    // ...
-
-    // Alice decrypts it
-    final aliceReceivedMessage = await aliceSession.decryptMessage(
-      bobResponseMessage.ciphertext,
-      bobJid,
-      await bobSession.getDeviceId(),
-      bobResponseMessage.encryptedKeys,
-      0,
-    );
-    expect(bobResponseText, aliceReceivedMessage);
-  });
-
-  test('Test using OMEMO sessions with only two devices for the receiver',
-      () async {
-    const aliceJid = 'alice@server.example';
-    const bobJid = 'bob@other.server.example';
-
-    // Alice and Bob generate their sessions
-    final aliceSession = await OmemoSessionManager.generateNewIdentity(
-      aliceJid,
-      AlwaysTrustingTrustManager(),
-      opkAmount: 1,
-    );
-    final bobSession = await OmemoSessionManager.generateNewIdentity(
-      bobJid,
-      AlwaysTrustingTrustManager(),
-      opkAmount: 1,
-    );
-    // Bob's other device
-    final bobSession2 = await OmemoSessionManager.generateNewIdentity(
-      bobJid,
-      AlwaysTrustingTrustManager(),
-      opkAmount: 1,
-    );
-
-    // Alice encrypts a message for Bob
-    const messagePlaintext = 'Hello Bob!';
-    final aliceMessage = await aliceSession.encryptToJid(
-      bobJid,
-      messagePlaintext,
-      newSessions: [
-        await bobSession.getDeviceBundle(),
-        await bobSession2.getDeviceBundle(),
-      ],
-    );
-    expect(aliceMessage.encryptedKeys.length, 2);
-    expect(aliceMessage.encryptedKeys[0].kex, true);
-    expect(aliceMessage.encryptedKeys[1].kex, true);
-
-    // Alice sends the message to Bob
-    // ...
-
-    // Bob decrypts it
-    final bobMessage = await bobSession.decryptMessage(
-      aliceMessage.ciphertext,
-      aliceJid,
-      await aliceSession.getDeviceId(),
-      aliceMessage.encryptedKeys,
-      0,
-    );
-    expect(messagePlaintext, bobMessage);
-
-    // Ratchets are acked
-    await aliceSession.ratchetAcknowledged(
-        bobJid, await bobSession.getDeviceId());
-    await bobSession.ratchetAcknowledged(
-        aliceJid, await aliceSession.getDeviceId());
-
-    // Bob responds to Alice
-    const bobResponseText = 'Oh, hello Alice!';
-    final bobResponseMessage = await bobSession.encryptToJid(
-      aliceJid,
-      bobResponseText,
-    );
-
-    // Bob sends the message to Alice
-    // ...
-
-    // Alice decrypts it
-    final aliceReceivedMessage = await aliceSession.decryptMessage(
-      bobResponseMessage.ciphertext,
-      bobJid,
-      await bobSession.getDeviceId(),
-      bobResponseMessage.encryptedKeys,
-      0,
-    );
-    expect(bobResponseText, aliceReceivedMessage);
-
-    // Alice checks the fingerprints
-    final fingerprints = await aliceSession.getHexFingerprintsForJid(bobJid);
-    // Check that they the fingerprints are correct
-    expect(fingerprints.length, 2);
-    expect(fingerprints[0] != fingerprints[1], true);
-    // Check that those two calls do not throw an exception
-    aliceSession
-      ..getRatchet(bobJid, fingerprints[0].deviceId)
-      ..getRatchet(bobJid, fingerprints[1].deviceId);
-  });
-
-  test('Test using OMEMO sessions with encrypt to self', () async {
-    const aliceJid = 'alice@server.example';
-    const bobJid = 'bob@other.server.example';
-
-    // Alice and Bob generate their sessions
-    final aliceSession1 = await OmemoSessionManager.generateNewIdentity(
-      aliceJid,
-      AlwaysTrustingTrustManager(),
-      opkAmount: 1,
-    );
-    final aliceSession2 = await OmemoSessionManager.generateNewIdentity(
-      aliceJid,
-      AlwaysTrustingTrustManager(),
-      opkAmount: 1,
-    );
-    final bobSession = await OmemoSessionManager.generateNewIdentity(
-      bobJid,
-      AlwaysTrustingTrustManager(),
-      opkAmount: 1,
-    );
-
-    // Alice encrypts a message for Bob
-    const messagePlaintext = 'Hello Bob!';
-    final aliceMessage = await aliceSession1.encryptToJids(
-      [bobJid, aliceJid],
-      messagePlaintext,
-      newSessions: [
-        await bobSession.getDeviceBundle(),
-        await aliceSession2.getDeviceBundle(),
-      ],
-    );
-    expect(aliceMessage.encryptedKeys.length, 2);
-
-    // Alice sends the message to Bob
-    // ...
-
-    // Bob decrypts it
-    final bobMessage = await bobSession.decryptMessage(
-      aliceMessage.ciphertext,
-      aliceJid,
-      await aliceSession1.getDeviceId(),
-      aliceMessage.encryptedKeys,
-      0,
-    );
-    expect(messagePlaintext, bobMessage);
-
-    // Alice's other device decrypts it
-    final aliceMessage2 = await aliceSession2.decryptMessage(
-      aliceMessage.ciphertext,
-      aliceJid,
-      await aliceSession1.getDeviceId(),
-      aliceMessage.encryptedKeys,
-      0,
-    );
-    expect(messagePlaintext, aliceMessage2);
-  });
-
-  test('Test sending empty OMEMO messages', () async {
-    const aliceJid = 'alice@server.example';
-    const bobJid = 'bob@other.server.example';
-
-    // Alice and Bob generate their sessions
-    final aliceSession = await OmemoSessionManager.generateNewIdentity(
-      aliceJid,
-      AlwaysTrustingTrustManager(),
-      opkAmount: 1,
-    );
-    final bobSession = await OmemoSessionManager.generateNewIdentity(
-      bobJid,
-      AlwaysTrustingTrustManager(),
-      opkAmount: 1,
-    );
-
-    // Alice encrypts a message for Bob
-    final aliceMessage = await aliceSession.encryptToJid(
-      bobJid,
+      await aliceManager.getFingerprintsForJid(bobJid),
       null,
-      newSessions: [
-        await bobSession.getDeviceBundle(),
-      ],
     );
-    expect(aliceMessage.encryptedKeys.length, 1);
-    expect(aliceMessage.ciphertext, null);
 
-    // Alice sends the message to Bob
-    // ...
+    // Ack a non-existant ratchet
+    await aliceManager.ratchetAcknowledged(
+      bobJid,
+      42,
+    );
+  });
+
+  test('Test receiving a message encrypted for another device', () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+    var oldDevice = true;
+
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobOldDevice =
+        await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+    final bobCurrentDevice =
+        await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+
+    final aliceManager = OmemoManager(
+      aliceDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, bobJid);
+
+        return oldDevice ? [bobOldDevice.id] : [bobCurrentDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+        return oldDevice
+            ? bobOldDevice.toBundle()
+            : bobCurrentDevice.toBundle();
+      },
+      (jid) async {},
+      (_) async {},
+    );
+    final bobManager = OmemoManager(
+      bobCurrentDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async => [],
+      (jid, id) async => null,
+      (jid) async {},
+      (_) async {},
+    );
+
+    // Alice encrypts a message to Bob
+    final aliceResult1 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello Bob',
+      ),
+    );
+
+    // Bob's current device receives it
+    final bobResult1 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult1.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult1.ciphertext!),
+        false,
+      ),
+    );
+
+    expect(bobResult1.payload, null);
+    expect(bobResult1.error, const TypeMatcher<NotEncryptedForDeviceError>());
+
+    // Now Alice's client loses and regains the connection
+    await aliceManager.onNewConnection();
+    oldDevice = false;
+
+    // And Alice sends a new message
+    final aliceResult2 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello Bob x2',
+      ),
+    );
+    final bobResult2 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult2.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult2.ciphertext!),
+        false,
+      ),
+    );
+
+    expect(aliceResult2.encryptedKeys.length, 1);
+    expect(bobResult2.error, null);
+    expect(bobResult2.payload, 'Hello Bob x2');
+  });
+
+  test('Test receiving a response from a new device', () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+    var bothDevices = false;
+
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice1 =
+        await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+    final bobDevice2 =
+        await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+
+    final aliceManager = OmemoManager(
+      aliceDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, bobJid);
+
+        return [
+          bobDevice1.id,
+          if (bothDevices) bobDevice2.id,
+        ];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+
+        if (bothDevices) {
+          if (id == bobDevice1.id) {
+            return bobDevice1.toBundle();
+          } else if (id == bobDevice2.id) {
+            return bobDevice2.toBundle();
+          }
+        } else {
+          if (id == bobDevice1.id) return bobDevice1.toBundle();
+        }
+
+        return null;
+      },
+      (jid) async {},
+      (_) async {},
+    );
+    final bobManager1 = OmemoManager(
+      bobDevice1,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async => [],
+      (jid, id) async => null,
+      (jid) async {},
+      (_) async {},
+    );
+    final bobManager2 = OmemoManager(
+      bobDevice2,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, aliceJid);
+        return [aliceDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, aliceJid);
+        return aliceDevice.toBundle();
+      },
+      (jid) async {},
+      (_) async {},
+    );
+
+    // Alice sends a message to Bob
+    final aliceResult1 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello Bob!',
+      ),
+    );
 
     // Bob decrypts it
-    final bobMessage = await bobSession.decryptMessage(
-      aliceMessage.ciphertext,
-      aliceJid,
-      await aliceSession.getDeviceId(),
-      aliceMessage.encryptedKeys,
-      0,
+    final bobResult1 = await bobManager1.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult1.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult1.ciphertext!),
+        false,
+      ),
     );
-    expect(bobMessage, null);
 
-    // This call must not cause an exception
-    bobSession.getRatchet(aliceJid, await aliceSession.getDeviceId());
+    expect(aliceResult1.encryptedKeys.length, 1);
+    expect(bobResult1.payload, 'Hello Bob!');
+
+    // Now Bob encrypts from his new device
+    bothDevices = true;
+    final bobResult2 = await bobManager2.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [aliceJid],
+        'Hello from my new device',
+      ),
+    );
+
+    // And Alice decrypts it
+    final aliceResult2 = await aliceManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        bobJid,
+        bobDevice2.id,
+        bobResult2.encryptedKeys[aliceJid]!,
+        base64.encode(bobResult2.ciphertext!),
+        false,
+      ),
+    );
+
+    expect(aliceResult2.payload, 'Hello from my new device');
   });
 
-  test('Test rotating the Signed Prekey', () async {
-    // Generate the session
-    const aliceJid = 'alice@some.server';
-    final aliceSession = await OmemoSessionManager.generateNewIdentity(
-      aliceJid,
+  test('Test receiving a device list update', () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+    var bothDevices = false;
+
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice1 =
+        await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+    final bobDevice2 =
+        await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+
+    final aliceManager = OmemoManager(
+      aliceDevice,
       AlwaysTrustingTrustManager(),
-      opkAmount: 1,
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, bobJid);
+
+        return [
+          bobDevice1.id,
+          if (bothDevices) bobDevice2.id,
+        ];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+
+        if (bothDevices) {
+          if (id == bobDevice1.id) {
+            return bobDevice1.toBundle();
+          } else if (id == bobDevice2.id) {
+            return bobDevice2.toBundle();
+          }
+        } else {
+          if (id == bobDevice1.id) return bobDevice1.toBundle();
+        }
+
+        return null;
+      },
+      (jid) async {},
+      (_) async {},
+    );
+    final bobManager1 = OmemoManager(
+      bobDevice1,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async => null,
+      (jid, id) async => null,
+      (jid) async {},
+      (_) async {},
+    );
+    final bobManager2 = OmemoManager(
+      bobDevice2,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async => null,
+      (jid, id) async => null,
+      (jid) async {},
+      (_) async {},
     );
 
-    // Setup an event listener
-    final oldDevice = await aliceSession.getDevice();
-    OmemoDevice? newDevice;
-    aliceSession.eventStream.listen((event) {
-      if (event is DeviceModifiedEvent) {
-        newDevice = event.device;
-      }
-    });
-
-    // Rotate the Signed Prekey
-    await aliceSession.rotateSignedPrekey();
-
-    // Just for safety...
-    await Future<void>.delayed(const Duration(seconds: 2));
-
-    expect(await oldDevice.equals(newDevice!), false);
-    expect(await newDevice!.equals(await aliceSession.getDevice()), true);
-
-    expect(await newDevice!.oldSpk!.equals(oldDevice.spk), true);
-    expect(newDevice!.oldSpkId, oldDevice.spkId);
-  });
-
-  test('Test accepting a session with an old SPK', () async {
-    const aliceJid = 'alice@server.example';
-    const bobJid = 'bob@other.server.example';
-
-    // Alice and Bob generate their sessions
-    final aliceSession = await OmemoSessionManager.generateNewIdentity(
-      aliceJid,
-      AlwaysTrustingTrustManager(),
-      opkAmount: 1,
+    // Alice sends a message to Bob
+    final aliceResult1 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello Bob!',
+      ),
     );
-    final bobSession = await OmemoSessionManager.generateNewIdentity(
+
+    // Bob decrypts it
+    final bobResult1 = await bobManager1.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult1.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult1.ciphertext!),
+        false,
+      ),
+    );
+
+    expect(aliceResult1.encryptedKeys.length, 1);
+    expect(bobResult1.payload, 'Hello Bob!');
+
+    // Bob acks the ratchet session
+    await aliceManager.ratchetAcknowledged(bobJid, bobDevice1.id);
+
+    // Bob now publishes a new device
+    bothDevices = true;
+    await aliceManager.onDeviceListUpdate(
       bobJid,
+      [
+        bobDevice1.id,
+        bobDevice2.id,
+      ],
+    );
+
+    // Now Alice encrypts another message
+    final aliceResult2 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello Bob! x2',
+      ),
+    );
+
+    expect(aliceResult2.encryptedKeys[bobJid]!.length, 2);
+
+    // And Bob decrypts it
+    final bobResult21 = await bobManager1.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult2.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult2.ciphertext!),
+        false,
+      ),
+    );
+    final bobResult22 = await bobManager2.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult2.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult2.ciphertext!),
+        false,
+      ),
+    );
+
+    expect(bobResult21.payload, 'Hello Bob! x2');
+    expect(bobResult22.payload, 'Hello Bob! x2');
+
+    // Bob2 now responds
+    final bobResult32 = await bobManager2.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [aliceJid],
+        'Hello Alice!',
+      ),
+    );
+
+    // And Alice responds
+    final aliceResult3 = await aliceManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        bobJid,
+        bobDevice2.id,
+        bobResult32.encryptedKeys[aliceJid]!,
+        base64.encode(bobResult32.ciphertext!),
+        false,
+      ),
+    );
+
+    expect(aliceResult3.payload, 'Hello Alice!');
+  });
+
+  test('Test sending a message to two different JIDs', () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+    const cocoJid = 'coco@server3';
+
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+    final cocoDevice =
+        await OmemoDevice.generateNewDevice(cocoJid, opkAmount: 1);
+
+    final aliceManager = OmemoManager(
+      aliceDevice,
       AlwaysTrustingTrustManager(),
-      opkAmount: 1,
+      (result, recipientJid) async {},
+      (jid) async {
+        if (jid == bobJid) {
+          return [bobDevice.id];
+        } else if (jid == cocoJid) {
+          return [cocoDevice.id];
+        }
+
+        return null;
+      },
+      (jid, id) async {
+        if (jid == bobJid) {
+          return bobDevice.toBundle();
+        } else if (jid == cocoJid) {
+          return cocoDevice.toBundle();
+        }
+
+        return null;
+      },
+      (jid) async {},
+      (_) async {},
+    );
+    final bobManager = OmemoManager(
+      bobDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async => null,
+      (jid, id) async => null,
+      (jid) async {},
+      (_) async {},
+    );
+    final cocoManager = OmemoManager(
+      cocoDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async => null,
+      (jid, id) async => null,
+      (jid) async {},
+      (_) async {},
+    );
+
+    // Alice sends a message to Bob and Coco
+    final aliceResult = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid, cocoJid],
+        'Hello Bob and Coco!',
+      ),
+    );
+
+    // Bob and Coco decrypt them
+    final bobResult = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult.ciphertext!),
+        false,
+      ),
+    );
+    final cocoResult = await cocoManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult.encryptedKeys[cocoJid]!,
+        base64.encode(aliceResult.ciphertext!),
+        false,
+      ),
+    );
+
+    expect(bobResult.error, null);
+    expect(cocoResult.error, null);
+    expect(bobResult.payload, 'Hello Bob and Coco!');
+    expect(cocoResult.payload, 'Hello Bob and Coco!');
+  });
+
+  test('Test a fetch failure', () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+    var failure = false;
+
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+
+    final aliceManager = OmemoManager(
+      aliceDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, bobJid);
+
+        return failure ? null : [bobDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+
+        return failure ? null : bobDevice.toBundle();
+      },
+      (jid) async {},
+      (_) async {},
+    );
+    final bobManager = OmemoManager(
+      bobDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async => null,
+      (jid, id) async => null,
+      (jid) async {},
+      (_) async {},
+    );
+
+    // Alice sends a message to Bob and Coco
+    final aliceResult1 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello Bob!',
+      ),
+    );
+
+    // Bob decrypts it
+    final bobResult1 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult1.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult1.ciphertext!),
+        false,
+      ),
+    );
+
+    expect(bobResult1.error, null);
+    expect(bobResult1.payload, 'Hello Bob!');
+
+    // Bob acks the message
+    await aliceManager.ratchetAcknowledged(
+      bobJid,
+      bobDevice.id,
+    );
+
+    // Alice has to reconnect but has no connection yet
+    failure = true;
+    await aliceManager.onNewConnection();
+
+    // Alice sends another message to Bob
+    final aliceResult2 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello Bob! x2',
+      ),
+    );
+
+    // And Bob decrypts it
+    final bobResult2 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult2.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult2.ciphertext!),
+        false,
+      ),
+    );
+
+    expect(bobResult2.error, null);
+    expect(bobResult2.payload, 'Hello Bob! x2');
+  });
+
+  test('Test sending a message with failed lookups', () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+
+    final aliceManager = OmemoManager(
+      aliceDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, bobJid);
+
+        return null;
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+
+        return null;
+      },
+      (jid) async {},
+      (_) async {},
+    );
+
+    // Alice sends a message to Bob
+    final aliceResult = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello Bob!',
+      ),
+    );
+
+    expect(aliceResult.canSend, isFalse);
+    expect(aliceResult.deviceEncryptionErrors[bobJid]!.length, 1);
+    final error = aliceResult.deviceEncryptionErrors[bobJid]!.first;
+    expect(error.error, const TypeMatcher<NoKeyMaterialAvailableError>());
+  });
+
+  test('Test sending a message two two JIDs with failed lookups', () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+    const cocoJid = 'coco@server3';
+
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+
+    final aliceManager = OmemoManager(
+      aliceDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        if (jid == bobJid) {
+          return [bobDevice.id];
+        }
+
+        return null;
+      },
+      (jid, id) async {
+        if (jid == bobJid) {
+          return bobDevice.toBundle();
+        }
+
+        return null;
+      },
+      (jid) async {},
+      (_) async {},
+    );
+    final bobManager = OmemoManager(
+      bobDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async => null,
+      (jid, id) async => null,
+      (jid) async {},
+      (_) async {},
+    );
+
+    // Alice sends a message to Bob and Coco
+    final aliceResult = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid, cocoJid],
+        'Hello Bob and Coco!',
+      ),
+    );
+
+    expect(aliceResult.canSend, isFalse);
+    expect(aliceResult.deviceEncryptionErrors[cocoJid]!.length, 1);
+    expect(
+      aliceResult.deviceEncryptionErrors[cocoJid]!.first.error,
+      const TypeMatcher<NoKeyMaterialAvailableError>(),
+    );
+
+    // Bob decrypts it
+    final bobResult = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult.ciphertext!),
+        false,
+      ),
+    );
+
+    expect(bobResult.payload, 'Hello Bob and Coco!');
+  });
+
+  test('Test sending multiple messages back and forth', () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+
+    final aliceManager = OmemoManager(
+      aliceDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, bobJid);
+
+        return [bobDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+
+        return bobDevice.toBundle();
+      },
+      (jid) async {},
+      (_) async {},
+    );
+    final bobManager = OmemoManager(
+      bobDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async => null,
+      (jid, id) async => null,
+      (jid) async {},
+      (_) async {},
     );
 
     // Alice encrypts a message for Bob
-    const messagePlaintext = 'Hello Bob!';
-    final aliceMessage = await aliceSession.encryptToJid(
-      bobJid,
-      messagePlaintext,
-      newSessions: [
-        await bobSession.getDeviceBundle(),
-      ],
-    );
-    expect(aliceMessage.encryptedKeys.length, 1);
-
-    // Alice loses her Internet connection. Bob rotates his SPK.
-    await bobSession.rotateSignedPrekey();
-
-    // Alice regains her Internet connection and sends the message to Bob
-    // ...
-
-    // Bob decrypts it
-    final bobMessage = await bobSession.decryptMessage(
-      aliceMessage.ciphertext,
-      aliceJid,
-      await aliceSession.getDeviceId(),
-      aliceMessage.encryptedKeys,
-      0,
-    );
-    expect(messagePlaintext, bobMessage);
-  });
-
-  test('Test trust bypassing with empty OMEMO messages', () async {
-    const aliceJid = 'alice@server.example';
-    const bobJid = 'bob@other.server.example';
-
-    // Alice and Bob generate their sessions
-    final aliceSession = await OmemoSessionManager.generateNewIdentity(
-      aliceJid,
-      NeverTrustingTrustManager(),
-      opkAmount: 1,
-    );
-    final bobSession = await OmemoSessionManager.generateNewIdentity(
-      bobJid,
-      NeverTrustingTrustManager(),
-      opkAmount: 1,
+    final aliceMessage = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello Bob!',
+      ),
     );
 
-    // Alice encrypts an empty message for Bob
-    final aliceMessage = await aliceSession.encryptToJid(
-      bobJid,
-      null,
-      newSessions: [
-        await bobSession.getDeviceBundle(),
-      ],
-    );
-
-    // Despite Alice not trusting Bob's device, we should have encrypted it for his
-    // untrusted device.
-    expect(aliceMessage.encryptedKeys.length, 1);
-  });
-
-  test('Test by sending multiple messages back and forth', () async {
-    const aliceJid = 'alice@server.example';
-    const bobJid = 'bob@other.server.example';
-    // Alice and Bob generate their sessions
-    final aliceSession = await OmemoSessionManager.generateNewIdentity(
-      aliceJid,
-      AlwaysTrustingTrustManager(),
-      opkAmount: 1,
-    );
-    final bobSession = await OmemoSessionManager.generateNewIdentity(
-      bobJid,
-      AlwaysTrustingTrustManager(),
-      opkAmount: 1,
-    );
-
-    // Alice encrypts a message for Bob
-    final aliceMessage = await aliceSession.encryptToJid(
-      bobJid,
-      'Hello Bob!',
-      newSessions: [
-        await bobSession.getDeviceBundle(),
-      ],
-    );
-
-    // Alice sends the message to Bob
-    // ...
-
-    await bobSession.decryptMessage(
-      aliceMessage.ciphertext,
-      aliceJid,
-      await aliceSession.getDeviceId(),
-      aliceMessage.encryptedKeys,
-      0,
+    // And Bob decrypts it
+    await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceMessage.encryptedKeys[bobJid]!,
+        base64.encode(aliceMessage.ciphertext!),
+        false,
+      ),
     );
 
     // Ratchets are acked
-    await aliceSession.ratchetAcknowledged(
-        bobJid, await bobSession.getDeviceId());
-    await bobSession.ratchetAcknowledged(
-        aliceJid, await aliceSession.getDeviceId());
+    await aliceManager.ratchetAcknowledged(
+      bobJid,
+      bobDevice.id,
+    );
 
     for (var i = 0; i < 100; i++) {
       final messageText = 'Test Message #$i';
       // Bob responds to Alice
-      final bobResponseMessage = await bobSession.encryptToJid(
-        aliceJid,
-        messageText,
+      final bobResponseMessage = await bobManager.onOutgoingStanza(
+        OmemoOutgoingStanza(
+          [aliceJid],
+          messageText,
+        ),
       );
+      expect(bobResponseMessage.canSend, isTrue);
 
-      // Bob sends the message to Alice
-      // ...
-
-      // Alice decrypts it
-      final aliceReceivedMessage = await aliceSession.decryptMessage(
-        bobResponseMessage.ciphertext,
-        bobJid,
-        await bobSession.getDeviceId(),
-        bobResponseMessage.encryptedKeys,
-        0,
+      final aliceReceivedMessage = await aliceManager.onIncomingStanza(
+        OmemoIncomingStanza(
+          bobJid,
+          bobDevice.id,
+          bobResponseMessage.encryptedKeys[aliceJid]!,
+          base64.encode(bobResponseMessage.ciphertext!),
+          false,
+        ),
       );
-      expect(messageText, aliceReceivedMessage);
+      expect(aliceReceivedMessage.payload, messageText);
     }
   });
 
-  group('Test removing a ratchet', () {
-    test('Test removing a ratchet when the user has multiple', () async {
-      const aliceJid = 'alice@server.local';
-      const bobJid = 'bob@some.server.local';
-      final aliceSession = await OmemoSessionManager.generateNewIdentity(
+  test('Test removing all ratchets and sending a message', () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+
+    EncryptionResult? aliceEmptyMessage;
+    final aliceManager = OmemoManager(
+      aliceDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {
+        aliceEmptyMessage = result;
+      },
+      (jid) async {
+        expect(jid, bobJid);
+
+        return [bobDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+
+        return bobDevice.toBundle();
+      },
+      (jid) async {},
+      (_) async {},
+    );
+    final bobManager = OmemoManager(
+      bobDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async => null,
+      (jid, id) async => null,
+      (jid) async {},
+      (_) async {},
+    );
+
+    // Alice encrypts a message for Bob
+    final aliceResult1 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello Bob!',
+      ),
+    );
+
+    // And Bob decrypts it
+    await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
         aliceJid,
-        AlwaysTrustingTrustManager(),
-        opkAmount: 1,
-      );
-      final bobSession1 = await OmemoSessionManager.generateNewIdentity(
-        bobJid,
-        AlwaysTrustingTrustManager(),
-        opkAmount: 1,
-      );
-      final bobSession2 = await OmemoSessionManager.generateNewIdentity(
-        bobJid,
-        AlwaysTrustingTrustManager(),
-        opkAmount: 1,
-      );
+        aliceDevice.id,
+        aliceResult1.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult1.ciphertext!),
+        false,
+      ),
+    );
 
-      // Alice sends a message to those two Bobs
-      await aliceSession.encryptToJid(
-        bobJid,
-        'Hallo Welt',
-        newSessions: [
-          await bobSession1.getDeviceBundle(),
-          await bobSession2.getDeviceBundle(),
-        ],
-      );
+    // Ratchets are acked
+    await aliceManager.ratchetAcknowledged(
+      bobJid,
+      bobDevice.id,
+    );
 
-      // One of those two sessions is broken, so Alice removes the session2 ratchet
-      final id1 = await bobSession1.getDeviceId();
-      final id2 = await bobSession2.getDeviceId();
-      await aliceSession.removeRatchet(bobJid, id1);
+    // Alice now removes all ratchets for Bob and sends another new message
+    await aliceManager.removeAllRatchets(bobJid);
 
-      final map = aliceSession.getRatchetMap();
-      expect(map.containsKey(RatchetMapKey(bobJid, id1)), false);
-      expect(map.containsKey(RatchetMapKey(bobJid, id2)), true);
-      final deviceMap = await aliceSession.getDeviceMap();
-      expect(deviceMap.containsKey(bobJid), true);
-      expect(deviceMap[bobJid], [id2]);
-    });
+    expect(aliceManager.getRatchet(RatchetMapKey(bobJid, bobDevice.id)), null);
 
-    test('Test removing a ratchet when the user has only one', () async {
-      const aliceJid = 'alice@server.local';
-      const bobJid = 'bob@some.server.local';
-      final aliceSession = await OmemoSessionManager.generateNewIdentity(
+    // Alice prepares an empty OMEMO message
+    await aliceManager.sendOmemoHeartbeat(bobJid);
+
+    // And Bob receives it
+    final bobResult2 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
         aliceJid,
-        AlwaysTrustingTrustManager(),
-        opkAmount: 1,
-      );
-      final bobSession = await OmemoSessionManager.generateNewIdentity(
+        await aliceManager.getDeviceId(),
+        aliceEmptyMessage!.encryptedKeys[bobJid]!,
+        null,
+        false,
+      ),
+    );
+    expect(bobResult2.error, null);
+
+    // Bob acks the new ratchet
+    await aliceManager.ratchetAcknowledged(
+      bobJid,
+      await bobManager.getDeviceId(),
+    );
+
+    // Alice sends another message
+    final aliceResult3 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'I did not trust your last device, Bob!',
+      ),
+    );
+
+    // Bob decrypts it
+    final bobResult3 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult3.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult3.ciphertext!),
+        false,
+      ),
+    );
+
+    expect(bobResult3.error, null);
+    expect(bobResult3.payload, 'I did not trust your last device, Bob!');
+
+    // Bob responds
+    final bobResult4 = await bobManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [aliceJid],
+        "That's okay.",
+      ),
+    );
+
+    // Alice decrypts
+    final aliceResult4 = await aliceManager.onIncomingStanza(
+      OmemoIncomingStanza(
         bobJid,
-        AlwaysTrustingTrustManager(),
-        opkAmount: 1,
-      );
+        bobDevice.id,
+        bobResult4.encryptedKeys[aliceJid]!,
+        base64.encode(bobResult4.ciphertext!),
+        false,
+      ),
+    );
 
-      // Alice sends a message to those two Bobs
-      await aliceSession.encryptToJid(
-        bobJid,
-        'Hallo Welt',
-        newSessions: [
-          await bobSession.getDeviceBundle(),
-        ],
-      );
-
-      // One of those two sessions is broken, so Alice removes the session2 ratchet
-      final id = await bobSession.getDeviceId();
-      await aliceSession.removeRatchet(bobJid, id);
-
-      final map = aliceSession.getRatchetMap();
-      expect(map.containsKey(RatchetMapKey(bobJid, id)), false);
-      final deviceMap = await aliceSession.getDeviceMap();
-      expect(deviceMap.containsKey(bobJid), false);
-    });
+    expect(aliceResult4.error, null);
+    expect(aliceResult4.payload, "That's okay.");
   });
 
-  test('Test acknowledging a ratchet', () async {
-    const aliceJid = 'alice@server.example';
-    const bobJid = 'bob@other.server.example';
-    // Alice and Bob generate their sessions
-    final aliceSession = await OmemoSessionManager.generateNewIdentity(
-      aliceJid,
+  test(
+      'Test removing all ratchets and sending a message without post-heartbeat ack',
+      () async {
+    // This test is the same as "Test removing all ratchets and sending a message" except
+    // that Bob does not ack the ratchet after Alice's heartbeat after she recreated
+    // all ratchets.
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+
+    EncryptionResult? aliceEmptyMessage;
+    final aliceManager = OmemoManager(
+      aliceDevice,
       AlwaysTrustingTrustManager(),
-      opkAmount: 1,
+      (result, recipientJid) async {
+        aliceEmptyMessage = result;
+      },
+      (jid) async {
+        expect(jid, bobJid);
+
+        return [bobDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+
+        return bobDevice.toBundle();
+      },
+      (jid) async {},
+      (_) async {},
     );
-    final bobSession = await OmemoSessionManager.generateNewIdentity(
-      bobJid,
+    final bobManager = OmemoManager(
+      bobDevice,
       AlwaysTrustingTrustManager(),
-      opkAmount: 1,
+      (result, recipientJid) async {},
+      (jid) async => null,
+      (jid, id) async => null,
+      (jid) async {},
+      (_) async {},
     );
 
-    // Alice sends Bob a message
-    await aliceSession.encryptToJid(
-      bobJid,
-      'Hallo Welt',
-      newSessions: [
-        await bobSession.getDeviceBundle(),
-      ],
+    // Alice encrypts a message for Bob
+    final aliceResult1 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello Bob!',
+      ),
     );
+
+    // And Bob decrypts it
+    final bobResult1 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult1.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult1.ciphertext!),
+        false,
+      ),
+    );
+    expect(bobResult1.error, isNull);
+
+    // Ratchets are acked
+    await aliceManager.ratchetAcknowledged(
+      bobJid,
+      bobDevice.id,
+    );
+
+    // Alice now removes all ratchets for Bob and sends another new message
+    Logger.root.info('Removing all ratchets for $bobJid');
+    await aliceManager.removeAllRatchets(bobJid);
+
     expect(
-      await aliceSession.getUnacknowledgedRatchets(bobJid),
-      [
-        await bobSession.getDeviceId(),
-      ],
+      aliceManager.getRatchet(RatchetMapKey(bobJid, bobDevice.id)),
+      isNull,
     );
 
-    // Bob sends alice an empty message
-    // ...
+    // Alice prepares an empty OMEMO message
+    await aliceManager.sendOmemoHeartbeat(bobJid);
 
-    // Alice decrypts it
-    // ...
+    // And Bob receives it
+    final bobResult2 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        await aliceManager.getDeviceId(),
+        aliceEmptyMessage!.encryptedKeys[bobJid]!,
+        null,
+        false,
+      ),
+    );
+    expect(bobResult2.error, null);
 
-    // Alice marks the ratchet as acknowledged
-    await aliceSession.ratchetAcknowledged(
-        bobJid, await bobSession.getDeviceId());
-    expect(
-      (await aliceSession.getUnacknowledgedRatchets(bobJid))!.isEmpty,
-      true,
+    // Alice sends another message
+    Logger.root.info('Sending final message');
+    final aliceResult3 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'I did not trust your last device, Bob!',
+      ),
     );
-  });
+    expect(aliceResult3.encryptedKeys[bobJid]!.first.kex, isTrue);
 
-  test('Test overwriting sessions', () async {
-    const aliceJid = 'alice@server.example';
-    const bobJid = 'bob@other.server.example';
-    // Alice and Bob generate their sessions
-    final aliceSession = await OmemoSessionManager.generateNewIdentity(
-      aliceJid,
-      AlwaysTrustingTrustManager(),
-      opkAmount: 1,
-    );
-    final bobSession = await OmemoSessionManager.generateNewIdentity(
-      bobJid,
-      AlwaysTrustingTrustManager(),
-      opkAmount: 2,
-    );
-
-    // Alice sends Bob a message
-    final msg1 = await aliceSession.encryptToJid(
-      bobJid,
-      'Hallo Welt',
-      newSessions: [
-        await bobSession.getDeviceBundle(),
-      ],
-    );
-    await bobSession.decryptMessage(
-      msg1.ciphertext,
-      aliceJid,
-      await aliceSession.getDeviceId(),
-      msg1.encryptedKeys,
-      0,
-    );
-    final aliceRatchet1 = aliceSession.getRatchet(
-      bobJid,
-      await bobSession.getDeviceId(),
-    );
-    final bobRatchet1 = bobSession.getRatchet(
-      aliceJid,
-      await aliceSession.getDeviceId(),
+    // Bob decrypts it
+    final bobResult3 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult3.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult3.ciphertext!),
+        false,
+      ),
     );
 
-    // Alice is impatient and immediately sends another message before the original one
-    // can be acknowledged by Bob
-    final msg2 = await aliceSession.encryptToJid(
-      bobJid,
-      "Why don't you answer?",
-      newSessions: [
-        await bobSession.getDeviceBundle(),
-      ],
-    );
-    await bobSession.decryptMessage(
-      msg2.ciphertext,
-      aliceJid,
-      await aliceSession.getDeviceId(),
-      msg2.encryptedKeys,
-      getTimestamp(),
-    );
-    final aliceRatchet2 = aliceSession.getRatchet(
-      bobJid,
-      await bobSession.getDeviceId(),
-    );
-    final bobRatchet2 = bobSession.getRatchet(
-      aliceJid,
-      await aliceSession.getDeviceId(),
+    expect(bobResult3.error, null);
+    expect(bobResult3.payload, 'I did not trust your last device, Bob!');
+
+    // Bob responds
+    final bobResult4 = await bobManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [aliceJid],
+        "That's okay.",
+      ),
     );
 
-    // Both should only have one ratchet
-    expect(aliceSession.getRatchetMap().length, 1);
-    expect(bobSession.getRatchetMap().length, 1);
+    // Alice decrypts
+    final aliceResult4 = await aliceManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        bobJid,
+        bobDevice.id,
+        bobResult4.encryptedKeys[aliceJid]!,
+        base64.encode(bobResult4.ciphertext!),
+        false,
+      ),
+    );
 
-    // The ratchets should both be different
-    expect(await aliceRatchet1.equals(aliceRatchet2), false);
-    expect(await bobRatchet1.equals(bobRatchet2), false);
+    expect(aliceResult4.error, null);
+    expect(aliceResult4.payload, "That's okay.");
   });
 
   test('Test resending key exchanges', () async {
-    const aliceJid = 'alice@server.example';
-    const bobJid = 'bob@other.server.example';
-    // Alice and Bob generate their sessions
-    final aliceSession = await OmemoSessionManager.generateNewIdentity(
-      aliceJid,
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+
+    final aliceManager = OmemoManager(
+      aliceDevice,
       AlwaysTrustingTrustManager(),
-      opkAmount: 1,
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, bobJid);
+        return [bobDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+        return bobDevice.toBundle();
+      },
+      (jid) async {},
+      (_) async {},
     );
-    final bobSession = await OmemoSessionManager.generateNewIdentity(
-      bobJid,
+    final bobManager = OmemoManager(
+      bobDevice,
       AlwaysTrustingTrustManager(),
-      opkAmount: 2,
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, aliceJid);
+        return [aliceDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, aliceJid);
+        return aliceDevice.toBundle();
+      },
+      (jid) async {},
+      (_) async {},
     );
 
     // Alice sends Bob a message
-    final msg1 = await aliceSession.encryptToJid(
+    final aliceResult1 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello World!',
+      ),
+    );
+
+    // The first message must be a KEX message
+    expect(aliceResult1.encryptedKeys[bobJid]!.first.kex, isTrue);
+
+    // Bob decrypts Alice's message
+    final bobResult1 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult1.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult1.ciphertext!),
+        false,
+      ),
+    );
+    expect(bobResult1.error, null);
+    expect(bobResult1.payload, 'Hello World!');
+
+    // Alice immediately sends another message
+    final aliceResult2 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello Bob',
+      ),
+    );
+
+    // The response should contain a KEX
+    expect(aliceResult2.encryptedKeys[bobJid]!.first.kex, isTrue);
+
+    // The basic data should be the same
+    final parsedFirstKex = OMEMOKeyExchange.fromBuffer(
+      base64.decode(aliceResult1.encryptedKeys[bobJid]!.first.value),
+    );
+    final parsedSecondKex = OMEMOKeyExchange.fromBuffer(
+      base64.decode(aliceResult2.encryptedKeys[bobJid]!.first.value),
+    );
+    expect(parsedSecondKex.pkId, parsedFirstKex.pkId);
+    expect(parsedSecondKex.spkId, parsedFirstKex.spkId);
+    expect(parsedSecondKex.ik, parsedFirstKex.ik);
+    expect(parsedSecondKex.ek, parsedFirstKex.ek);
+
+    // Bob decrypts it
+    final bobResult2 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult2.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult2.ciphertext!),
+        false,
+      ),
+    );
+    expect(bobResult2.error, null);
+    expect(bobResult2.payload, 'Hello Bob');
+
+    // Bob also sends a message
+    final bobResult3 = await bobManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [aliceJid],
+        'Hello Alice!',
+      ),
+    );
+
+    // Alice decrypts it
+    final aliceResult3 = await aliceManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        bobJid,
+        bobDevice.id,
+        bobResult3.encryptedKeys[aliceJid]!,
+        base64.encode(bobResult3.ciphertext!),
+        false,
+      ),
+    );
+    expect(aliceResult3.error, null);
+    expect(aliceResult3.payload, 'Hello Alice!');
+
+    // Bob now acks the ratchet
+    await aliceManager.ratchetAcknowledged(
       bobJid,
-      'Hallo Welt',
-      newSessions: [
-        await bobSession.getDeviceBundle(),
-      ],
-    );
-    // The first message should be a kex message
-    expect(msg1.encryptedKeys.first.kex, true);
-
-    await bobSession.decryptMessage(
-      msg1.ciphertext,
-      aliceJid,
-      await aliceSession.getDeviceId(),
-      msg1.encryptedKeys,
-      0,
+      bobDevice.id,
     );
 
-    // Alice is impatient and immediately sends another message before the original one
-    // can be acknowledged by Bob
-    final msg2 = await aliceSession.encryptToJid(
-      bobJid,
-      "Why don't you answer?",
+    // Alice replies
+    final aliceResult4 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hi Bob',
+      ),
     );
-    expect(msg2.encryptedKeys.first.kex, true);
 
-    await bobSession.decryptMessage(
-      msg2.ciphertext,
-      aliceJid,
-      await aliceSession.getDeviceId(),
-      msg2.encryptedKeys,
-      getTimestamp(),
+    // The response should contain no KEX
+    expect(aliceResult4.encryptedKeys[bobJid]!.first.kex, isFalse);
+
+    // Bob decrypts it
+    final bobResult4 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult4.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult4.ciphertext!),
+        false,
+      ),
     );
+    expect(bobResult4.error, null);
+    expect(bobResult4.payload, 'Hi Bob');
   });
 
-  test('Test receiving old messages including a KEX', () async {
-    const aliceJid = 'alice@server.example';
-    const bobJid = 'bob@other.server.example';
-    // Alice and Bob generate their sessions
-    final aliceSession = await OmemoSessionManager.generateNewIdentity(
-      aliceJid,
-      AlwaysTrustingTrustManager(),
-      opkAmount: 1,
-    );
-    final bobSession = await OmemoSessionManager.generateNewIdentity(
-      bobJid,
-      AlwaysTrustingTrustManager(),
-      opkAmount: 2,
-    );
+  test('Test correct trust behaviour on receiving', () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
 
-    final bobsReceivedMessages = List<EncryptionResult>.empty(growable: true);
-    final bobsReceivedMessagesTimestamps = List<int>.empty(growable: true);
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+
+    final aliceManager = OmemoManager(
+      aliceDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, bobJid);
+        return [bobDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+        return bobDevice.toBundle();
+      },
+      (jid) async {},
+      (_) async {},
+    );
+    final bobManager = OmemoManager(
+      bobDevice,
+      TestingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, aliceJid);
+        return [aliceDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, aliceJid);
+        return aliceDevice.toBundle();
+      },
+      (jid) async {},
+      (_) async {},
+    );
 
     // Alice sends Bob a message
-    final msg1 = await aliceSession.encryptToJid(
-      bobJid,
-      'Hallo Welt',
-      newSessions: [
-        await bobSession.getDeviceBundle(),
-      ],
-    );
-    bobsReceivedMessages.add(msg1);
-    final t1 = getTimestamp();
-    bobsReceivedMessagesTimestamps.add(t1);
-
-    await bobSession.decryptMessage(
-      msg1.ciphertext,
-      aliceJid,
-      await aliceSession.getDeviceId(),
-      msg1.encryptedKeys,
-      t1,
+    final aliceResult1 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello World!',
+      ),
     );
 
-    // Ratchets are acked
-    await aliceSession.ratchetAcknowledged(
-        bobJid, await bobSession.getDeviceId());
-    await bobSession.ratchetAcknowledged(
-        aliceJid, await aliceSession.getDeviceId());
-
-    // Bob responds
-    final msg2 = await bobSession.encryptToJid(
-      aliceJid,
-      'Hello!',
-    );
-
-    await aliceSession.decryptMessage(
-      msg2.ciphertext,
-      bobJid,
-      await bobSession.getDeviceId(),
-      msg2.encryptedKeys,
-      getTimestamp(),
-    );
-
-    // Send some messages between the two
-    for (var i = 0; i < 100; i++) {
-      final msg = await aliceSession.encryptToJid(
-        bobJid,
-        'Hello $i',
-      );
-      bobsReceivedMessages.add(msg);
-      final t = getTimestamp();
-      bobsReceivedMessagesTimestamps.add(t);
-      final result = await bobSession.decryptMessage(
-        msg.ciphertext,
+    // Bob decrypts Alice's message
+    final bobResult1 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
         aliceJid,
-        await aliceSession.getDeviceId(),
-        msg.encryptedKeys,
-        t,
-      );
+        aliceDevice.id,
+        aliceResult1.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult1.ciphertext!),
+        false,
+      ),
+    );
+    expect(bobResult1.error, null);
 
-      expect(result, 'Hello $i');
-    }
-
-    // Due to some issue with the transport protocol, the messages to Bob are received
-    // again.
-    final ratchetPreError = bobSession
-        .getRatchet(aliceJid, await aliceSession.getDeviceId())
-        .clone();
-    var invalidKex = 0;
-    var errorCounter = 0;
-    for (var i = 0; i < bobsReceivedMessages.length; i++) {
-      final msg = bobsReceivedMessages[i];
-      try {
-        await bobSession.decryptMessage(
-          msg.ciphertext,
-          aliceJid,
-          await aliceSession.getDeviceId(),
-          msg.encryptedKeys,
-          bobsReceivedMessagesTimestamps[i],
+    // Bob should have some trust state
+    await bobManager.withTrustManager(
+      bobJid,
+      (tm) async {
+        expect(
+          (tm as TestingTrustManager).devices[aliceJid],
+          await aliceManager.getDeviceId(),
         );
-        expect(true, false);
-      } on InvalidMessageHMACException catch (_) {
-        errorCounter++;
-      } on InvalidKeyExchangeException catch (_) {
-        invalidKex++;
-      }
-    }
-    final ratchetPostError = bobSession
-        .getRatchet(aliceJid, await aliceSession.getDeviceId())
-        .clone();
-
-    // The 100 messages including the initial KEX message
-    expect(invalidKex, 1);
-    expect(errorCounter, 100);
-    expect(await ratchetPreError.equals(ratchetPostError), true);
-
-    final msg3 = await aliceSession.encryptToJid(
-      bobJid,
-      'Are you okay?',
+      },
     );
-    final result = await bobSession.decryptMessage(
-      msg3.ciphertext,
-      aliceJid,
-      await aliceSession.getDeviceId(),
-      msg3.encryptedKeys,
-      104,
-    );
-
-    expect(result, 'Are you okay?');
   });
 
-  test("Test ignoring a new KEX when we haven't acket it yet", () async {
-    const aliceJid = 'alice@server.example';
-    const bobJid = 'bob@other.server.example';
-    // Alice and Bob generate their sessions
-    final aliceSession = await OmemoSessionManager.generateNewIdentity(
-      aliceJid,
+  test('Test receiving a non-KEX from a new device', () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+
+    final aliceDevice1 =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final aliceDevice2 =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+
+    final aliceManager1 = OmemoManager(
+      aliceDevice1,
       AlwaysTrustingTrustManager(),
-      opkAmount: 1,
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, bobJid);
+        return [bobDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+        return bobDevice.toBundle();
+      },
+      (jid) async {},
+      (_) async {},
     );
-    final bobSession = await OmemoSessionManager.generateNewIdentity(
-      bobJid,
-      AlwaysTrustingTrustManager(),
-      opkAmount: 1,
+    final aliceManager2 = OmemoManager(
+      aliceDevice2,
+      TestingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, bobJid);
+        return [bobDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+        return bobDevice.toBundle();
+      },
+      (jid) async {},
+      (_) async {},
+    );
+
+    EncryptionResult? bobEmptyMessage;
+    var includeAlice2 = false;
+    final bobManager = OmemoManager(
+      bobDevice,
+      TestingTrustManager(),
+      (result, recipientJid) async {
+        bobEmptyMessage = result;
+      },
+      (jid) async {
+        expect(jid, aliceJid);
+        return [
+          aliceDevice1.id,
+          if (includeAlice2) aliceDevice2.id,
+        ];
+      },
+      (jid, id) async {
+        expect(jid, aliceJid);
+
+        if (id == aliceDevice1.id) {
+          return aliceDevice1.toBundle();
+        } else if (id == aliceDevice2.id) {
+          return aliceDevice2.toBundle();
+        }
+
+        return null;
+      },
+      (jid) async {},
+      (_) async {},
     );
 
     // Alice sends Bob a message
-    final msg1 = await aliceSession.encryptToJid(
-      bobJid,
-      'Hallo Welt',
-      newSessions: [
-        await bobSession.getDeviceBundle(),
-      ],
-    );
-    expect(msg1.encryptedKeys.first.kex, true);
-
-    await bobSession.decryptMessage(
-      msg1.ciphertext,
-      aliceJid,
-      await aliceSession.getDeviceId(),
-      msg1.encryptedKeys,
-      getTimestamp(),
+    final aliceResult1 = await aliceManager1.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello World!',
+      ),
     );
 
-    // Alice sends another message before the ack can reach us
-    final msg2 = await aliceSession.encryptToJid(
-      bobJid,
-      'ANSWER ME!',
-    );
-    expect(msg2.encryptedKeys.first.kex, true);
-
-    await bobSession.decryptMessage(
-      msg2.ciphertext,
-      aliceJid,
-      await aliceSession.getDeviceId(),
-      msg2.encryptedKeys,
-      getTimestamp(),
-    );
-
-    // Now the acks reach us
-    await aliceSession.ratchetAcknowledged(
-        bobJid, await bobSession.getDeviceId());
-    await bobSession.ratchetAcknowledged(
-        aliceJid, await aliceSession.getDeviceId());
-
-    // Alice sends another message
-    final msg3 = await aliceSession.encryptToJid(
-      bobJid,
-      "You read the message, didn't you?",
-    );
-    expect(msg3.encryptedKeys.first.kex, false);
-
-    await bobSession.decryptMessage(
-      msg3.ciphertext,
-      aliceJid,
-      await aliceSession.getDeviceId(),
-      msg3.encryptedKeys,
-      getTimestamp(),
-    );
-
-    for (var i = 0; i < 100; i++) {
-      final messageText = 'Test Message #$i';
-      // Bob responds to Alice
-      final bobResponseMessage = await bobSession.encryptToJid(
+    // Bob decrypts Alice's message
+    final bobResult1 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
         aliceJid,
-        messageText,
-      );
+        aliceDevice1.id,
+        aliceResult1.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult1.ciphertext!),
+        false,
+      ),
+    );
+    expect(bobResult1.error, null);
+    expect(bobEmptyMessage, isNotNull);
 
-      // Bob sends the message to Alice
-      // ...
+    // Somehow create a non-KEX message without Bob creating a ratchet
+    await aliceManager2.onOutgoingStanza(
+      const OmemoOutgoingStanza([bobJid], 'lol'),
+    );
+    await aliceManager2.ratchetAcknowledged(bobJid, bobDevice.id);
+    final aliceResult2 = await aliceManager2.onOutgoingStanza(
+      const OmemoOutgoingStanza([bobJid], 'lol x2'),
+    );
 
-      // Alice decrypts it
-      final aliceReceivedMessage = await aliceSession.decryptMessage(
-        bobResponseMessage.ciphertext,
+    // Bob decrypts it and fails, but builds a session with the new device
+    bobEmptyMessage = null;
+    includeAlice2 = true;
+    final bobResult2 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice2.id,
+        aliceResult2.encryptedKeys[bobJid]!,
+        base64Encode(aliceResult2.ciphertext!),
+        false,
+      ),
+    );
+    expect(bobResult2.error, const TypeMatcher<NoSessionWithDeviceError>());
+    expect(bobEmptyMessage, isNotNull);
+
+    // Check that the empty message is encrypted for both of Alice's devices
+    expect(
+      bobEmptyMessage!.encryptedKeys[aliceJid]!
+          .firstWhereOrNull((key) => key.rid == aliceDevice1.id),
+      isNotNull,
+    );
+    expect(
+      bobEmptyMessage!.encryptedKeys[aliceJid]!
+          .firstWhereOrNull((key) => key.rid == aliceDevice1.id),
+      isNotNull,
+    );
+  });
+
+  test(
+      'Test receiving a non-KEX from a new device without device list inclusion',
+      () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+
+    final aliceDevice1 =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final aliceDevice2 =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+
+    final aliceManager1 = OmemoManager(
+      aliceDevice1,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, bobJid);
+        return [bobDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+        return bobDevice.toBundle();
+      },
+      (jid) async {},
+      (_) async {},
+    );
+    final aliceManager2 = OmemoManager(
+      aliceDevice2,
+      TestingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, bobJid);
+        return [bobDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+        return bobDevice.toBundle();
+      },
+      (jid) async {},
+      (_) async {},
+    );
+
+    EncryptionResult? bobEmptyMessage;
+    final bobManager = OmemoManager(
+      bobDevice,
+      TestingTrustManager(),
+      (result, recipientJid) async {
+        bobEmptyMessage = result;
+      },
+      (jid) async {
+        expect(jid, aliceJid);
+        return [
+          aliceDevice1.id,
+        ];
+      },
+      (jid, id) async {
+        expect(jid, aliceJid);
+
+        if (id == aliceDevice1.id) {
+          return aliceDevice1.toBundle();
+        } else if (id == aliceDevice2.id) {
+          return aliceDevice2.toBundle();
+        }
+
+        return null;
+      },
+      (jid) async {},
+      (_) async {},
+    );
+
+    // Alice sends Bob a message
+    final aliceResult1 = await aliceManager1.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello World!',
+      ),
+    );
+
+    // Bob decrypts Alice's message
+    final bobResult1 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice1.id,
+        aliceResult1.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult1.ciphertext!),
+        false,
+      ),
+    );
+    expect(bobResult1.error, null);
+    expect(bobEmptyMessage, isNotNull);
+
+    // Somehow create a non-KEX message without Bob creating a ratchet
+    await aliceManager2.onOutgoingStanza(
+      const OmemoOutgoingStanza([bobJid], 'lol'),
+    );
+    await aliceManager2.ratchetAcknowledged(bobJid, bobDevice.id);
+    final aliceResult2 = await aliceManager2.onOutgoingStanza(
+      const OmemoOutgoingStanza([bobJid], 'lol x2'),
+    );
+
+    // Bob decrypts it and fails, but builds a session with the new device
+    bobEmptyMessage = null;
+    final bobResult2 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice2.id,
+        aliceResult2.encryptedKeys[bobJid]!,
+        base64Encode(aliceResult2.ciphertext!),
+        false,
+      ),
+    );
+    expect(bobResult2.error, const TypeMatcher<NoSessionWithDeviceError>());
+    expect(bobEmptyMessage, isNotNull);
+
+    // Check that the empty message is encrypted for both of Alice's devices
+    expect(
+      bobEmptyMessage!.encryptedKeys[aliceJid]!
+          .firstWhereOrNull((key) => key.rid == aliceDevice1.id),
+      isNotNull,
+    );
+    expect(
+      bobEmptyMessage!.encryptedKeys[aliceJid]!
+          .firstWhereOrNull((key) => key.rid == aliceDevice1.id),
+      isNotNull,
+    );
+  });
+
+  test('Test receiving an empty OMEMO message', () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+
+    final aliceManager = OmemoManager(
+      aliceDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, bobJid);
+        return [bobDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+        return bobDevice.toBundle();
+      },
+      (jid) async {},
+      (_) async {},
+    );
+
+    EncryptionResult? bobEmptyMessage;
+    final bobManager = OmemoManager(
+      bobDevice,
+      TestingTrustManager(),
+      (result, recipientJid) async {
+        bobEmptyMessage = result;
+      },
+      (jid) async {
+        expect(jid, aliceJid);
+        return [
+          aliceDevice.id,
+        ];
+      },
+      (jid, id) async {
+        expect(jid, aliceJid);
+
+        if (id == aliceDevice.id) {
+          return aliceDevice.toBundle();
+        }
+
+        return null;
+      },
+      (jid) async {},
+      (_) async {},
+    );
+
+    // Alice sends Bob a message
+    final aliceResult1 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello World!',
+      ),
+    );
+
+    // Bob decrypts Alice's message
+    final bobResult1 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult1.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult1.ciphertext!),
+        false,
+      ),
+    );
+    expect(bobResult1.error, null);
+    expect(bobEmptyMessage, isNotNull);
+
+    // Bob now sends the empty OMEMO message to Alice, who then decrypts
+    // it.
+    final aliceResult2 = await aliceManager.onIncomingStanza(
+      OmemoIncomingStanza(
         bobJid,
-        await bobSession.getDeviceId(),
-        bobResponseMessage.encryptedKeys,
-        0,
-      );
-      expect(messageText, aliceReceivedMessage);
-    }
+        bobDevice.id,
+        bobEmptyMessage!.encryptedKeys[aliceJid]!,
+        bobEmptyMessage!.ciphertext?.toBase64(),
+        false,
+      ),
+    );
+    expect(aliceResult2.error, isNull);
+    expect(aliceResult2.payload, isNull);
+    expect(aliceManager.getRatchet(RatchetMapKey(bobJid, bobDevice.id))!.acknowledged, isTrue);
+
+    // Now Alice sends something to Bob
+    final aliceResult3 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello Bob',
+      ),
+    );
+
+    // And Bob decrypts it
+    final bobResult = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult3.encryptedKeys[bobJid]!,
+        aliceResult3.ciphertext?.toBase64(),
+        false,
+      ),
+    );
+    expect(bobResult.error, isNull);
+    expect(bobResult.payload, 'Hello Bob');
   });
 }

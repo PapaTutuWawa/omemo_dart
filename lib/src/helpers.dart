@@ -1,7 +1,5 @@
 import 'dart:convert';
 import 'dart:math';
-import 'package:cryptography/cryptography.dart';
-import 'package:omemo_dart/src/keys.dart';
 
 /// Flattens [inputs] and concatenates the elements.
 List<int> concat(List<List<int>> inputs) {
@@ -43,41 +41,35 @@ int generateRandom32BitNumber() {
   return Random.secure().nextInt(4294967295 /*pow(2, 32) - 1*/);
 }
 
-OmemoPublicKey? decodeKeyIfNotNull(
-  Map<String, dynamic> map,
-  String key,
-  KeyPairType type,
-) {
-  if (map[key] == null) return null;
+/// Describes the differences between two lists in terms of its items.
+class ListDiff<T> {
+  ListDiff(this.added, this.removed);
 
-  return OmemoPublicKey.fromBytes(
-    base64.decode(map[key]! as String),
-    type,
-  );
+  /// The items that were added.
+  final List<T> added;
+
+  /// The items that were removed.
+  final List<T> removed;
 }
 
-List<int>? base64DecodeIfNotNull(Map<String, dynamic> map, String key) {
-  if (map[key] == null) return null;
-
-  return base64.decode(map[key]! as String);
+extension AppendToListOrCreateExtension<K, V> on Map<K, List<V>> {
+  /// Create or append [value] to the list identified with key [key].
+  void appendOrCreate(K key, V value, {bool checkExistence = false}) {
+    if (containsKey(key)) {
+      if (!checkExistence) {
+        this[key]!.add(value);
+      }
+      if (!this[key]!.contains(value)) {
+        this[key]!.add(value);
+      }
+    } else {
+      this[key] = [value];
+    }
+  }
 }
 
-String? base64EncodeIfNotNull(List<int>? bytes) {
-  if (bytes == null) return null;
-
-  return base64.encode(bytes);
-}
-
-OmemoKeyPair? decodeKeyPairIfNotNull(String? pk, String? sk, KeyPairType type) {
-  if (pk == null || sk == null) return null;
-
-  return OmemoKeyPair.fromBytes(
-    base64.decode(pk),
-    base64.decode(sk),
-    type,
-  );
-}
-
-int getTimestamp() {
-  return DateTime.now().millisecondsSinceEpoch;
+extension StringFromBase64Extension on String {
+  /// Base64-decode this string. Useful for doing `someString?.fromBase64()` instead
+  /// of `someString != null ? base64Decode(someString) : null`.
+  List<int> fromBase64() => base64Decode(this);
 }

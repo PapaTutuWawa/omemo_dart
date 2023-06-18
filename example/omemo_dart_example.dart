@@ -35,6 +35,10 @@ void main() async {
     // This needs to be wired into your XMPP library's OMEMO implementation.
     // For simplicity, we use an empty function and imagine it works.
     (jid) async {},
+    // This function is called whenever our own device bundle has to be republished to our PEP node.
+    // This needs to be wired into your XMPP library's OMEMO implementation.
+    // For simplicity, we use an empty function and imagine it works.
+    (device) async {},
   );
 
   // Alice now wants to chat with Bob at his bare Jid "bob@other.server". To make things
@@ -42,7 +46,7 @@ void main() async {
   // request it using PEP and then convert the device bundle into a OmemoBundle object.
   final bobManager = OmemoManager(
     await OmemoDevice.generateNewDevice(bobJid),
-    MemoryBTBVTrustManager(),
+    BlindTrustBeforeVerificationTrustManager(),
     (result, recipient) async => {},
     (jid) async => [],
     (jid, id) async => null,
@@ -145,6 +149,11 @@ void main() async {
       /// The text of the <payload /> element, if it exists. If not, then the message might be
       /// a hearbeat, where no payload is sent. In that case, use null.
       payload,
+
+      /// Since we did not receive this message due to a catch-up mechanism, like MAM, we
+      /// set this to false. If we, however, did use a catch-up mechanism, we must set this
+      /// to true to prevent the OPKs from being replaced.
+      false,
     ),
   );
 

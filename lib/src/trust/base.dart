@@ -1,3 +1,5 @@
+import 'package:meta/meta.dart';
+
 /// The base class for managing trust in OMEMO sessions.
 // ignore: one_member_abstracts
 abstract class TrustManager {
@@ -7,6 +9,7 @@ abstract class TrustManager {
 
   /// Called by the OmemoSessionManager when a new session has been built. Should set
   /// a default trust state to [jid]'s device with identifier [deviceId].
+  @internal
   Future<void> onNewSession(String jid, int deviceId);
 
   /// Return true if the device with id [deviceId] of Jid [jid] should be used for encryption.
@@ -17,9 +20,14 @@ abstract class TrustManager {
   /// if [enabled] is false.
   Future<void> setEnabled(String jid, int deviceId, bool enabled);
 
-  /// Serialize the trust manager to JSON.
-  Future<Map<String, dynamic>> toJson();
-
   /// Removes all trust decisions for [jid].
+  @internal
   Future<void> removeTrustDecisionsForJid(String jid);
+
+  // ignore: comment_references
+  /// Called from within the [OmemoManager].
+  /// Loads the trust data for the JID [jid] from persistent storage
+  /// into the internal cache, if applicable.
+  @internal
+  Future<void> loadTrustData(String jid);
 }
