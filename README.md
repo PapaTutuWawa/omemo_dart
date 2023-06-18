@@ -34,6 +34,12 @@ dependencies:
 # [...]
 ```
 
+### Example
+
+This repository includes a documented ["example"](./example/omemo_dart_example.dart) that explains the basic usage of the library while
+leaving out the XMPP specific bits. For a more functional and integrated example, see the `omemo_client.dart` example from
+[moxxmpp](https://codeberg.org/moxxy/moxxmpp).
+
 ### Persistence
 
 By default, `omemo_dart` uses in-memory implementations for everything. For a real-world application, this is unsuitable as OMEMO devices would be constantly added.
