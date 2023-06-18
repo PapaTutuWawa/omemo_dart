@@ -37,8 +37,9 @@ dependencies:
 ### Persistence
 
 By default, `omemo_dart` uses in-memory implementations for everything. For a real-world application, this is unsuitable as OMEMO devices would be constantly added.
-In order to allow persistence, your application needs to keep track of the following mappings:
+In order to allow persistence, your application needs to keep track of the following:
 
+- The `OmemoDevice` assigned to the `OmemoManager`
 - `JID -> [int]`: The device list for each JID
 - `(JID, device) -> Ratchet`: The actual ratchet
 
