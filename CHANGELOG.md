@@ -65,3 +65,4 @@ This version is a complete rework of omemo_dart!
 - Replace exceptions with errors inside a result type
 - Ratchets and trust data is now loaded and cached on demand
 - Accessing the trust manager must happen via `withTrustManager`
+- Overriding the base implementations is replaced by providing callback functions
