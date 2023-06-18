@@ -10,6 +10,7 @@ class BTBVTrustData {
     this.device,
     this.state,
     this.enabled,
+    this.trusted,
   );
 
   /// The JID in question.
@@ -23,6 +24,12 @@ class BTBVTrustData {
 
   /// Flag indicating whether the ratchet is enabled (true) or not (false).
   final bool enabled;
+
+  /// Flag indicating whether the ratchet is trusted. For loading and commiting a ratchet, this field
+  /// contains an arbitrary value.
+  /// When using [BlindTrustBeforeVerificationTrustManager.getDevicesTrust], this flag will be true if
+  /// the ratchet is trusted and false if not.
+  final bool trusted;
 }
 
 /// A callback for when a trust decision is to be commited to persistent storage.
@@ -53,6 +60,20 @@ enum BTBVTrustState {
   verified(3);
 
   const BTBVTrustState(this.value);
+
+  factory BTBVTrustState.fromInt(int value) {
+    switch (value) {
+      case 1:
+        return BTBVTrustState.notTrusted;
+      case 2:
+        return BTBVTrustState.blindTrust;
+      case 3:
+        return BTBVTrustState.verified;
+      // TODO(Unknown): Should we handle this better?
+      default:
+        return BTBVTrustState.notTrusted;
+    }
+  }
 
   /// The value backing the trust state.
   final int value;
@@ -142,19 +163,31 @@ class BlindTrustBeforeVerificationTrustManager extends TrustManager {
         deviceId,
         trustCache[key]!,
         enablementCache[key]!,
+        false,
       ),
     );
   }
 
   /// Returns a mapping from the device identifiers of [jid] to their trust state. If
   /// there are no devices known for [jid], then an empty map is returned.
-  Future<Map<int, BTBVTrustState>> getDevicesTrust(String jid) async {
-    final map = <int, BTBVTrustState>{};
+  Future<Map<int, BTBVTrustData>> getDevicesTrust(String jid) async {
+    final map = <int, BTBVTrustData>{};
 
     if (!devices.containsKey(jid)) return map;
 
     for (final deviceId in devices[jid]!) {
-      map[deviceId] = trustCache[RatchetMapKey(jid, deviceId)]!;
+      final key = RatchetMapKey(jid, deviceId);
+      if (!trustCache.containsKey(key) || !enablementCache.containsKey(key)) {
+        continue;
+      }
+
+      map[deviceId] = BTBVTrustData(
+        jid,
+        deviceId,
+        trustCache[key]!,
+        enablementCache[key]!,
+        await isTrusted(jid, deviceId),
+      );
     }
 
     return map;
@@ -176,6 +209,7 @@ class BlindTrustBeforeVerificationTrustManager extends TrustManager {
         deviceId,
         state,
         enablementCache[key]!,
+        false,
       ),
     );
   }
@@ -200,6 +234,7 @@ class BlindTrustBeforeVerificationTrustManager extends TrustManager {
         deviceId,
         trustCache[key]!,
         enabled,
+        false,
       ),
     );
   }

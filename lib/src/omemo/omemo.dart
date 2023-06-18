@@ -60,19 +60,16 @@ typedef DeviceListSubscribeFunction = Future<void> Function(String jid);
 /// Publishes the device bundle on our own PEP node.
 typedef PublishDeviceBundleFunction = Future<void> Function(OmemoDevice device);
 
-/// Commits the device list for [jid] to persistent storage. [added] will be the list of
-/// devices added and [removed] will be the list of removed devices.
+/// Commits the device list [devices] for [jid] to persistent storage.
 typedef CommitDeviceListCallback = Future<void> Function(
   String jid,
-  List<int> added,
-  List<int> removed,
+  List<int> devices,
 );
 
 /// A stub implementation of [CommitDeviceListCallback].
 Future<void> commitDeviceListStub(
   String _,
   List<int> __,
-  List<int> ___,
 ) async {}
 
 /// Commits the mapping of the (new) ratchets in [ratchets] to persistent storage.
@@ -262,7 +259,6 @@ class OmemoManager {
         await commitDeviceList(
           jid,
           newDeviceList,
-          [],
         );
       }
     }
@@ -866,7 +862,6 @@ class OmemoManager {
         await commitDeviceList(
           jid,
           [],
-          _deviceList[jid]!,
         );
         _deviceList.remove(jid);
         _deviceListRequested.remove(jid);
@@ -880,20 +875,12 @@ class OmemoManager {
     await _ratchetQueue.synchronized(
       [jid],
       () async {
-        // Compute the delta
-        ListDiff<int> delta;
-        if (_deviceList.containsKey(jid)) {
-          delta = _deviceList[jid]!.diff(devices);
-        } else {
-          delta = ListDiff(devices, []);
-        }
-
         // Update our state
         _deviceList[jid] = devices;
         _deviceListRequested[jid] = true;
 
         // Commit the device list
-        await commitDeviceList(jid, delta.added, delta.removed);
+        await commitDeviceList(jid, devices);
       },
     );
   }
@@ -1011,6 +998,31 @@ class OmemoManager {
       // Commit the device
       await commitDevice(_device);
     });
+  }
+
+  /// Generates a completely new device to use.
+  Future<OmemoDevice> regenerateDevice() async {
+    // Generate the new device
+    final oldDevice = await getDevice();
+    final newDevice = await OmemoDevice.generateNewDevice(
+      oldDevice.jid,
+      opkAmount: oldDevice.opks.length,
+    );
+
+    await _deviceLock.synchronized(() async {
+      // Replace the old device
+      _device = newDevice;
+
+      // Commit
+      await commitDevice(newDevice);
+
+      // Publish
+      unawaited(
+        publishDeviceBundle(newDevice),
+      );
+    });
+
+    return newDevice;
   }
 
   /// Acquire a lock for interacting with the trust manager for modifying the trust

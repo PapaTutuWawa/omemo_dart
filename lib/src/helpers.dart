@@ -52,19 +52,6 @@ class ListDiff<T> {
   final List<T> removed;
 }
 
-extension BeforeAfterListDiff<T> on List<T> {
-  /// Compute the set-based changes between this list and [newList].
-  ListDiff<T> diff(List<T> newList) {
-    final oldSet = Set<T>.from(this);
-    final newSet = Set<T>.from(newList);
-
-    return ListDiff(
-      newSet.difference(oldSet).toList(),
-      oldSet.difference(newSet).toList(),
-    );
-  }
-}
-
 extension AppendToListOrCreateExtension<K, V> on Map<K, List<V>> {
   /// Create or append [value] to the list identified with key [key].
   void appendOrCreate(K key, V value, {bool checkExistence = false}) {
