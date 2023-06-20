@@ -1880,7 +1880,12 @@ void main() {
     );
     expect(aliceResult2.error, isNull);
     expect(aliceResult2.payload, isNull);
-    expect(aliceManager.getRatchet(RatchetMapKey(bobJid, bobDevice.id))!.acknowledged, isTrue);
+    expect(
+      aliceManager
+          .getRatchet(RatchetMapKey(bobJid, bobDevice.id))!
+          .acknowledged,
+      isTrue,
+    );
 
     // Now Alice sends something to Bob
     final aliceResult3 = await aliceManager.onOutgoingStanza(
@@ -1902,5 +1907,119 @@ void main() {
     );
     expect(bobResult.error, isNull);
     expect(bobResult.payload, 'Hello Bob');
+  });
+
+  test('Test correct new and replaced lists', () async {
+    const aliceJid = 'alice@server1';
+    const bobJid = 'bob@server2';
+
+    final aliceDevice =
+        await OmemoDevice.generateNewDevice(aliceJid, opkAmount: 1);
+    final bobDevice = await OmemoDevice.generateNewDevice(bobJid, opkAmount: 1);
+
+    final aliceManager = OmemoManager(
+      aliceDevice,
+      AlwaysTrustingTrustManager(),
+      (result, recipientJid) async {},
+      (jid) async {
+        expect(jid, bobJid);
+        return [bobDevice.id];
+      },
+      (jid, id) async {
+        expect(jid, bobJid);
+        return bobDevice.toBundle();
+      },
+      (jid) async {},
+      (_) async {},
+    );
+
+    EncryptionResult? bobEmptyMessage;
+    final bobManager = OmemoManager(
+      bobDevice,
+      TestingTrustManager(),
+      (result, recipientJid) async {
+        bobEmptyMessage = result;
+      },
+      (jid) async {
+        expect(jid, aliceJid);
+        return [
+          aliceDevice.id,
+        ];
+      },
+      (jid, id) async {
+        expect(jid, aliceJid);
+
+        if (id == aliceDevice.id) {
+          return aliceDevice.toBundle();
+        }
+
+        return null;
+      },
+      (jid) async {},
+      (_) async {},
+    );
+
+    // Alice sends Bob a message
+    final aliceResult1 = await aliceManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [bobJid],
+        'Hello World!',
+      ),
+    );
+    expect(aliceResult1.newRatchets[bobJid], [bobDevice.id]);
+    expect(aliceResult1.replacedRatchets.isEmpty, isTrue);
+
+    // Bob decrypts Alice's message
+    final bobResult1 = await bobManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        aliceJid,
+        aliceDevice.id,
+        aliceResult1.encryptedKeys[bobJid]!,
+        base64.encode(aliceResult1.ciphertext!),
+        false,
+      ),
+    );
+    expect(bobResult1.error, null);
+    expect(bobEmptyMessage, isNotNull);
+    expect(bobResult1.newRatchets[aliceJid], [aliceDevice.id]);
+    expect(bobResult1.replacedRatchets.isEmpty, isTrue);
+
+    // Bob now sends the empty OMEMO message to Alice, who then decrypts
+    // it.
+    final aliceResult2 = await aliceManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        bobJid,
+        bobDevice.id,
+        bobEmptyMessage!.encryptedKeys[aliceJid]!,
+        bobEmptyMessage!.ciphertext?.toBase64(),
+        false,
+      ),
+    );
+    expect(aliceResult2.newRatchets.isEmpty, isTrue);
+    expect(aliceResult2.replacedRatchets.isEmpty, isTrue);
+
+    // Bob now removes all ratchets and sends a new message to alice
+    await bobManager.removeAllRatchets(aliceJid);
+    final bobResult2 = await bobManager.onOutgoingStanza(
+      const OmemoOutgoingStanza(
+        [aliceJid],
+        'New Ratchet, so cool',
+      ),
+    );
+
+    // And Alice decrypts it
+    final aliceResult3 = await aliceManager.onIncomingStanza(
+      OmemoIncomingStanza(
+        bobJid,
+        bobDevice.id,
+        bobResult2.encryptedKeys[aliceJid]!,
+        bobResult2.ciphertext?.toBase64(),
+        false,
+      ),
+    );
+    expect(aliceResult3.error, isNull);
+    expect(aliceResult3.payload, 'New Ratchet, so cool');
+    expect(aliceResult3.newRatchets.isEmpty, isTrue);
+    expect(aliceResult3.replacedRatchets[bobJid], [bobDevice.id]);
   });
 }

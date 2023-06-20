@@ -8,6 +8,8 @@ class EncryptionResult {
     this.ciphertext,
     this.encryptedKeys,
     this.deviceEncryptionErrors,
+    this.newRatchets,
+    this.replacedRatchets,
     this.canSend,
   );
 
@@ -20,6 +22,13 @@ class EncryptionResult {
 
   /// Mapping of a JID to
   final Map<String, List<EncryptToJidError>> deviceEncryptionErrors;
+
+  /// Mapping of JIDs to a list of device ids for which we created a new ratchet session.
+  final Map<String, List<int>> newRatchets;
+
+  /// Similar to [newRatchets], but the ratchets listed in [replacedRatchets] where also existent before
+  /// and replaced with the new ratchet.
+  final Map<String, List<int>> replacedRatchets;
 
   /// A flag indicating that the message could be sent like that, i.e. we were able
   /// to encrypt to at-least one device per recipient.

@@ -356,6 +356,8 @@ class OmemoManager {
       return DecryptionResult(
         null,
         null,
+        const {},
+        const {},
         NotEncryptedForDeviceError(),
       );
     }
@@ -365,6 +367,8 @@ class OmemoManager {
       return DecryptionResult(
         null,
         null,
+        const {},
+        const {},
         MalformedEncryptedKeyError(),
       );
     }
@@ -373,7 +377,8 @@ class OmemoManager {
     final ratchetKey =
         RatchetMapKey(stanza.bareSenderJid, stanza.senderDeviceId);
     var processAsKex = key.kex;
-    if (key.kex && _ratchetMap.containsKey(ratchetKey)) {
+    final ratchetAlreadyExists = _ratchetMap.containsKey(ratchetKey);
+    if (key.kex && ratchetAlreadyExists) {
       final ratchet = _ratchetMap[ratchetKey]!;
       final kexMessage = OMEMOKeyExchange.fromBuffer(key.data);
       final ratchetEk = await ratchet.kex.ek.getBytes();
@@ -403,6 +408,8 @@ class OmemoManager {
         return DecryptionResult(
           null,
           null,
+          const {},
+          const {},
           UnknownSignedPrekeyError(),
         );
       }
@@ -443,7 +450,13 @@ class OmemoManager {
         final error = keyAndHmac.get<OmemoError>();
         _log.warning('Failed to decrypt symmetric key: $error');
 
-        return DecryptionResult(null, null, error);
+        return DecryptionResult(
+          null,
+          null,
+          const {},
+          const {},
+          error,
+        );
       }
 
       Result<OmemoError, String?> result;
@@ -459,6 +472,8 @@ class OmemoManager {
           return DecryptionResult(
             null,
             null,
+            const {},
+            const {},
             error,
           );
         }
@@ -487,8 +502,6 @@ class OmemoManager {
           stanza.bareSenderJid,
           stanza.senderDeviceId,
           ratchet,
-          true,
-          false,
         ),
       ]);
 
@@ -512,9 +525,14 @@ class OmemoManager {
         _ratchetMap.containsKey(ratchetKey),
       );
 
+      final newlyCreatedDevice = {
+        stanza.bareSenderJid: [stanza.senderDeviceId],
+      };
       return DecryptionResult(
         result.get<String?>(),
         kexMessage.pkId,
+        ratchetAlreadyExists ? {} : newlyCreatedDevice,
+        ratchetAlreadyExists ? newlyCreatedDevice : {},
         null,
       );
     } else {
@@ -526,11 +544,13 @@ class OmemoManager {
             .contains(stanza.senderDeviceId)) {
           _deviceList[stanza.bareSenderJid]!.add(stanza.senderDeviceId);
         }
-        await _sendOmemoHeartbeat(stanza.bareSenderJid);
+        final emptyResult = await _sendOmemoHeartbeat(stanza.bareSenderJid);
 
         return DecryptionResult(
           null,
           null,
+          emptyResult.newRatchets,
+          emptyResult.replacedRatchets,
           NoSessionWithDeviceError(),
         );
       }
@@ -553,7 +573,13 @@ class OmemoManager {
       if (keyAndHmac.isType<OmemoError>()) {
         final error = keyAndHmac.get<OmemoError>();
         _log.warning('Failed to decrypt symmetric key: $error');
-        return DecryptionResult(null, null, error);
+        return DecryptionResult(
+          null,
+          null,
+          const {},
+          const {},
+          error,
+        );
       }
 
       Result<OmemoError, String?> result;
@@ -568,6 +594,8 @@ class OmemoManager {
           return DecryptionResult(
             null,
             null,
+            const {},
+            const {},
             error,
           );
         }
@@ -589,8 +617,6 @@ class OmemoManager {
           stanza.bareSenderJid,
           stanza.senderDeviceId,
           ratchet,
-          false,
-          false,
         ),
       ]);
 
@@ -600,6 +626,8 @@ class OmemoManager {
       return DecryptionResult(
         result.get<String?>(),
         null,
+        const {},
+        const {},
         null,
       );
     }
@@ -642,6 +670,8 @@ class OmemoManager {
     );
     final encryptionErrors = <String, List<EncryptToJidError>>{};
     final addedRatchetKeys = List<RatchetMapKey>.empty(growable: true);
+    final newRatchets = <String, List<int>>{};
+    final replacedRatchets = <String, List<int>>{};
     final kex = <RatchetMapKey, OMEMOKeyExchange>{};
     for (final jid in stanza.recipientJids) {
       final newBundles = await _fetchNewOmemoBundles(jid);
@@ -683,6 +713,11 @@ class OmemoManager {
         );
 
         // Track the ratchet
+        if (_ratchetMap.containsKey(ratchetKey)) {
+          replacedRatchets.appendOrCreate(ratchetKey.jid, ratchetKey.deviceId);
+        } else {
+          newRatchets.appendOrCreate(ratchetKey.jid, ratchetKey.deviceId);
+        }
         _ratchetMap[ratchetKey] = newRatchet;
         addedRatchetKeys.add(ratchetKey);
 
@@ -708,8 +743,6 @@ class OmemoManager {
             key.jid,
             key.deviceId,
             _ratchetMap[key]!,
-            true,
-            false,
           );
         }).toList(),
       );
@@ -819,6 +852,8 @@ class OmemoManager {
       ciphertext,
       encryptedKeys,
       encryptionErrors,
+      newRatchets,
+      replacedRatchets,
       successfulEncryptions.values.every((n) => n > 0),
     );
   }
@@ -832,7 +867,7 @@ class OmemoManager {
   }
 
   /// Like [sendOmemoHeartbeat], but does not acquire the lock for [jid].
-  Future<void> _sendOmemoHeartbeat(String jid) async {
+  Future<EncryptionResult> _sendOmemoHeartbeat(String jid) async {
     final result = await _onOutgoingStanzaImpl(
       OmemoOutgoingStanza(
         [jid],
@@ -840,6 +875,7 @@ class OmemoManager {
       ),
     );
     await sendEmptyOmemoMessageImpl(result, jid);
+    return result;
   }
 
   /// Removes all ratchets associated with [jid].
@@ -915,8 +951,6 @@ class OmemoManager {
           jid,
           device,
           ratchet,
-          false,
-          false,
         ),
       ]);
     }

@@ -66,3 +66,8 @@ This version is a complete rework of omemo_dart!
 - Ratchets and trust data is now loaded and cached on demand
 - Accessing the trust manager must happen via `withTrustManager`
 - Overriding the base implementations is replaced by providing callback functions
+
+## 0.5.1
+
+- Remove `added` and `replaced` from the data passed to the `CommitRatchetsCallback`
+- Added a list of newly added and replaced ratchets to the encryption and decryption results. This is useful for displaying messages like "Contact added a new device"
