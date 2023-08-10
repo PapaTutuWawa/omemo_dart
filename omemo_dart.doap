@@ -29,7 +29,6 @@
 
     <!-- Channel list -->
     <developer-forum rdf:resource='xmpp:dev@muc.moxxy.org?join'/>
-    <support-forum rdf:resource='xmpp:moxxy@muc.moxxy.org?join'/>
 
     <!-- Repository information -->
     <programming-language>Dart</programming-language>
