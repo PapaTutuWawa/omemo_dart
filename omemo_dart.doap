@@ -16,7 +16,7 @@
     <os>iOS</os>
 
     <!-- Description -->
-    <shortdesc xml:lang="de">A Dart implementation of the cryptography needed for OMEMO 0.8.3.</shortdesc>
+    <shortdesc xml:lang="de">A Dart implementation of the cryptography needed for OMEMO 0.8.3</shortdesc>
     <description xml:lang="en">omemo_dart is a pure Dart implementation of the low-level components (X3DH, Double Ratchet) with a high-level library-agnostic interface for implementing OMEMO 0.8.3.</description>
 
     <!-- Maintainer information -->
