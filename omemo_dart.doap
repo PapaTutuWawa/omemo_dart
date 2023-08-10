@@ -1,0 +1,54 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'
+         xmlns="http://usefulinc.com/ns/doap#"
+         xmlns:foaf="http://xmlns.com/foaf/0.1/"
+         xmlns:xmpp="https://linkmauve.fr/ns/xmpp-doap#"
+         xmlns:schema="https://schema.org/">
+  <Project xml:lang='en'>
+    <!-- Moxxy information -->
+    <name>omemo_dart</name>
+    <created>2022-06-30</created>
+    <homepage rdf:resource="https://github.com/PapaTutuWawa/omemo_dart" />
+    <os>Linux</os>
+    <os>Windows</os>
+    <os>macOS</os>
+    <os>Android</os>
+    <os>iOS</os>
+
+    <!-- Description -->
+    <shortdesc xml:lang="de">A Dart implementation of the cryptography needed for OMEMO 0.8.3.</shortdesc>
+    <description xml:lang="en">omemo_dart is a pure Dart implementation of the low-level components (X3DH, Double Ratchet) with a high-level library-agnostic interface for implementing OMEMO 0.8.3.</description>
+
+    <!-- Maintainer information -->
+    <maintainer>
+      <foaf:Person>
+      	<foaf:name>Alexander "Polynomdivision"</foaf:name>
+      	<foaf:homepage rdf:resource="https://polynom.me" />
+      </foaf:Person>
+    </maintainer>
+
+    <!-- Channel list -->
+    <developer-forum rdf:resource='xmpp:dev@muc.moxxy.org?join'/>
+    <support-forum rdf:resource='xmpp:moxxy@muc.moxxy.org?join'/>
+
+    <!-- Repository information -->
+    <programming-language>Dart</programming-language>
+    <bug-database rdf:resource="https://github.com/PapaTutuWawa/omemo_dart/issues" />
+    <license rdf:resource="https://github.com/PapaTutuWawa/omemo_dart/blob/master/LICENSE" />
+    <repository>
+      <GitRepository>
+        <browse rdf:resource="https://github.com/PapaTutuWawa/omemo_dart" />
+        <location rdf:resource="https://github.com/PapaTutuWawa/omemo_dart.git" />
+      </GitRepository>
+    </repository>
+
+    <!-- XEP list -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0384.html"/>
+        <xmpp:status>partial</xmpp:status>
+        <xmpp:version>0.8.3</xmpp:version>
+      </xmpp:SupportedXep>
+    </implements>
+  </Project>
+</rdf:RDF>
