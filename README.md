@@ -1,5 +1,7 @@
 # omemo_dart
 
+[![status-badge](https://ci.polynom.me/api/badges/16/status.svg)](https://ci.polynom.me/repos/16)
+
 `omemo_dart` is a Dart library to help developers of Dart/Flutter XMPP clients to implement
 [OMEMO](https://xmpp.org/extensions/xep-0384.html) in its newest version - currently 0.8.3.
 
