@@ -1,13 +1,15 @@
 pipeline:
   lint:
-    image: dart:2.18.1
+    image: dart:3.0.7
     commands:
-      - dart pub get
+      # Proxy requests to pub.dev using pubcached
+      - PUB_HOSTED_URL=http://172.17.0.1:8000 dart pub get
       - dart analyze --fatal-infos --fatal-warnings
   test:
-    image: dart:2.18.1
+    image: dart:3.0.7
     commands:
-      - dart pub get
+      # Proxy requests to pub.dev using pubcached
+      - PUB_HOSTED_URL=http://172.17.0.1:8000 dart pub get
       - dart test
   notify:
     image: git.polynom.me/papatutuwawa/woodpecker-xmpp
