@@ -17,7 +17,7 @@ void main() async {
     // implements "Blind Trust Before Verification". To make things simpler, we keep
     // no persistent data and can thus use the MemoryBTBVTrustManager. If we wanted to keep
     // the state, we would have to override BlindTrustBeforeVerificationTrustManager.
-    MemoryBTBVTrustManager(),
+    BlindTrustBeforeVerificationTrustManager(),
     // This function is called whenever we need to send an OMEMO heartbeat to [recipient].
     // [result] is the encryted data to include. This needs to be wired into your XMPP library's
     // OMEMO implementation.
@@ -41,9 +41,7 @@ void main() async {
     (device) async {},
   );
 
-  // Alice now wants to chat with Bob at his bare Jid "bob@other.server". To make things
-  // simple, we just generate the identity bundle ourselves. In the real world, we would
-  // request it using PEP and then convert the device bundle into a OmemoBundle object.
+  // Bob, on his side, also creates an [OmemoManager] similar to Alice.
   final bobManager = OmemoManager(
     await OmemoDevice.generateNewDevice(bobJid),
     BlindTrustBeforeVerificationTrustManager(),
@@ -51,10 +49,13 @@ void main() async {
     (jid) async => [],
     (jid, id) async => null,
     (jid) async {},
+    (device) async {},
   );
 
   // Alice prepares to send the message to Bob, so she builds the message stanza and
   // collects all the children of the stanza that should be encrypted into a string.
+  // Note that this leaves out the wrapping stanza, i.e. if we want to send a <message />
+  // we only include the <message />'s children.
   const aliceMessageStanzaBody = '''
   <body>Hello Bob, it's me, Alice!</body>
   <super-secret-element xmlns='super-secret-element' />
@@ -75,10 +76,10 @@ void main() async {
 </envelope>
 ''';
 
-  // Since Alice has no open session with Bob, we need to tell the session manager to build
-  // it when sending the message.
-  final message = await aliceSession.onOutgoingStanza(
-    OmemoOutgoingStanza(
+  // Next, we encrypt the envelope element using Alice's [OmemoManager]. It will
+  // automatically attempt to fetch the device bundles of Bob.
+  final message = await aliceManager.onOutgoingStanza(
+    const OmemoOutgoingStanza(
       // The bare receiver Jid
       [bobJid],
 
@@ -87,17 +88,15 @@ void main() async {
     ),
   );
 
-  // In a proper implementation, we should also do some error checking here.
+  // In a proper implementation, we would also do some error checking here.
 
   // Alice now builds the actual message stanza for Bob
   final payload = base64.encode(message.ciphertext!);
-  final aliceDevice = await aliceSession.getDevice();
-  // ignore: unused_local_variable
-  final bobDevice = await bobSession.getDevice();
+  final aliceDevice = await aliceManager.getDevice();
   // Since we know we have just one key for Bob, we take a shortcut. However, in the real
   // world, we have to serialise every EncryptedKey to a <key /> element and group them
   // per Jid.
-  final key = message.encryptedKeys[0];
+  final key = message.encryptedKeys[bobJid]![0];
 
   // Note that the key's "kex" attribute refers to key.kex. It just means that the
   // encrypted key also contains the required data for Bob to build a session with Alice.
@@ -107,7 +106,7 @@ void main() async {
   <encrypted xmlns='urn:xmpp:omemo:2'>
     <header sid='${aliceDevice.id}'>
       <keys jid='$bobJid'>
-        <key rid='${key.rid} kex='true'>
+        <key rid='${key.rid} kex='${key.kex}'>
           ${key.value}
         </key>
       </keys>
@@ -125,7 +124,7 @@ void main() async {
   // Bob now receives an OMEMO encrypted message from Alice and wants to decrypt it.
   // Since we have just one key, let's just deserialise the one key by hand.
   final keys = [
-    EncryptedKey(bobJid, key.rid, key.value, true),
+    EncryptedKey(key.rid, key.value, true),
   ];
 
   // Bob extracts the payload and attempts to decrypt it.
@@ -134,13 +133,8 @@ void main() async {
     OmemoIncomingStanza(
       // The bare sender JID of the message. In this case, it's Alice's.
       aliceJid,
-
       // The 'sid' attribute of the <header /> element. Here, we know that Alice only has one device.
       aliceDevice.id,
-
-      // Time the message was sent. Since the message was not delayed, we use the
-      // current time.
-      DateTime.now().millisecondsSinceEpoch,
 
       /// The decoded <key /> elements. from the header. Note that we only include the ones
       /// relevant for Bob, so all children of <keys jid='$bobJid' />.
