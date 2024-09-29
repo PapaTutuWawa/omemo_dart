@@ -5,23 +5,23 @@ homepage: https://github.com/PapaTutuWawa/omemo_dart
 publish_to: https://git.polynom.me/api/packages/PapaTutuWawa/pub
 
 environment:
-  sdk: '>=2.17.0 <3.0.0'
+  sdk: ">=3.0.0 <4.0.0"
 
 dependencies:
-  collection: ^1.16.0
-  cryptography: ^2.0.5
+  collection: ^1.19.0
+  cryptography: ^2.7.0
   hex: ^0.2.0
-  logging: ^1.0.2
-  meta: ^1.7.0
+  logging: ^1.2.0
+  meta: ^1.16.0
   moxlib:
     version: ^0.2.0
     hosted: https://git.polynom.me/api/packages/Moxxy/pub
-  pinenacl: ^0.5.1
-  protobuf: ^2.1.0
-  protoc_plugin: ^20.0.1
-  synchronized: ^3.0.0+2
+  pinenacl: ^0.6.0
+  protobuf: ^3.1.0
+  protoc_plugin: ^21.1.2
+  synchronized: ^3.3.0+3
 
 dev_dependencies:
-  lints: ^2.0.0
-  test: ^1.21.0
-  very_good_analysis: ^3.0.1
+  lints: ^5.0.0
+  test: ^1.25.8
+  very_good_analysis: ^6.0.0
