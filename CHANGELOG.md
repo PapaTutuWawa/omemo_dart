@@ -71,3 +71,7 @@ This version is a complete rework of omemo_dart!
 
 - Remove `added` and `replaced` from the data passed to the `CommitRatchetsCallback`
 - Added a list of newly added and replaced ratchets to the encryption and decryption results. This is useful for displaying messages like "Contact added a new device"
+
+## 0.6.0
+
+- Bump dependencies to fix running with never version of Dart
